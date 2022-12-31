@@ -43,7 +43,7 @@ namespace vkb {
                                                      std::shared_ptr<vkb::Model> model,
                                                      std::shared_ptr<vkb::Texture> texture):
             m_deviceRef(device), DrawableObject(model, texture), std::vector<InstanceData>(initialSize) {
-                createInstanceBuffer();
+                if (initialSize > 0) createInstanceBuffer();
     }
 
     template<typename InstanceData>

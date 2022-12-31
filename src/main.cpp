@@ -3,8 +3,8 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_ENABLE_EXPERIMENTAL
 
-#include "InstancingApp.h"
-#include "Grid2DSim.h"
+#include "Instancing/InstancingApp.h"
+#include "Grid2DSim/Grid2DSim.h"
 
 const uint32_t WIDTH = 1000;
 const uint32_t HEIGHT = 700;

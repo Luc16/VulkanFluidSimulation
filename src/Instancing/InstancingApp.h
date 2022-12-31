@@ -6,20 +6,20 @@
 #define VULKANBASE_INSTANCINGAPP_H
 
 #include <sstream>
-#include "../external/imgui/imgui.h"
-#include "../external/objloader/tiny_obj_loader.h"
-#include "lib/SwapChain.h"
-#include "lib/Buffer.h"
-#include "lib/Model.h"
-#include "lib/utils.h"
-#include "lib/Texture.h"
-#include "lib/descriptors/DescriptorSetLayout.h"
-#include "lib/Camera.h"
-#include "lib/CameraMovementController.h"
-#include "lib/RenderSystem.h"
-#include "lib/DrawableObject.h"
-#include "lib/VulkanApp.h"
-#include "lib/InstancedObjects.h"
+#include "../../external/imgui/imgui.h"
+#include "../../external/objloader/tiny_obj_loader.h"
+#include "../lib/SwapChain.h"
+#include "../lib/Buffer.h"
+#include "../lib/Model.h"
+#include "../lib/utils.h"
+#include "../lib/Texture.h"
+#include "../lib/descriptors/DescriptorSetLayout.h"
+#include "../lib/Camera.h"
+#include "../lib/CameraMovementController.h"
+#include "../lib/RenderSystem.h"
+#include "../lib/DrawableObject.h"
+#include "../lib/VulkanApp.h"
+#include "../lib/InstancedObjects.h"
 
 class InstancingApp: public vkb::VulkanApp {
 public:
@@ -29,16 +29,16 @@ public:
 private:
     uint32_t INSTANCE_COUNT = 65536;
 
-    const std::string planeModelPath = "../models/quad.obj";
+    const std::string planeModelPath = "../src/Instancing/Models/quad.obj";
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../shaders/default.vert.spv",
-            "../shaders/default.frag.spv"
+            "../src/Instancing/Shaders/default.vert.spv",
+            "../src/Instancing/Shaders/default.frag.spv"
     };
 
-    const std::string sphereModelPath = "../models/lowsphere.obj";
+    const std::string sphereModelPath = "../src/Instancing/Models/lowsphere.obj";
     const vkb::RenderSystem::ShaderPaths instanceShaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../shaders/instancing.vert.spv",
-            "../shaders/instancing.frag.spv"
+            "../src/Instancing/Shaders/instancing.vert.spv",
+            "../src/Instancing/Shaders/instancing.frag.spv",
     };
 
     struct UniformBufferObject {

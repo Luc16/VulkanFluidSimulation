@@ -13,7 +13,7 @@ namespace vkb {
     SwapChain::SwapChain(const Device& device, VkExtent2D windowExtent, std::shared_ptr<SwapChain>  oldSwapChain):
     m_deviceRef(device), m_windowExtent(windowExtent), m_oldSwapChain(std::move(oldSwapChain)) {
         init();
-        oldSwapChain = nullptr;
+        m_oldSwapChain = nullptr;
     }
 
     void SwapChain::init() {

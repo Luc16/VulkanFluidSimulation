@@ -25,6 +25,8 @@ namespace vkb {
         [[nodiscard]] bool frameBufferResized() const { return m_frameBufferResized; }
         void frameBufferNotResized() { m_frameBufferResized = false; }
         [[nodiscard]] VkExtent2D extent() const {return {static_cast<uint32_t>(m_width), static_cast<uint32_t>(m_height)};}
+        [[nodiscard]] int width() const {return m_width;}
+        [[nodiscard]] int height() const {return m_height;}
 
     private:
         static void framebufferResizeCallback(GLFWwindow* window, int width, int height);

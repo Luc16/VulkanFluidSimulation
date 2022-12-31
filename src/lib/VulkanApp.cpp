@@ -44,6 +44,10 @@ namespace vkb {
             frames++;
 
             glfwPollEvents();
+
+            if (window.frameBufferResized())
+                onResize(window.width(), window.height());
+
             mainLoop(deltaTime);
 
             if (accTime > 0.5f) {

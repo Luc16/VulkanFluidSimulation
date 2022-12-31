@@ -31,6 +31,7 @@ void Grid2DSim::onCreate() {
 }
 
 void Grid2DSim::initializeObjects() {
+    INSTANCE_COUNT = (window.width()/SIZE)*(window.height()/SIZE);
     camera.setViewTarget({0.0f, 0.0f, -1.0f}, {0.0f, 0.0f, 0.0f }, {0.0f, 1.0f, 0.0f});
 
     createInstances();
@@ -40,28 +41,26 @@ void Grid2DSim::createInstances() {
     vkDeviceWaitIdle(device.device());
 
     grid.resizeBuffer(INSTANCE_COUNT);
-    sphereSpeeds.resize(INSTANCE_COUNT);
     iter.resize(INSTANCE_COUNT);
 
-    float size = 50.0f;
+    auto size = (float) SIZE;
     auto accPos = glm::vec3(0.0f, 0.0f, 0.0f);
-    auto squaresPerLine = (int) sqrtf((float) INSTANCE_COUNT);
+    auto screenExtent = window.extent();
 
     for (uint32_t i = 0; i < grid.size(); i++) {
-        auto& sphere = grid[i];
-        sphere.color = glm::vec3(
+        auto& tile = grid[i];
+        tile.color = glm::vec3(
                 0.5f + randomDouble(0.0f, 0.5f),
                 0.5f + randomDouble(0.0f, 0.5f),
                 0.5f + randomDouble(0.0f, 0.5f)
         );
-        sphere.scale = size;
-        sphere.position = accPos;
-        accPos.x += size + 2.0f;
+        tile.scale = size;
+        tile.position = accPos;
+        accPos.x += size;
 
-        sphereSpeeds[i] = 0.0f;
         iter[i] = i;
-        if (i % squaresPerLine == squaresPerLine - 1) {
-            accPos.y += size + 2.0f;
+        if (accPos.x + size > (float) screenExtent.width) {
+            accPos.y += size;
             accPos.x = 0.0f;
         }
     }
@@ -102,6 +101,11 @@ void Grid2DSim::mainLoop(float deltaTime) {
         });
     });
     if (activateTimer) gpuTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
+}
+
+void Grid2DSim::onResize(int width, int height) {
+    INSTANCE_COUNT = (width/SIZE)*(height/SIZE);
+    createInstances();
 }
 
 void Grid2DSim::updateUniformBuffer(uint32_t frameIndex, float deltaTime){

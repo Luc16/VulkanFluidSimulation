@@ -45,6 +45,7 @@ namespace vkb{
         virtual void mainLoop(float deltaTime) = 0;
         virtual void onCreate() = 0;
         virtual void onDestroy() {};
+        virtual void onResize(int width, int height) {};
 
         vkb::Window window;
         vkb::Device device;
