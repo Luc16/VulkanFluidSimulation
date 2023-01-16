@@ -75,6 +75,8 @@ private:
     std::vector<uint32_t> iter;
     float gpuTime = 0, cpuTime = 0;
     bool activateTimer = false;
+
+    float viscosity = 0.01f, diffusionFactor = 0.01f;
     std::vector<float> dens, prevDens, velX, prevVelX, velY, prevVelY;
     uint32_t numTilesX, numTilesY;
 

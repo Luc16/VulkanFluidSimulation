@@ -152,6 +152,9 @@ void Grid2DSim::showImGui(){
         ImGui::Text("Cpu time: %f ms", cpuTime);
     }
 
+    ImGui::DragFloat("Diffusion Factor: ", &diffusionFactor, 0.0001f, 0.0f);
+    ImGui::DragFloat("Viscosity: ", &viscosity, 0.0001f, 0.0f);
+
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                 ImGui::GetIO().Framerate);
 
@@ -168,51 +171,32 @@ void Grid2DSim::showImGui(){
 }
 
 void Grid2DSim::updateDensities(float deltaTime) {
-    double x, y;
-    glfwGetCursorPos(window.window(), &x, &y);
-    y = window.height() - y;
-
-    uint32_t idx = (uint32_t) (x/SIZE) + window.width()*((uint32_t) (y/SIZE))/SIZE;
-    if (idx > 0 && idx < grid.size() && glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_PRESS) {
-        if (x >= grid[idx].position.x &&
-            x <= grid[idx].position.x + grid[idx].scale &&
-            y >= grid[idx].position.y &&
-            y <= grid[idx].position.y + grid[idx].scale){
-            dens[idx] = 1.0f;
-        }
-    }
-
     uint32_t N = numTilesX - 2;
+    dens[IX(numTilesX/2, numTilesY/2)] = 1.0f;
+
     dens.swap(prevDens);
-    diffuse(N, 0, dens, prevDens, 0.01f, deltaTime);
+    diffuse(N, 0, dens, prevDens, diffusionFactor, deltaTime);
     dens.swap(prevDens);
     advect(N, 0, dens, prevDens, velX, velY, deltaTime);
 }
 
 void Grid2DSim::updateVelocities(float deltaTime) {
     double x, y;
-    static double prevX = -1.0f, prevY = -1.0f;
     glfwGetCursorPos(window.window(), &x, &y);
     y = window.height() - y;
 
-    uint32_t idx = (uint32_t) (prevX/SIZE) + window.width()*((uint32_t) (prevY/SIZE))/SIZE;
-    if (prevX > 0 && prevY > 0 && idx > 0 && idx < grid.size() && glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_PRESS) {
-        if (prevX >= grid[idx].position.x &&
-                prevX <= grid[idx].position.x + grid[idx].scale &&
-                prevY >= grid[idx].position.y &&
-                prevY <= grid[idx].position.y + grid[idx].scale){
-            velX[idx] += (float) (x - prevX);
-            velY[idx] += (float) (y - prevY);
-        }
-    }
-    prevX = x;
-    prevY = y;
+    float centerX = (float) window.width() / 2;
+    float centerY = (float) window.height() / 2;
 
     uint32_t N = numTilesX - 2;
+    float speed = 10.0f;
+    velX[IX(numTilesX/2, numTilesY/2)] = speed*deltaTime*((float) x - centerX);
+    velY[IX(numTilesX/2, numTilesY/2)] = speed*deltaTime*((float) y - centerY);
+
     velX.swap(prevVelX);
     velY.swap(prevVelY);
-    diffuse(N, 1, velX, prevVelX, 0.01f, deltaTime);
-    diffuse(N, 2, velY, prevVelY, 0.01f, deltaTime);
+    diffuse(N, 1, velX, prevVelX, viscosity, deltaTime);
+    diffuse(N, 2, velY, prevVelY, viscosity, deltaTime);
 
     project(N, velX, velY, prevVelX, prevVelY);
 
@@ -239,12 +223,17 @@ void Grid2DSim::diffuse( uint32_t N, int b, std::vector<float>& x, const std::ve
 
 void Grid2DSim::advect(uint32_t N, int b, std::vector<float>& d, const std::vector<float>& d0, const std::vector<float>& u, const std::vector<float>& v, float dt){
     int i, j, i0, j0, i1, j1;
-    float x, y, s0, t0, s1, t1, dt0 = dt * (float) N;
+    float x, y, s0, t0, s1, t1, dt0, fN = (float) N;
+    dt0 = dt*fN;
 
     for (i = 1; i <= N; ++i) {
         for (j = 1; j <= N; ++j) {
            x = (float) i - dt0*u[IX(i, j)];
+           if (x < 0.5f) x = 0.5f;
+           if (x > fN + 0.5f) x = fN + 0.5f;
            y = (float) j - dt0*v[IX(i, j)];
+           if (y < 0.5f) y = 0.5f;
+           if (y > fN + 0.5f) y = fN + 0.5f;
            i0 = (int) x;
            i1 = i0 + 1;
            j0 = (int) y;
