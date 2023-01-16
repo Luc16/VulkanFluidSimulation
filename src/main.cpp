@@ -7,7 +7,7 @@
 #include "Grid2DSim/Grid2DSim.h"
 
 const uint32_t WIDTH = 1000;
-const uint32_t HEIGHT = 700;
+const uint32_t HEIGHT = 1000;
 const std::string APP_NAME = "Vulkan";
 
 int main() {

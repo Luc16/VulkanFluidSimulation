@@ -31,7 +31,9 @@ void Grid2DSim::onCreate() {
 }
 
 void Grid2DSim::initializeObjects() {
-    INSTANCE_COUNT = (window.width()/SIZE)*(window.height()/SIZE);
+    numTilesX = window.width()/SIZE;
+    numTilesY = window.height()/SIZE;
+    INSTANCE_COUNT = numTilesX*numTilesY;
     camera.setViewTarget({0.0f, 0.0f, -1.0f}, {0.0f, 0.0f, 0.0f }, {0.0f, 1.0f, 0.0f});
 
     createInstances();
@@ -42,6 +44,12 @@ void Grid2DSim::createInstances() {
 
     grid.resizeBuffer(INSTANCE_COUNT);
     iter.resize(INSTANCE_COUNT);
+    dens.resize(INSTANCE_COUNT);
+    prevDens.resize(INSTANCE_COUNT);
+    velX.resize(INSTANCE_COUNT);
+    velY.resize(INSTANCE_COUNT);
+    prevVelX.resize(INSTANCE_COUNT);
+    prevVelY.resize(INSTANCE_COUNT);
 
     auto size = (float) SIZE;
     auto accPos = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -49,11 +57,13 @@ void Grid2DSim::createInstances() {
 
     for (uint32_t i = 0; i < grid.size(); i++) {
         auto& tile = grid[i];
-        tile.color = glm::vec3(
-                0.5f + randomDouble(0.0f, 0.5f),
-                0.5f + randomDouble(0.0f, 0.5f),
-                0.5f + randomDouble(0.0f, 0.5f)
-        );
+        tile.color = glm::vec3(0.0f, 0.0f, 0.0f);
+        dens[i] = 0;
+        prevDens[i] = 0;
+        velX[i] = 0;
+        velY[i] = 0;
+        prevVelX[i] = 0;
+        prevVelY[i] = 0;
         tile.scale = size;
         tile.position = accPos;
         accPos.x += size;
@@ -79,10 +89,11 @@ void Grid2DSim::createUniformBuffers() {
 void Grid2DSim::mainLoop(float deltaTime) {
     auto currentTime = std::chrono::high_resolution_clock::now();
 
-    cameraController.moveCamera(window.window(), deltaTime, camera);
+    camera.updateView();
+    updateGrid(deltaTime);
     updateUniformBuffer(renderer.currentFrame(), deltaTime);
-
     grid.updateBuffer();
+
     if (activateTimer) {
         auto time = std::chrono::high_resolution_clock::now();
         cpuTime = std::chrono::duration<float, std::chrono::milliseconds::period>(time - currentTime).count();
@@ -103,6 +114,17 @@ void Grid2DSim::mainLoop(float deltaTime) {
     if (activateTimer) gpuTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
 }
 
+
+void Grid2DSim::updateGrid(float deltaTime) {
+    updateVelocities(deltaTime);
+    updateDensities(deltaTime);
+
+    for (uint32_t i = 0; i < grid.size(); i++){
+        grid[i].color = glm::vec3(dens[i]);
+    }
+
+}
+
 void Grid2DSim::onResize(int width, int height) {
     INSTANCE_COUNT = (width/SIZE)*(height/SIZE);
     createInstances();
@@ -121,21 +143,166 @@ void Grid2DSim::updateUniformBuffer(uint32_t frameIndex, float deltaTime){
 
 void Grid2DSim::showImGui(){
 
-    {
+    ImGui::Begin("Control Panel");
 
-        ImGui::Begin("Control Panel");
+    ImGui::Text("Rendering %d instances", INSTANCE_COUNT);
+    ImGui::Checkbox("Display time", &activateTimer);
+    if (activateTimer){
+        ImGui::Text("Gpu time: %f ms", gpuTime);
+        ImGui::Text("Cpu time: %f ms", cpuTime);
+    }
 
-        ImGui::Text("Rendering %d instances", INSTANCE_COUNT);
-        ImGui::Checkbox("Display time", &activateTimer);
-        if(activateTimer){
-            ImGui::Text("Gpu time: %f ms", gpuTime);
-            ImGui::Text("Cpu time: %f ms", cpuTime);
-        }
+    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
+                ImGui::GetIO().Framerate);
 
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
-                    ImGui::GetIO().Framerate);
-        ImGui::End();
+    if (ImGui::CollapsingHeader("Mouse")) {
+        double x, y;
+        glfwGetCursorPos(window.window(), &x, &y);
+        y = window.height() - y;
+        ImGui::Text("Mouse: (%.3lf, %.3f)", x, y);
     }
 
 
+    ImGui::End();
+
+}
+
+void Grid2DSim::updateDensities(float deltaTime) {
+    double x, y;
+    glfwGetCursorPos(window.window(), &x, &y);
+    y = window.height() - y;
+
+    uint32_t idx = (uint32_t) (x/SIZE) + window.width()*((uint32_t) (y/SIZE))/SIZE;
+    if (idx > 0 && idx < grid.size() && glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_PRESS) {
+        if (x >= grid[idx].position.x &&
+            x <= grid[idx].position.x + grid[idx].scale &&
+            y >= grid[idx].position.y &&
+            y <= grid[idx].position.y + grid[idx].scale){
+            dens[idx] = 1.0f;
+        }
+    }
+
+    uint32_t N = numTilesX - 2;
+    dens.swap(prevDens);
+    diffuse(N, 0, dens, prevDens, 0.01f, deltaTime);
+    dens.swap(prevDens);
+    advect(N, 0, dens, prevDens, velX, velY, deltaTime);
+}
+
+void Grid2DSim::updateVelocities(float deltaTime) {
+    double x, y;
+    static double prevX = -1.0f, prevY = -1.0f;
+    glfwGetCursorPos(window.window(), &x, &y);
+    y = window.height() - y;
+
+    uint32_t idx = (uint32_t) (prevX/SIZE) + window.width()*((uint32_t) (prevY/SIZE))/SIZE;
+    if (prevX > 0 && prevY > 0 && idx > 0 && idx < grid.size() && glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_PRESS) {
+        if (prevX >= grid[idx].position.x &&
+                prevX <= grid[idx].position.x + grid[idx].scale &&
+                prevY >= grid[idx].position.y &&
+                prevY <= grid[idx].position.y + grid[idx].scale){
+            velX[idx] += (float) (x - prevX);
+            velY[idx] += (float) (y - prevY);
+        }
+    }
+    prevX = x;
+    prevY = y;
+
+    uint32_t N = numTilesX - 2;
+    velX.swap(prevVelX);
+    velY.swap(prevVelY);
+    diffuse(N, 1, velX, prevVelX, 0.01f, deltaTime);
+    diffuse(N, 2, velY, prevVelY, 0.01f, deltaTime);
+
+    project(N, velX, velY, prevVelX, prevVelY);
+
+    velX.swap(prevVelX);
+    velY.swap(prevVelY);
+    advect(N, 1, velX, prevVelX, prevVelX, prevVelY, deltaTime);
+    advect(N, 2, velY, prevVelY, prevVelX, prevVelY, deltaTime);
+
+    project(N, velX, velY, prevVelX, prevVelY);
+}
+
+void Grid2DSim::diffuse( uint32_t N, int b, std::vector<float>& x, const std::vector<float>& x0, float diff, float dt ){
+    int i, j, k;
+    float a = dt*diff* (float) (N*N);
+    for (k = 0; k < 20; ++k) {
+        for (i = 1; i <= N; ++i) {
+            for (j = 1; j <= N; j++) {
+                x[IX(i,j)] = (x0[IX(i,j)] + a*(x[IX(i-1,j)] + x[IX(i+1,j)] + x[IX(i,j-1)] + x[IX(i,j+1)]))/(1+4*a);
+            }
+        }
+        setBounds( N, b, x );
+    }
+}
+
+void Grid2DSim::advect(uint32_t N, int b, std::vector<float>& d, const std::vector<float>& d0, const std::vector<float>& u, const std::vector<float>& v, float dt){
+    int i, j, i0, j0, i1, j1;
+    float x, y, s0, t0, s1, t1, dt0 = dt * (float) N;
+
+    for (i = 1; i <= N; ++i) {
+        for (j = 1; j <= N; ++j) {
+           x = (float) i - dt0*u[IX(i, j)];
+           y = (float) j - dt0*v[IX(i, j)];
+           i0 = (int) x;
+           i1 = i0 + 1;
+           j0 = (int) y;
+           j1 = j0 + 1;
+           s1 = x - (float) i0;
+           t1 = y - (float) j0;
+           s0 = 1 - s1;
+           t0 = 1 - t1;
+
+           d[IX(i, j)] = s0*(t0*d0[IX(i0, j0)] + t1*d0[IX(i0, j1)]) + s1*(t0*d0[IX(i1, j0)] + t1*d0[IX(i1, j1)]);
+        }
+    }
+    setBounds(N, b, d);
+}
+
+void Grid2DSim::project(uint32_t N, std::vector<float>& u, std::vector<float>& v, std::vector<float>& p, std::vector<float>& div) {
+    float h = 1/(float) N;
+
+    for (int j = 1; j <= N; ++j) {
+        for (int i = 1; i <= N; ++i) {
+            div[IX(i, j)] = -0.5f*h*(u[IX(i + 1, j)] - u[IX(i - 1, j)] + v[IX(i, j + 1)] - v[IX(i, j - 1)]);
+            p[IX(i, j)] = 0;
+        }
+    }
+    setBounds(N, 0, div);
+    setBounds(N, 0, p);
+
+
+    for (int k = 0; k < 20; ++k) {
+        for (int j = 1; j <= N; ++j) {
+            for (int i = 1; i <= N; ++i) {
+                p[IX(i,j)] = (div[IX(i,j)] + p[IX(i + 1,j)] + p[IX(i - 1,j)] + p[IX(i,j + 1)] + p[IX(i,j - 1)])/4;
+            }
+        }
+        setBounds(N, 0, p);
+    }
+
+    for (int j = 1; j <= N; ++j) {
+        for (int i = 1; i <= N; ++i) {
+            u[IX(i,j)] -= 0.5f*(p[IX(i + 1,j)] - p[IX(i - 1,j)])/h;
+            v[IX(i,j)] -= 0.5f*(p[IX(i,j + 1)] - p[IX(i,j - 1)])/h;
+        }
+    }
+    setBounds(N, 1, u);
+    setBounds(N, 2, v);
+
+}
+
+void Grid2DSim::setBounds( uint32_t N, int b, std::vector<float>& x){
+    int i;
+    for ( i=1 ; i<=N ; i++ ) {
+        x[IX(0 ,i)] = b==1 ? -x[IX(1,i)] : x[IX(1,i)];
+        x[IX(N+1,i)] = b==1 ? -x[IX(N,i)] : x[IX(N,i)];
+        x[IX(i,0 )] = b==2 ? -x[IX(i,1)] : x[IX(i,1)];
+        x[IX(i,N+1)] = b==2 ? -x[IX(i,N)] : x[IX(i,N)];
+    }
+    x[IX(0 ,0 )] = 0.5f*(x[IX(1,0)]+x[IX(0,1)]);
+    x[IX(0 ,N+1)] = 0.5f*(x[IX(1,N+1)]+x[IX(0,N)]);
+    x[IX(N+1,0 )] = 0.5f*(x[IX(N,0)]+x[IX(N+1,1)]);
+    x[IX(N+1,N+1)] = 0.5f*(x[IX(N,N+1)]+x[IX(N+1,N)]);
 }

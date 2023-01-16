@@ -23,6 +23,8 @@ namespace vkb {
         using std::vector<InstanceData>::size;
         using std::vector<InstanceData>::operator[];
         using std::vector<InstanceData>::resize;
+        using std::vector<InstanceData>::begin;
+        using std::vector<InstanceData>::end;
 
     private:
         void createInstanceBuffer();
