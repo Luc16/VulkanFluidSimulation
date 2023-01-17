@@ -76,9 +76,9 @@ private:
     float gpuTime = 0, cpuTime = 0;
     bool activateTimer = false;
 
-    float viscosity = 0.01f, diffusionFactor = 0.01f;
+    float viscosity = 0.005f, diffusionFactor = 0.001f;
     std::vector<float> dens, prevDens, velX, prevVelX, velY, prevVelY;
-    uint32_t numTilesX, numTilesY;
+    uint32_t numTilesX{}, numTilesY{};
 
     void onCreate() override;
     void initializeObjects();

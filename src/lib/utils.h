@@ -51,6 +51,17 @@ inline double randomDouble(double min, double max) {
     return min + randomDouble() * (max - min);
 }
 
+inline float randomFloat(){
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_real_distribution<float> dis_float;
+    return dis_float(gen);
+}
+
+inline float randomFloat(float min, float max) {
+    return min + randomFloat() * (max - min);
+}
+
 inline int randomInt(int min, int max) {
     static std::random_device rd;
     static std::mt19937 gen(rd());

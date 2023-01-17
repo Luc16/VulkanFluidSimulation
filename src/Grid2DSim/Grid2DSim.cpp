@@ -120,6 +120,7 @@ void Grid2DSim::updateGrid(float deltaTime) {
     updateDensities(deltaTime);
 
     for (uint32_t i = 0; i < grid.size(); i++){
+        dens[i] = std::clamp(dens[i] - 0.0002f, 0.0f, 1.0f);
         grid[i].color = glm::vec3(dens[i]);
     }
 
@@ -152,8 +153,8 @@ void Grid2DSim::showImGui(){
         ImGui::Text("Cpu time: %f ms", cpuTime);
     }
 
-    ImGui::DragFloat("Diffusion Factor: ", &diffusionFactor, 0.0001f, 0.0f);
-    ImGui::DragFloat("Viscosity: ", &viscosity, 0.0001f, 0.0f);
+    ImGui::DragFloat("Diffusion Factor: ", &diffusionFactor, 0.0001f, 0.0f, 5.0f, "%.5f");
+    ImGui::DragFloat("Viscosity: ", &viscosity, 0.0001f, 0.0f, 5.0f, "%.5f");
 
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                 ImGui::GetIO().Framerate);
@@ -165,14 +166,15 @@ void Grid2DSim::showImGui(){
         ImGui::Text("Mouse: (%.3lf, %.3f)", x, y);
     }
 
-
     ImGui::End();
-
 }
 
 void Grid2DSim::updateDensities(float deltaTime) {
     uint32_t N = numTilesX - 2;
-    dens[IX(numTilesX/2, numTilesY/2)] = 1.0f;
+    dens[IX(numTilesX/2, numTilesY/2)] += randomFloat(0.2f, 0.4f);
+    dens[IX(numTilesX/2 + 1, numTilesY/2)] += randomFloat(0.2f, 0.4f);
+    dens[IX(numTilesX/2, numTilesY/2) + 1] += randomFloat(0.2f, 0.4f);
+    dens[IX(numTilesX/2 + 1, numTilesY/2) + 1] += randomFloat(0.2f, 0.4f);
 
     dens.swap(prevDens);
     diffuse(N, 0, dens, prevDens, diffusionFactor, deltaTime);
@@ -189,9 +191,16 @@ void Grid2DSim::updateVelocities(float deltaTime) {
     float centerY = (float) window.height() / 2;
 
     uint32_t N = numTilesX - 2;
-    float speed = 10.0f;
-    velX[IX(numTilesX/2, numTilesY/2)] = speed*deltaTime*((float) x - centerX);
-    velY[IX(numTilesX/2, numTilesY/2)] = speed*deltaTime*((float) y - centerY);
+    float speed = 500.0f;
+    auto vel = speed*deltaTime*glm::normalize(glm::vec2((float) x - centerX, (float) y - centerY));
+    velX[IX(numTilesX/2, numTilesY/2)] = vel.x;
+    velY[IX(numTilesX/2, numTilesY/2)] = vel.y;
+    velX[IX(numTilesX/2 + 1, numTilesY/2)] = vel.x;
+    velY[IX(numTilesX/2 + 1, numTilesY/2)] = vel.y;
+    velX[IX(numTilesX/2, numTilesY/2) + 1] = vel.x;
+    velY[IX(numTilesX/2, numTilesY/2) + 1] = vel.y;
+    velX[IX(numTilesX/2 + 1, numTilesY/2) + 1] = vel.x;
+    velY[IX(numTilesX/2 + 1, numTilesY/2) + 1] = vel.y;
 
     velX.swap(prevVelX);
     velY.swap(prevVelY);
@@ -213,7 +222,7 @@ void Grid2DSim::diffuse( uint32_t N, int b, std::vector<float>& x, const std::ve
     float a = dt*diff* (float) (N*N);
     for (k = 0; k < 20; ++k) {
         for (i = 1; i <= N; ++i) {
-            for (j = 1; j <= N; j++) {
+            for (j = 1; j <= N; ++j) {
                 x[IX(i,j)] = (x0[IX(i,j)] + a*(x[IX(i-1,j)] + x[IX(i+1,j)] + x[IX(i,j-1)] + x[IX(i,j+1)]))/(1+4*a);
             }
         }
