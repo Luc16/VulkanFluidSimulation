@@ -8,8 +8,8 @@
 // TODO:
 /*
  * Batch rendering
- * Change only parts of buffer
- *
+ * C to C++
+ * Arbitrary bounds
  *  */
 
 #include <sstream>
@@ -27,6 +27,7 @@
 #include "../lib/DrawableObject.h"
 #include "../lib/VulkanApp.h"
 #include "../lib/InstancedObjects.h"
+#include "Grid2D.h"
 
 #define IX(i, j) ((i)+(N+2)*(j))
 
@@ -36,6 +37,7 @@ public:
             VulkanApp(width, height, appName, type){}
 
 private:
+
     const uint32_t SIZE = 10;
     uint32_t INSTANCE_COUNT = 0;
 
@@ -68,7 +70,6 @@ private:
     vkb::RenderSystem instanceSystem{device};
 
     vkb::Camera camera{};
-    vkb::CameraMovementController cameraController{};
 
     vkb::InstancedObjects<InstanceData> grid{device, INSTANCE_COUNT, vkb::Model::createModelFromFile(device, planeModelPath)};
 

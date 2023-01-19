@@ -20,14 +20,25 @@ namespace std {
 
 namespace vkb {
 
-    Model::Model(Device &device, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices): m_deviceRef(device) {
+    Model::Model(const Device &device, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices): m_deviceRef(device) {
         m_hasIndexBuffer = true;
         createVertexBuffer(vertices);
         createIndexBuffer(indices);
     }
 
-    Model::Model(Device &device, std::vector<Vertex>& vertices): m_deviceRef(device) {
+    Model::Model(const Device &device, std::vector<Vertex>& vertices): m_deviceRef(device) {
         createVertexBuffer(vertices);
+    }
+
+    void Model::updateVertexBuffer(std::vector<Vertex>& vertices) {
+        VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+        m_vertexCount = static_cast<uint32_t>(vertices.size());
+
+        vkb::Buffer stagingBuffer(m_deviceRef, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        stagingBuffer.singleWrite(vertices.data());
+
+        m_deviceRef.copyBuffer(stagingBuffer.getBuffer(), m_vertexBuffer->getBuffer(), bufferSize);
     }
 
     void Model::createVertexBuffer(std::vector<Vertex>& vertices){
@@ -60,7 +71,7 @@ namespace vkb {
         m_deviceRef.copyBuffer(stagingBuffer.getBuffer(), m_indexBuffer->getBuffer(), bufferSize);
     }
 
-    std::unique_ptr<Model> Model::createModelFromFile(Device &device, const std::string &filepath) {
+    std::unique_ptr<Model> Model::createModelFromFile(const Device &device, const std::string &filepath) {
         std::vector<Vertex> vertices{};
         std::vector<uint32_t> indices{};
 

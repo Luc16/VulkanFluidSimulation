@@ -15,7 +15,7 @@ void Grid2DSim::onCreate() {
             .build();
     defaultDescriptorSets = createDescriptorSets(defaultDescriptorLayout,{uniformBuffers[0]->descriptorInfo()});
     {
-        defaultSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), sizeof(vkb::DrawableObject::PushConstantData));
+        defaultSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
         defaultSystem.createPipeline(renderer.renderPass(), shaderPaths);
     }
 
@@ -28,6 +28,7 @@ void Grid2DSim::onCreate() {
             info.attributeDescription.push_back({6, 1, VK_FORMAT_R32_SFLOAT, offsetof(InstanceData, scale)});
         });
     }
+
 }
 
 void Grid2DSim::initializeObjects() {
@@ -92,7 +93,6 @@ void Grid2DSim::mainLoop(float deltaTime) {
     camera.updateView();
     updateGrid(deltaTime);
     updateUniformBuffer(renderer.currentFrame(), deltaTime);
-    grid.updateBuffer();
 
     if (activateTimer) {
         auto time = std::chrono::high_resolution_clock::now();
@@ -123,6 +123,7 @@ void Grid2DSim::updateGrid(float deltaTime) {
         dens[i] = std::clamp(dens[i] - 0.0002f, 0.0f, 1.0f);
         grid[i].color = glm::vec3(dens[i]);
     }
+    grid.updateBuffer();
 
 }
 
