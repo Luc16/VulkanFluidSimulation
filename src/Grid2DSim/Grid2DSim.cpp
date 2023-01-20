@@ -5,6 +5,12 @@
 #include "Grid2DSim.h"
 #include <execution>
 
+void Grid2DSim::FluidData::resize(size_t newSize, uint32_t row) {
+    density.resize(newSize, row);
+    velX.resize(newSize, row);
+    velY.resize(newSize, row);
+}
+
 void Grid2DSim::onCreate() {
     initializeObjects();
     createUniformBuffers();
@@ -32,9 +38,6 @@ void Grid2DSim::onCreate() {
 }
 
 void Grid2DSim::initializeObjects() {
-    numTilesX = window.width()/SIZE;
-    numTilesY = window.height()/SIZE;
-    INSTANCE_COUNT = numTilesX*numTilesY;
     camera.setViewTarget({0.0f, 0.0f, -1.0f}, {0.0f, 0.0f, 0.0f }, {0.0f, 1.0f, 0.0f});
 
     createInstances();
@@ -43,14 +46,15 @@ void Grid2DSim::initializeObjects() {
 void Grid2DSim::createInstances() {
     vkDeviceWaitIdle(device.device());
 
+    numTilesX = window.width()/SIZE;
+    numTilesMiddle = numTilesX - 2;
+    numTilesY = window.height()/SIZE;
+    INSTANCE_COUNT = numTilesX*numTilesY;
+
     grid.resizeBuffer(INSTANCE_COUNT);
     iter.resize(INSTANCE_COUNT);
-    dens.resize(INSTANCE_COUNT);
-    prevDens.resize(INSTANCE_COUNT);
-    velX.resize(INSTANCE_COUNT);
-    velY.resize(INSTANCE_COUNT);
-    prevVelX.resize(INSTANCE_COUNT);
-    prevVelY.resize(INSTANCE_COUNT);
+    curState.resize(INSTANCE_COUNT, numTilesX);
+    prevState.resize(INSTANCE_COUNT, numTilesX);
 
     auto size = (float) SIZE;
     auto accPos = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -59,12 +63,12 @@ void Grid2DSim::createInstances() {
     for (uint32_t i = 0; i < grid.size(); i++) {
         auto& tile = grid[i];
         tile.color = glm::vec3(0.0f, 0.0f, 0.0f);
-        dens[i] = 0;
-        prevDens[i] = 0;
-        velX[i] = 0;
-        velY[i] = 0;
-        prevVelX[i] = 0;
-        prevVelY[i] = 0;
+        curState.velX[i] = 0.0f;
+        curState.velY[i] = 0.0f;
+        curState.density[i] = 0.0f;
+        prevState.velX[i] = 0.0f;
+        prevState.velY[i] = 0.0f;
+        prevState.density[i] = 0.0f;
         tile.scale = size;
         tile.position = accPos;
         accPos.x += size;
@@ -105,8 +109,6 @@ void Grid2DSim::mainLoop(float deltaTime) {
 
         renderer.runRenderPass([this](VkCommandBuffer& commandBuffer){
 
-//            defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
-
             instanceSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
             grid.render(instanceSystem, commandBuffer);
         });
@@ -120,8 +122,8 @@ void Grid2DSim::updateGrid(float deltaTime) {
     updateDensities(deltaTime);
 
     for (uint32_t i = 0; i < grid.size(); i++){
-        dens[i] = std::clamp(dens[i] - 0.0002f, 0.0f, 1.0f);
-        grid[i].color = glm::vec3(dens[i]);
+        curState.density[i] = std::clamp(curState.density[i] - dissolveFactor, 0.0f, 1.0f);
+        grid[i].color = glm::vec3(curState.density[i]);
     }
     grid.updateBuffer();
 
@@ -156,6 +158,7 @@ void Grid2DSim::showImGui(){
 
     ImGui::DragFloat("Diffusion Factor: ", &diffusionFactor, 0.0001f, 0.0f, 5.0f, "%.5f");
     ImGui::DragFloat("Viscosity: ", &viscosity, 0.0001f, 0.0f, 5.0f, "%.5f");
+    ImGui::DragFloat("Dissolve Factor: ", &dissolveFactor, 0.00001f, 0.0f, 0.001, "%.5f");
 
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                 ImGui::GetIO().Framerate);
@@ -171,16 +174,15 @@ void Grid2DSim::showImGui(){
 }
 
 void Grid2DSim::updateDensities(float deltaTime) {
-    uint32_t N = numTilesX - 2;
-    dens[IX(numTilesX/2, numTilesY/2)] += randomFloat(0.2f, 0.4f);
-    dens[IX(numTilesX/2 + 1, numTilesY/2)] += randomFloat(0.2f, 0.4f);
-    dens[IX(numTilesX/2, numTilesY/2) + 1] += randomFloat(0.2f, 0.4f);
-    dens[IX(numTilesX/2 + 1, numTilesY/2) + 1] += randomFloat(0.2f, 0.4f);
+    curState.density(numTilesX/2, numTilesY/2) += randomFloat(0.3f, 0.6f);
+    curState.density(numTilesX/2 + 1, numTilesY/2) += randomFloat(0.3f, 0.6f);
+    curState.density(numTilesX/2, numTilesY/2 + 1) += randomFloat(0.3f, 0.6f);
+    curState.density(numTilesX/2 + 1, numTilesY/2 + 1) += randomFloat(0.3f, 0.6f);
 
-    dens.swap(prevDens);
-    diffuse(N, 0, dens, prevDens, diffusionFactor, deltaTime);
-    dens.swap(prevDens);
-    advect(N, 0, dens, prevDens, velX, velY, deltaTime);
+    curState.density.swap(prevState.density);
+    diffuse(curState.density, prevState.density, diffusionFactor, deltaTime);
+    curState.density.swap(prevState.density);
+    advect(curState.density, prevState.density, curState.velX, curState.velY, deltaTime);
 }
 
 void Grid2DSim::updateVelocities(float deltaTime) {
@@ -191,117 +193,118 @@ void Grid2DSim::updateVelocities(float deltaTime) {
     float centerX = (float) window.width() / 2;
     float centerY = (float) window.height() / 2;
 
-    uint32_t N = numTilesX - 2;
     float speed = 500.0f;
     auto vel = speed*deltaTime*glm::normalize(glm::vec2((float) x - centerX, (float) y - centerY));
-    velX[IX(numTilesX/2, numTilesY/2)] = vel.x;
-    velY[IX(numTilesX/2, numTilesY/2)] = vel.y;
-    velX[IX(numTilesX/2 + 1, numTilesY/2)] = vel.x;
-    velY[IX(numTilesX/2 + 1, numTilesY/2)] = vel.y;
-    velX[IX(numTilesX/2, numTilesY/2) + 1] = vel.x;
-    velY[IX(numTilesX/2, numTilesY/2) + 1] = vel.y;
-    velX[IX(numTilesX/2 + 1, numTilesY/2) + 1] = vel.x;
-    velY[IX(numTilesX/2 + 1, numTilesY/2) + 1] = vel.y;
 
-    velX.swap(prevVelX);
-    velY.swap(prevVelY);
-    diffuse(N, 1, velX, prevVelX, viscosity, deltaTime);
-    diffuse(N, 2, velY, prevVelY, viscosity, deltaTime);
+    curState.velX(numTilesX/2, numTilesY/2) = vel.x;
+    curState.velY(numTilesX/2, numTilesY/2) = vel.y;
+    curState.velX(numTilesX/2 + 1, numTilesY/2) = vel.x;
+    curState.velY(numTilesX/2 + 1, numTilesY/2) = vel.y;
+    curState.velX(numTilesX/2, numTilesY/2 + 1) = vel.x;
+    curState.velY(numTilesX/2, numTilesY/2 + 1) = vel.y;
+    curState.velX(numTilesX/2 + 1, numTilesY/2 + 1) = vel.x;
+    curState.velY(numTilesX/2 + 1, numTilesY/2 + 1) = vel.y;
 
-    project(N, velX, velY, prevVelX, prevVelY);
 
-    velX.swap(prevVelX);
-    velY.swap(prevVelY);
-    advect(N, 1, velX, prevVelX, prevVelX, prevVelY, deltaTime);
-    advect(N, 2, velY, prevVelY, prevVelX, prevVelY, deltaTime);
+    curState.velX.swap(prevState.velX);
+    curState.velY.swap(prevState.velY);
+    diffuse(curState.velX, prevState.velX, viscosity, deltaTime, 1);
+    diffuse(curState.velY, prevState.velY, viscosity, deltaTime, 2);
 
-    project(N, velX, velY, prevVelX, prevVelY);
+    project(curState.velX, curState.velY, prevState.velX, prevState.velY);
+
+    curState.velX.swap(prevState.velX);
+    curState.velY.swap(prevState.velY);
+    advect(curState.velX, prevState.velX, prevState.velX, prevState.velY, deltaTime, 1);
+    advect(curState.velY, prevState.velY, prevState.velX, prevState.velY, deltaTime, 2);
+
+    project(curState.velX, curState.velY, prevState.velX, prevState.velY);
 }
 
-void Grid2DSim::diffuse( uint32_t N, int b, std::vector<float>& x, const std::vector<float>& x0, float diff, float dt ){
+void Grid2DSim::diffuse(Matrix<float>& x, const Matrix<float>& x0, float diff, float dt, int b){
     int i, j, k;
-    float a = dt*diff* (float) (N*N);
+    float a = dt*diff* (float) (numTilesMiddle*numTilesMiddle);
     for (k = 0; k < 20; ++k) {
-        for (i = 1; i <= N; ++i) {
-            for (j = 1; j <= N; ++j) {
-                x[IX(i,j)] = (x0[IX(i,j)] + a*(x[IX(i-1,j)] + x[IX(i+1,j)] + x[IX(i,j-1)] + x[IX(i,j+1)]))/(1+4*a);
+        for (i = 1; i <= numTilesMiddle; ++i) {
+            for (j = 1; j <= numTilesMiddle; ++j) {
+                x(i,j) = (x0(i,j) + a*(x(i-1,j) + x(i+1,j) + x(i,j-1) + x(i,j+1)))/(1+4*a);
             }
         }
-        setBounds( N, b, x );
+        setBounds(x, b);
     }
 }
 
-void Grid2DSim::advect(uint32_t N, int b, std::vector<float>& d, const std::vector<float>& d0, const std::vector<float>& u, const std::vector<float>& v, float dt){
+void Grid2DSim::advect(Matrix<float>& d, const Matrix<float>& d0, const Matrix<float>& velX, const Matrix<float>& velY, float dt, int b){
     int i, j, i0, j0, i1, j1;
-    float x, y, s0, t0, s1, t1, dt0, fN = (float) N;
+    float x, y, s0, t0, s1, t1, dt0, fN = (float) numTilesMiddle;
     dt0 = dt*fN;
 
-    for (i = 1; i <= N; ++i) {
-        for (j = 1; j <= N; ++j) {
-           x = (float) i - dt0*u[IX(i, j)];
-           if (x < 0.5f) x = 0.5f;
-           if (x > fN + 0.5f) x = fN + 0.5f;
-           y = (float) j - dt0*v[IX(i, j)];
-           if (y < 0.5f) y = 0.5f;
-           if (y > fN + 0.5f) y = fN + 0.5f;
-           i0 = (int) x;
-           i1 = i0 + 1;
-           j0 = (int) y;
-           j1 = j0 + 1;
-           s1 = x - (float) i0;
-           t1 = y - (float) j0;
-           s0 = 1 - s1;
-           t0 = 1 - t1;
+    for (i = 1; i <= numTilesMiddle; ++i) {
+        for (j = 1; j <= numTilesMiddle; ++j) {
+            x = (float) i - dt0*velX(i, j);
+            if (x < 0.5f) x = 0.5f;
+            if (x > fN + 0.5f) x = fN + 0.5f;
+            y = (float) j - dt0*velY(i, j);
+            if (y < 0.5f) y = 0.5f;
+            if (y > fN + 0.5f) y = fN + 0.5f;
+            i0 = (int) x;
+            i1 = i0 + 1;
+            j0 = (int) y;
+            j1 = j0 + 1;
+            s1 = x - (float) i0;
+            t1 = y - (float) j0;
+            s0 = 1 - s1;
+            t0 = 1 - t1;
 
-           d[IX(i, j)] = s0*(t0*d0[IX(i0, j0)] + t1*d0[IX(i0, j1)]) + s1*(t0*d0[IX(i1, j0)] + t1*d0[IX(i1, j1)]);
+            d(i, j) = s0*(t0*d0(i0, j0) + t1*d0(i0, j1)) + s1*(t0*d0(i1, j0) + t1*d0(i1, j1));
         }
     }
-    setBounds(N, b, d);
+    setBounds(d, b);
 }
 
-void Grid2DSim::project(uint32_t N, std::vector<float>& u, std::vector<float>& v, std::vector<float>& p, std::vector<float>& div) {
-    float h = 1/(float) N;
+void Grid2DSim::project(Matrix<float>& velX, Matrix<float>& velY, Matrix<float>& div, Matrix<float>& p){
+    float h = 1/(float) numTilesMiddle;
 
-    for (int j = 1; j <= N; ++j) {
-        for (int i = 1; i <= N; ++i) {
-            div[IX(i, j)] = -0.5f*h*(u[IX(i + 1, j)] - u[IX(i - 1, j)] + v[IX(i, j + 1)] - v[IX(i, j - 1)]);
-            p[IX(i, j)] = 0;
+    for (int j = 1; j <= numTilesMiddle; ++j) {
+        for (int i = 1; i <= numTilesMiddle; ++i) {
+            div(i, j) = -0.5f*h*(velX(i + 1, j) - velX(i - 1, j) + velY(i, j + 1) - velY(i, j - 1));
+            p(i, j) = 0;
         }
     }
-    setBounds(N, 0, div);
-    setBounds(N, 0, p);
+    setBounds(div);
+    setBounds(p);
 
 
     for (int k = 0; k < 20; ++k) {
-        for (int j = 1; j <= N; ++j) {
-            for (int i = 1; i <= N; ++i) {
-                p[IX(i,j)] = (div[IX(i,j)] + p[IX(i + 1,j)] + p[IX(i - 1,j)] + p[IX(i,j + 1)] + p[IX(i,j - 1)])/4;
+        for (int j = 1; j <= numTilesMiddle; ++j) {
+            for (int i = 1; i <= numTilesMiddle; ++i) {
+                p(i,j) = (div(i,j) + p(i + 1,j) + p(i - 1,j) + p(i,j + 1) + p(i,j - 1))/4;
             }
         }
-        setBounds(N, 0, p);
+        setBounds(p);
     }
 
-    for (int j = 1; j <= N; ++j) {
-        for (int i = 1; i <= N; ++i) {
-            u[IX(i,j)] -= 0.5f*(p[IX(i + 1,j)] - p[IX(i - 1,j)])/h;
-            v[IX(i,j)] -= 0.5f*(p[IX(i,j + 1)] - p[IX(i,j - 1)])/h;
+    for (int j = 1; j <= numTilesMiddle; ++j) {
+        for (int i = 1; i <= numTilesMiddle; ++i) {
+            velX(i,j) -= 0.5f*(p(i + 1,j) - p(i - 1,j))/h;
+            velY(i,j) -= 0.5f*(p(i,j + 1) - p(i,j - 1))/h;
         }
     }
-    setBounds(N, 1, u);
-    setBounds(N, 2, v);
+    setBounds(velX, 1);
+    setBounds(velY, 2);
 
 }
 
-void Grid2DSim::setBounds( uint32_t N, int b, std::vector<float>& x){
-    int i;
-    for ( i=1 ; i<=N ; i++ ) {
-        x[IX(0 ,i)] = b==1 ? -x[IX(1,i)] : x[IX(1,i)];
-        x[IX(N+1,i)] = b==1 ? -x[IX(N,i)] : x[IX(N,i)];
-        x[IX(i,0 )] = b==2 ? -x[IX(i,1)] : x[IX(i,1)];
-        x[IX(i,N+1)] = b==2 ? -x[IX(i,N)] : x[IX(i,N)];
+void Grid2DSim::setBounds(Matrix<float>& x, int b) const {
+    for (int i = 1; i<= numTilesMiddle; ++i) {
+        x(0, i) = b==1 ? -x(1, i) : x(1, i);
+        x(numTilesMiddle+1, i) = b==1 ? -x(numTilesMiddle, i) : x(numTilesMiddle, i);
+        x(i, 0 ) = b==2 ? -x(i, 1) : x(i, 1);
+        x(i, numTilesMiddle+1) = b==2 ? -x(i, numTilesMiddle) : x(i, numTilesMiddle);
     }
-    x[IX(0 ,0 )] = 0.5f*(x[IX(1,0)]+x[IX(0,1)]);
-    x[IX(0 ,N+1)] = 0.5f*(x[IX(1,N+1)]+x[IX(0,N)]);
-    x[IX(N+1,0 )] = 0.5f*(x[IX(N,0)]+x[IX(N+1,1)]);
-    x[IX(N+1,N+1)] = 0.5f*(x[IX(N,N+1)]+x[IX(N+1,N)]);
+    x(0, 0) = 0.5f*(x(1, 0)+x(0, 1));
+    x(0, numTilesMiddle+1) = 0.5f*(x(1, numTilesMiddle+1)+x(0, numTilesMiddle));
+    x(numTilesMiddle+1, 0) = 0.5f*(x(numTilesMiddle, 0)+x(numTilesMiddle+1, 1));
+    x(numTilesMiddle+1, numTilesMiddle+1) = 0.5f*(x(numTilesMiddle, numTilesMiddle+1)+x(numTilesMiddle+1, numTilesMiddle));
 }
+

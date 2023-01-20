@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.24)
 project(VulkanFluidSimulation)
+set(CMAKE_CXX_STANDARD 23)
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++23")
 
-set(CMAKE_CXX_STANDARD 20)
 find_package(Vulkan REQUIRED)
 find_package(glfw3 REQUIRED )
 

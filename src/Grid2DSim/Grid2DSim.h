@@ -7,7 +7,6 @@
 
 // TODO:
 /*
- * Batch rendering
  * C to C++
  * Arbitrary bounds
  *  */
@@ -29,7 +28,35 @@
 #include "../lib/InstancedObjects.h"
 #include "Grid2D.h"
 
-#define IX(i, j) ((i)+(N+2)*(j))
+template<typename T>
+class Matrix{
+private:
+    std::vector<T> m_matrix;
+    uint32_t m_row{};
+public:
+
+    void resize(size_t newSize, uint32_t row){
+        m_row = row;
+        m_matrix.resize(newSize);
+    }
+
+    void swap(Matrix& other){
+        m_matrix.swap(other.m_matrix);
+    }
+
+    constexpr T& operator() (uint32_t i, uint32_t j) {
+        return m_matrix[i + m_row*j];
+    }
+    constexpr const T& operator()(uint32_t i, uint32_t j) const{
+        return m_matrix[i + m_row*j];
+    }
+    constexpr T& operator[] (uint32_t i) {
+        return m_matrix[i];
+    }
+    constexpr const T& operator[](uint32_t i) const{
+        return m_matrix[i];
+    }
+};
 
 class Grid2DSim: public vkb::VulkanApp {
 public:
@@ -63,6 +90,12 @@ private:
         float scale;
     };
 
+    struct FluidData {
+        Matrix<float> density, velX, velY;
+
+        void resize(size_t newSize, uint32_t row);
+    };
+
     std::vector<std::unique_ptr<vkb::Buffer>> uniformBuffers;
 
     vkb::RenderSystem defaultSystem{device};
@@ -77,9 +110,10 @@ private:
     float gpuTime = 0, cpuTime = 0;
     bool activateTimer = false;
 
-    float viscosity = 0.005f, diffusionFactor = 0.001f;
-    std::vector<float> dens, prevDens, velX, prevVelX, velY, prevVelY;
-    uint32_t numTilesX{}, numTilesY{};
+    float viscosity = 0.005f, diffusionFactor = 0.001f, dissolveFactor = 0.0002;
+
+    FluidData curState, prevState;
+    uint32_t numTilesX{}, numTilesY{}, numTilesMiddle{};
 
     void onCreate() override;
     void initializeObjects();
@@ -92,13 +126,13 @@ private:
     void showImGui();
 
     // fluid simulation functions
-
-    static void diffuse( uint32_t N, int b, std::vector<float>& x, const std::vector<float>& x0, float diff, float dt );
-    static void setBounds( uint32_t N, int b, std::vector<float>& x);
-    static void advect(uint32_t N, int b, std::vector<float>& d, const std::vector<float>& d0, const std::vector<float>& u, const std::vector<float>& v, float dt);
-    static void project(uint32_t N, std::vector<float> &u, std::vector<float> &v, std::vector<float> &p, std::vector<float> &div);
-    void updateDensities(float deltaTime);
     void updateVelocities(float deltaTime);
+    void updateDensities(float deltaTime);
+
+    void diffuse(Matrix<float>& x, const Matrix<float>& x0, float diff, float dt, int b = 0);
+    void advect(Matrix<float>& d, const Matrix<float>& d0, const Matrix<float>& velX, const Matrix<float>& velY, float dt, int b = 0);
+    void project(Matrix<float>& velX, Matrix<float>& velY, Matrix<float>& div, Matrix<float>& p);
+    void setBounds(Matrix<float>& x, int b = 0) const;
 };
 
 
