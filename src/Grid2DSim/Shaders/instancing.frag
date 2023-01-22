@@ -11,8 +11,6 @@ layout(binding = 0) uniform UniformBufferObject {
 
 layout(location = 0) out vec4 outColor;
 
-const float AMBIENT = 0.05;
-
 void main() {
 
     outColor = vec4(fragColor, 1.0);
