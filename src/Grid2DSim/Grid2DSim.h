@@ -126,11 +126,11 @@ private:
     float gpuTime = 0, cpuTime = 0;
     bool activateTimer = false, wallMode = false;
 
-    float viscosity = 0.005f, diffusionFactor = 0.001f, dissolveFactor = 0.015f;
+    float viscosity = 0.005f, diffusionFactor = 0.001f, dissolveFactor = 0.015f, initialSpeed = 500.0f;
 
     FluidData curState, prevState;
     Matrix<CellType> cellTypes;
-    std::forward_list<glm::ivec2> boundaries;
+    std::forward_list<glm::ivec2> insideBoundaries;
 
     uint32_t numTilesX{}, numTilesY{}, numTilesMiddle{};
 
@@ -138,13 +138,12 @@ private:
 
     void onCreate() override;
     void initializeObjects();
-    void createInstances();
     void createUniformBuffers();
     void mainLoop(float deltaTime) override;
     void onResize(int width, int height) override;
     void updateGrid(float deltaTime);
     void createWalls();
-    void resetGrid();
+    void resetGrid(bool hardReset = false);
     void updateUniformBuffer(uint32_t frameIndex, float deltaTime);
     void showImGui();
 
@@ -152,10 +151,15 @@ private:
     void updateVelocities(float deltaTime);
     void updateDensities(float deltaTime);
 
-    void diffuse(Matrix<float>& x, const Matrix<float>& x0, float diff, float dt, BoundConfig b = REGULAR);
+    void diffuse(Matrix<float>& x, const Matrix<float>& x0, float diff, float dt);
     void advect(Matrix<float>& d, const Matrix<float>& d0, const Matrix<float>& velX, const Matrix<float>& velY, float dt, BoundConfig b = REGULAR);
     void project(Matrix<float>& velX, Matrix<float>& velY, Matrix<float>& div, Matrix<float>& p);
     void setBounds(Matrix<float>& x, BoundConfig b = REGULAR) const;
+
+    // custom boundaries functions
+
+    void diffuseInnerBounds(Matrix<float>& x, const Matrix<float>& x0, float a);
+    void setInnerBounds(Matrix<float> &d, const Matrix<float> &d0, const Matrix<float> &velX, const Matrix<float> &velY, BoundConfig b);
 };
 
 

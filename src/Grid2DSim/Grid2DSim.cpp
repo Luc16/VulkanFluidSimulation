@@ -47,10 +47,6 @@ void Grid2DSim::onCreate() {
 void Grid2DSim::initializeObjects() {
     camera.setViewTarget({0.0f, 0.0f, -1.0f}, {0.0f, 0.0f, 0.0f }, {0.0f, 1.0f, 0.0f});
 
-    createInstances();
-}
-
-void Grid2DSim::createInstances() {
     vkDeviceWaitIdle(device.device());
 
     numTilesX = window.width()/SIZE;
@@ -125,8 +121,9 @@ void Grid2DSim::mainLoop(float deltaTime) {
     if (activateTimer) gpuTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
 }
 
-void Grid2DSim::resetGrid() {
+void Grid2DSim::resetGrid(bool hardReset) {
     for (uint32_t i = 0; i < grid.size(); i++){
+        if (hardReset) cellTypes[i] = EMPTY;
         curState.velX[i] = 0.0f;
         curState.velY[i] = 0.0f;
         curState.density[i] = 0.0f;
@@ -140,7 +137,7 @@ void Grid2DSim::resetGrid() {
 
 void Grid2DSim::onResize(int width, int height) {
     INSTANCE_COUNT = (width/SIZE)*(height/SIZE);
-    createInstances();
+    initializeObjects();
 }
 
 void Grid2DSim::updateUniformBuffer(uint32_t frameIndex, float deltaTime){
@@ -163,10 +160,11 @@ void Grid2DSim::showImGui(){
         ImGui::Text("Cpu time: %f ms", cpuTime);
     }
 
-    ImGui::DragFloat("Diffusion Factor: ", &diffusionFactor, 0.0001f, 0.0f, 5.0f, "%.5f");
-    ImGui::DragFloat("Viscosity: ", &viscosity, 0.0001f, 0.0f, 5.0f, "%.5f");
-    ImGui::DragFloat("Dissolve Factor: ", &dissolveFactor, 0.001f, 0.0f, 2, "%.5f");
-    if (ImGui::Button("RESET")) resetGrid();
+    ImGui::DragFloat("Diffusion Factor", &diffusionFactor, 0.0001f, 0.0f, 5.0f, "%.4f");
+    ImGui::DragFloat("Viscosity", &viscosity, 0.0001f, 0.0f, 5.0f, "%.4f");
+    ImGui::DragFloat("Dissolve Factor", &dissolveFactor, 0.001f, 0.0f, 2.0f, "%.3f");
+    ImGui::DragFloat("Speed", &initialSpeed, 1.0f, 000.0f, 1000.0f, "%.1f");
+    if (ImGui::Button("RESET ALL")) resetGrid(true);
     auto prevMode = wallMode;
     ImGui::Checkbox("Activate Wall Drawing Mode", &wallMode);
     if (prevMode != wallMode){
@@ -224,7 +222,7 @@ void Grid2DSim::createWalls() {
                 forEachNeighbor(i, j, [this](uint32_t ni, uint32_t nj){
                     if (cellTypes(ni, nj) != WALL){
                         cellTypes(ni, nj) = BOUNDARY;
-                        boundaries.push_front({ni, nj});
+                        insideBoundaries.emplace_front(ni, nj);
                     }
                 });
             }
@@ -252,8 +250,7 @@ void Grid2DSim::updateVelocities(float deltaTime) {
     float centerX = (float) window.width() / 2;
     float centerY = (float) window.height() / 2;
 
-    float speed = 500.0f;
-    auto vel = speed*deltaTime*glm::normalize(glm::vec2((float) x - centerX, (float) y - centerY));
+    auto vel = initialSpeed*deltaTime*glm::normalize(glm::vec2((float) x - centerX, (float) y - centerY));
 
     curState.velX(numTilesX/2, numTilesY/2) = vel.x;
     curState.velY(numTilesX/2, numTilesY/2) = vel.y;
@@ -280,16 +277,17 @@ void Grid2DSim::updateVelocities(float deltaTime) {
     project(curState.velX, curState.velY, prevState.velX, prevState.velY);
 }
 
-void Grid2DSim::diffuse(Matrix<float>& x, const Matrix<float>& x0, float diff, float dt, BoundConfig b){
+void Grid2DSim::diffuse(Matrix<float>& x, const Matrix<float>& x0, float diff, float dt){
     int i, j, k;
     float a = dt*diff* (float) (numTilesMiddle*numTilesMiddle);
     for (k = 0; k < 20; ++k) {
         for (i = 1; i <= numTilesMiddle; ++i) {
             for (j = 1; j <= numTilesMiddle; ++j) {
-                x(i,j) = (x0(i,j) + a*(x(i-1,j) + x(i+1,j) + x(i,j-1) + x(i,j+1)))/(1+4*a);
+                if (cellTypes(i, j) == EMPTY) x(i,j) = (x0(i,j) + a*(x(i-1,j) + x(i+1,j) + x(i,j-1) + x(i,j+1)))/(1+4*a);
             }
         }
-        setBounds(x, b);
+        diffuseInnerBounds(x, x0, a);
+        setBounds(x, REGULAR);
     }
 }
 
@@ -300,6 +298,7 @@ void Grid2DSim::advect(Matrix<float>& d, const Matrix<float>& d0, const Matrix<f
 
     for (i = 1; i <= numTilesMiddle; ++i) {
         for (j = 1; j <= numTilesMiddle; ++j) {
+            if (cellTypes(i, j) != EMPTY) continue;
             x = (float) i - dt0*velX(i, j);
             if (x < 0.5f) x = 0.5f;
             if (x > fN + 0.5f) x = fN + 0.5f;
@@ -318,6 +317,7 @@ void Grid2DSim::advect(Matrix<float>& d, const Matrix<float>& d0, const Matrix<f
             d(i, j) = s0*(t0*d0(i0, j0) + t1*d0(i0, j1)) + s1*(t0*d0(i1, j0) + t1*d0(i1, j1));
         }
     }
+    setInnerBounds(d, d0, velX, velY, b);
     setBounds(d, b);
 }
 
@@ -326,7 +326,7 @@ void Grid2DSim::project(Matrix<float>& velX, Matrix<float>& velY, Matrix<float>&
 
     for (int j = 1; j <= numTilesMiddle; ++j) {
         for (int i = 1; i <= numTilesMiddle; ++i) {
-            div(i, j) = -0.5f*h*(velX(i + 1, j) - velX(i - 1, j) + velY(i, j + 1) - velY(i, j - 1));
+            if (cellTypes(i, j) != WALL) div(i, j) = -0.5f*h*(velX(i + 1, j) - velX(i - 1, j) + velY(i, j + 1) - velY(i, j - 1));
             p(i, j) = 0;
         }
     }
@@ -337,7 +337,7 @@ void Grid2DSim::project(Matrix<float>& velX, Matrix<float>& velY, Matrix<float>&
     for (int k = 0; k < 20; ++k) {
         for (int j = 1; j <= numTilesMiddle; ++j) {
             for (int i = 1; i <= numTilesMiddle; ++i) {
-                p(i,j) = (div(i,j) + p(i + 1,j) + p(i - 1,j) + p(i,j + 1) + p(i,j - 1))/4;
+                if (cellTypes(i, j) != WALL) p(i,j) = (div(i,j) + p(i + 1,j) + p(i - 1,j) + p(i,j + 1) + p(i,j - 1))/4;
             }
         }
         setBounds(p);
@@ -345,6 +345,7 @@ void Grid2DSim::project(Matrix<float>& velX, Matrix<float>& velY, Matrix<float>&
 
     for (int j = 1; j <= numTilesMiddle; ++j) {
         for (int i = 1; i <= numTilesMiddle; ++i) {
+            if (cellTypes(i, j) != EMPTY) continue;
             velX(i,j) -= 0.5f*(p(i + 1,j) - p(i - 1,j))/h;
             velY(i,j) -= 0.5f*(p(i,j + 1) - p(i,j - 1))/h;
         }
@@ -365,5 +366,52 @@ void Grid2DSim::setBounds(Matrix<float>& x, BoundConfig b) const {
     x(0, numTilesMiddle+1) = 0.5f*(x(1, numTilesMiddle+1)+x(0, numTilesMiddle));
     x(numTilesMiddle+1, 0) = 0.5f*(x(numTilesMiddle, 0)+x(numTilesMiddle+1, 1));
     x(numTilesMiddle+1, numTilesMiddle+1) = 0.5f*(x(numTilesMiddle, numTilesMiddle+1)+x(numTilesMiddle+1, numTilesMiddle));
+
+
 }
+
+void Grid2DSim::diffuseInnerBounds(Matrix<float> &x, const Matrix<float> &x0, float a) {
+    for (auto& vec: insideBoundaries) {
+        float sum = 0, amount = 0;
+        forEachNeighbor(vec.x, vec.y, [this, &sum, &amount, &x](uint32_t i, uint32_t j){
+            if (cellTypes(i, j) == WALL) return;
+            sum += x(i, j);
+            amount += 1.0f;
+        });
+        x(vec) = (x0(vec) + a*(sum))/(1+amount*a);
+    }
+
+}
+
+void Grid2DSim::setInnerBounds(Matrix<float>& d, const Matrix<float>& d0, const Matrix<float>& velX, const Matrix<float>& velY, BoundConfig b) {
+    for (auto& vec: insideBoundaries) {
+        float sum = 0, amount = 0;
+        forEachNeighbor(vec.x, vec.y, [this, &sum, &amount, &d](uint32_t i, uint32_t j){
+            switch (cellTypes(i, j)) {
+                case WALL:
+                    break;
+                case BOUNDARY:
+                    sum += d(i, j);
+                    amount += 1.0f;
+                    break;
+                case EMPTY:
+                    sum += 2*d(i, j);
+                    amount += 2.0f;
+                    break;
+            }
+        });
+        d(vec) = (d0(vec) + sum)/(1.0f+amount);
+        if (b == MIRROR_X) {
+            if (cellTypes(vec.x + 1, vec.y) == WALL && cellTypes(vec.x - 1, vec.y) == WALL) d(vec) = 0.0f;
+             if (cellTypes(vec.x + 1, vec.y) == WALL && velX(vec) > 0 || cellTypes(vec.x - 1, vec.y) == WALL && velX(vec) < 0)
+                d(vec) = -d(vec);
+        }
+        else if (b == MIRROR_Y) {
+            if (cellTypes(vec.x, vec.y + 1) == WALL && cellTypes(vec.x, vec.y - 1) == WALL) d(vec) = 0.0f;
+            if (cellTypes(vec.x, vec.y + 1) == WALL && velY(vec) > 0 || cellTypes(vec.x, vec.y - 1) == WALL && velY(vec) < 0)
+                d(vec) = -d(vec);
+        }
+    }
+}
+
 
