@@ -153,13 +153,13 @@ private:
 
     void diffuse(Matrix<float>& x, const Matrix<float>& x0, float diff, float dt);
     void advect(Matrix<float>& d, const Matrix<float>& d0, const Matrix<float>& velX, const Matrix<float>& velY, float dt, BoundConfig b = REGULAR);
-    void project(Matrix<float>& velX, Matrix<float>& velY, Matrix<float>& div, Matrix<float>& p);
+    void project(Matrix<float> &velX, Matrix<float> &velY, Matrix<float> &div, Matrix<float> &p);
     void setBounds(Matrix<float>& x, BoundConfig b = REGULAR) const;
 
     // custom boundaries functions
 
     void diffuseInnerBounds(Matrix<float>& x, const Matrix<float>& x0, float a);
-    void setInnerBounds(Matrix<float> &d, const Matrix<float> &d0, const Matrix<float> &velX, const Matrix<float> &velY, BoundConfig b);
+    void setInnerBounds(Matrix<float> &d, BoundConfig b = REGULAR);
 };
 
 

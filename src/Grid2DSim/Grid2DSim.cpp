@@ -167,6 +167,10 @@ void Grid2DSim::showImGui(){
     if (ImGui::Button("RESET ALL")) resetGrid(true);
     auto prevMode = wallMode;
     ImGui::Checkbox("Activate Wall Drawing Mode", &wallMode);
+    static bool prevSpace = false;
+    bool space = glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_PRESS;
+    if (space && !prevSpace) wallMode = !wallMode;
+    prevSpace = space;
     if (prevMode != wallMode){
         resetGrid();
     }
@@ -211,8 +215,7 @@ void Grid2DSim::createWalls() {
 
     uint32_t idx = (uint32_t) (x/SIZE) + window.width()*((uint32_t) (y/SIZE))/SIZE;
     auto i = (uint32_t) (x/SIZE), j = (uint32_t) (y/SIZE);
-    if (idx > 0 && idx < grid.size() && (glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_PRESS ||
-            glfwGetMouseButton(window.window(), GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)) {
+    if (idx > 0 && idx < grid.size() && glfwGetMouseButton(window.window(), GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
         if (x >= grid[idx].position.x &&
             x <= grid[idx].position.x + grid[idx].scale &&
             y >= grid[idx].position.y &&
@@ -317,16 +320,17 @@ void Grid2DSim::advect(Matrix<float>& d, const Matrix<float>& d0, const Matrix<f
             d(i, j) = s0*(t0*d0(i0, j0) + t1*d0(i0, j1)) + s1*(t0*d0(i1, j0) + t1*d0(i1, j1));
         }
     }
-    setInnerBounds(d, d0, velX, velY, b);
+    setInnerBounds(d, b);
     setBounds(d, b);
 }
 
-void Grid2DSim::project(Matrix<float>& velX, Matrix<float>& velY, Matrix<float>& div, Matrix<float>& p){
+void Grid2DSim::project(Matrix<float> &velX, Matrix<float> &velY, Matrix<float> &div, Matrix<float> &p) {
     float h = 1/(float) numTilesMiddle;
 
     for (int j = 1; j <= numTilesMiddle; ++j) {
         for (int i = 1; i <= numTilesMiddle; ++i) {
-            if (cellTypes(i, j) != WALL) div(i, j) = -0.5f*h*(velX(i + 1, j) - velX(i - 1, j) + velY(i, j + 1) - velY(i, j - 1));
+            if (cellTypes(i, j) != WALL)
+                div(i, j) = -0.5f*h*(velX(i + 1, j) - velX(i - 1, j) + velY(i, j + 1) - velY(i, j - 1));
             p(i, j) = 0;
         }
     }
@@ -341,6 +345,7 @@ void Grid2DSim::project(Matrix<float>& velX, Matrix<float>& velY, Matrix<float>&
             }
         }
         setBounds(p);
+        setInnerBounds(p);
     }
 
     for (int j = 1; j <= numTilesMiddle; ++j) {
@@ -352,6 +357,8 @@ void Grid2DSim::project(Matrix<float>& velX, Matrix<float>& velY, Matrix<float>&
     }
     setBounds(velX, MIRROR_X);
     setBounds(velY, MIRROR_Y);
+    setInnerBounds(velX, MIRROR_X);
+    setInnerBounds(velY, MIRROR_Y);
 
 }
 
@@ -383,7 +390,7 @@ void Grid2DSim::diffuseInnerBounds(Matrix<float> &x, const Matrix<float> &x0, fl
 
 }
 
-void Grid2DSim::setInnerBounds(Matrix<float>& d, const Matrix<float>& d0, const Matrix<float>& velX, const Matrix<float>& velY, BoundConfig b) {
+void Grid2DSim::setInnerBounds(Matrix<float>& d, BoundConfig b) {
     for (auto& vec: insideBoundaries) {
         float sum = 0, amount = 0;
         forEachNeighbor(vec.x, vec.y, [this, &sum, &amount, &d](uint32_t i, uint32_t j){
@@ -400,15 +407,13 @@ void Grid2DSim::setInnerBounds(Matrix<float>& d, const Matrix<float>& d0, const 
                     break;
             }
         });
-        d(vec) = (d0(vec) + sum)/(1.0f+amount);
+        d(vec) = sum/amount;
         if (b == MIRROR_X) {
-            if (cellTypes(vec.x + 1, vec.y) == WALL && cellTypes(vec.x - 1, vec.y) == WALL) d(vec) = 0.0f;
-             if (cellTypes(vec.x + 1, vec.y) == WALL && velX(vec) > 0 || cellTypes(vec.x - 1, vec.y) == WALL && velX(vec) < 0)
+             if (cellTypes(vec.x + 1, vec.y) == WALL && d(vec) > 0 || cellTypes(vec.x - 1, vec.y) == WALL && d(vec) < 0)
                 d(vec) = -d(vec);
         }
         else if (b == MIRROR_Y) {
-            if (cellTypes(vec.x, vec.y + 1) == WALL && cellTypes(vec.x, vec.y - 1) == WALL) d(vec) = 0.0f;
-            if (cellTypes(vec.x, vec.y + 1) == WALL && velY(vec) > 0 || cellTypes(vec.x, vec.y - 1) == WALL && velY(vec) < 0)
+            if (cellTypes(vec.x, vec.y + 1) == WALL && d(vec) > 0 || cellTypes(vec.x, vec.y - 1) == WALL && d(vec) < 0)
                 d(vec) = -d(vec);
         }
     }
