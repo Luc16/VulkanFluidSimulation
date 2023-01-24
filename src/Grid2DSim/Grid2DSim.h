@@ -75,7 +75,7 @@ private:
     };
 
     enum CellType {
-        EMPTY, BOUNDARY, WALL
+        EMPTY, OUT_BOUNDARY, IN_BOUNDARY, WALL
     };
 
     const uint32_t SIZE = 10;
@@ -144,7 +144,7 @@ private:
     void updateGrid(float deltaTime);
     void createWalls();
     void resetGrid(bool hardReset = false);
-    void updateUniformBuffer(uint32_t frameIndex, float deltaTime);
+    void updateUniformBuffer(uint32_t frameIndex);
     void showImGui();
 
     // fluid simulation functions

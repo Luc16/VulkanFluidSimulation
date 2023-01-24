@@ -84,6 +84,18 @@ void Grid2DSim::initializeObjects() {
             accPos.x = 0.0f;
         }
     }
+    for (int i = 1; i<= numTilesMiddle; ++i) {
+        cellTypes(0, i) = OUT_BOUNDARY;
+        cellTypes(numTilesMiddle+1, i) = OUT_BOUNDARY;
+        cellTypes(i, 0) = OUT_BOUNDARY;
+        cellTypes(i, numTilesMiddle+1) = OUT_BOUNDARY;
+    }
+    cellTypes(0, 0) = OUT_BOUNDARY;
+    cellTypes(0, numTilesMiddle+1) = OUT_BOUNDARY;
+    cellTypes(numTilesMiddle+1, 0) = OUT_BOUNDARY;
+    cellTypes(numTilesMiddle+1, numTilesMiddle+1) = OUT_BOUNDARY;
+
+
     grid.updateBuffer();
 }
 
@@ -101,7 +113,7 @@ void Grid2DSim::mainLoop(float deltaTime) {
 
     camera.updateView();
     updateGrid(deltaTime);
-    updateUniformBuffer(renderer.currentFrame(), deltaTime);
+    updateUniformBuffer(renderer.currentFrame());
 
     if (activateTimer) {
         auto time = std::chrono::high_resolution_clock::now();
@@ -123,7 +135,10 @@ void Grid2DSim::mainLoop(float deltaTime) {
 
 void Grid2DSim::resetGrid(bool hardReset) {
     for (uint32_t i = 0; i < grid.size(); i++){
-        if (hardReset) cellTypes[i] = EMPTY;
+        if (hardReset) {
+            cellTypes[i] = EMPTY;
+            insideBoundaries.clear();
+        }
         curState.velX[i] = 0.0f;
         curState.velY[i] = 0.0f;
         curState.density[i] = 0.0f;
@@ -140,7 +155,7 @@ void Grid2DSim::onResize(int width, int height) {
     initializeObjects();
 }
 
-void Grid2DSim::updateUniformBuffer(uint32_t frameIndex, float deltaTime){
+void Grid2DSim::updateUniformBuffer(uint32_t frameIndex) {
     UniformBufferObject ubo{};
     auto extent = window.extent();
     camera.setOrthographicProjection(0.0f, (float) extent.width, (float) extent.height, 0.0f, 0.1f, 1000.f);
@@ -169,7 +184,9 @@ void Grid2DSim::showImGui(){
     ImGui::Checkbox("Activate Wall Drawing Mode", &wallMode);
     static bool prevSpace = false;
     bool space = glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_PRESS;
-    if (space && !prevSpace) wallMode = !wallMode;
+    if (space && !prevSpace) {
+        wallMode = !wallMode;
+    }
     prevSpace = space;
     if (prevMode != wallMode){
         resetGrid();
@@ -192,6 +209,39 @@ void Grid2DSim::updateGrid(float deltaTime) {
     if (wallMode) {
         createWalls();
     } else {
+        double x, y;
+        glfwGetCursorPos(window.window(), &x, &y);
+        y = window.height() - y;
+
+        uint32_t idx = (uint32_t) (x/SIZE) + window.width()*((uint32_t) (y/SIZE))/SIZE;
+        auto i = (uint32_t) (x/SIZE), j = (uint32_t) (y/SIZE);
+        if (idx > 0 && idx < grid.size() && glfwGetMouseButton(window.window(), GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+            if (x >= grid[idx].position.x &&
+                x <= grid[idx].position.x + grid[idx].scale &&
+                y >= grid[idx].position.y &&
+                y <= grid[idx].position.y + grid[idx].scale){
+                std::cout << cellTypes[idx] << " " << (std::find(insideBoundaries.begin(), insideBoundaries.end(), glm::ivec2(i, j)) != insideBoundaries.end()) << "\n";
+                std::cout << i << " " << j << " " << curState.density[i] << "\nSum: ";
+                float sum = 0, amount = 0;
+                forEachNeighbor(i, j, [this, &sum, &amount](uint32_t i, uint32_t j){
+                    switch (cellTypes(i, j)) {
+                        case WALL:
+                            break;
+                        case OUT_BOUNDARY:
+                        case IN_BOUNDARY:
+                            sum += curState.density(i, j);
+                            amount += 1.0f;
+                            break;
+                        case EMPTY:
+                            sum += 2*curState.density(i, j);
+                            amount += 2.0f;
+                            break;
+                    }
+                });
+                std::cout << sum << " amount: " << amount << "\n";
+            }
+        }
+
         updateVelocities(deltaTime);
         updateDensities(deltaTime);
     }
@@ -221,10 +271,11 @@ void Grid2DSim::createWalls() {
             y >= grid[idx].position.y &&
             y <= grid[idx].position.y + grid[idx].scale){
             if (i > 0 && i < numTilesX - 1 && j > 0 && j < numTilesY - 1) {
+                if (cellTypes(i, j) == IN_BOUNDARY) insideBoundaries.remove(glm::vec2(i, j));
                 cellTypes(i, j) = WALL;
                 forEachNeighbor(i, j, [this](uint32_t ni, uint32_t nj){
-                    if (cellTypes(ni, nj) != WALL){
-                        cellTypes(ni, nj) = BOUNDARY;
+                    if (cellTypes(ni, nj) == EMPTY){
+                        cellTypes(ni, nj) = IN_BOUNDARY;
                         insideBoundaries.emplace_front(ni, nj);
                     }
                 });
@@ -263,7 +314,6 @@ void Grid2DSim::updateVelocities(float deltaTime) {
     curState.velY(numTilesX/2, numTilesY/2 + 1) = vel.y;
     curState.velX(numTilesX/2 + 1, numTilesY/2 + 1) = vel.x;
     curState.velY(numTilesX/2 + 1, numTilesY/2 + 1) = vel.y;
-
 
     curState.velX.swap(prevState.velX);
     curState.velY.swap(prevState.velY);
@@ -379,7 +429,7 @@ void Grid2DSim::setBounds(Matrix<float>& x, BoundConfig b) const {
 
 void Grid2DSim::diffuseInnerBounds(Matrix<float> &x, const Matrix<float> &x0, float a) {
     for (auto& vec: insideBoundaries) {
-        float sum = 0, amount = 0;
+        float sum = 0.0f, amount = 0.0f;
         forEachNeighbor(vec.x, vec.y, [this, &sum, &amount, &x](uint32_t i, uint32_t j){
             if (cellTypes(i, j) == WALL) return;
             sum += x(i, j);
@@ -387,17 +437,17 @@ void Grid2DSim::diffuseInnerBounds(Matrix<float> &x, const Matrix<float> &x0, fl
         });
         x(vec) = (x0(vec) + a*(sum))/(1+amount*a);
     }
-
 }
 
 void Grid2DSim::setInnerBounds(Matrix<float>& d, BoundConfig b) {
     for (auto& vec: insideBoundaries) {
-        float sum = 0, amount = 0;
+        float sum = 0.0f, amount = 0.0f;
         forEachNeighbor(vec.x, vec.y, [this, &sum, &amount, &d](uint32_t i, uint32_t j){
             switch (cellTypes(i, j)) {
                 case WALL:
                     break;
-                case BOUNDARY:
+                case OUT_BOUNDARY:
+                case IN_BOUNDARY:
                     sum += d(i, j);
                     amount += 1.0f;
                     break;
@@ -407,14 +457,21 @@ void Grid2DSim::setInnerBounds(Matrix<float>& d, BoundConfig b) {
                     break;
             }
         });
+        if (vec.x == 10 && vec.y == 10) std::cout << sum << " " << amount << "\n";
+        if (amount <= 0.0f) {
+            d(vec) = 0.0f;
+            continue;
+        }
         d(vec) = sum/amount;
         if (b == MIRROR_X) {
-             if (cellTypes(vec.x + 1, vec.y) == WALL && d(vec) > 0 || cellTypes(vec.x - 1, vec.y) == WALL && d(vec) < 0)
+            if (cellTypes(vec.x + 1, vec.y) == WALL && d(vec) > 0 || cellTypes(vec.x - 1, vec.y) == WALL && d(vec) < 0) {
                 d(vec) = -d(vec);
+            }
         }
         else if (b == MIRROR_Y) {
-            if (cellTypes(vec.x, vec.y + 1) == WALL && d(vec) > 0 || cellTypes(vec.x, vec.y - 1) == WALL && d(vec) < 0)
+            if (cellTypes(vec.x, vec.y + 1) == WALL && d(vec) > 0 || cellTypes(vec.x, vec.y - 1) == WALL && d(vec) < 0) {
                 d(vec) = -d(vec);
+            }
         }
     }
 }
