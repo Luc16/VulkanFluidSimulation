@@ -6,8 +6,8 @@
 
 namespace vkb {
 
-    VulkanApp::VulkanApp(int width, int height, const std::string &appName, Device::PhysicalDeviceType type):
-    window(width, height, appName), device(window, type), renderer(window, device), m_appName(appName) {
+    VulkanApp::VulkanApp(int width, int height, const std::string &appName, Device::PhysicalDeviceType type, bool resizable):
+    window(width, height, appName, resizable), device(window, type), renderer(window, device), m_appName(appName) {
         globalDescriptorPool = vkb::DescriptorPool::Builder(device)
                 .addPoolSize({ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 })
                 .addPoolSize({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 })

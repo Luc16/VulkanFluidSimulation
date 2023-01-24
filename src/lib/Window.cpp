@@ -6,10 +6,11 @@
 #include "Window.h"
 
 namespace vkb {
-    Window::Window(int width, int height, const std::string& title): m_width(width), m_height(height) {
+    Window::Window(int width, int height, const std::string& title, bool resizable): m_width(width), m_height(height) {
         glfwInit();
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+        if (!resizable) glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
         m_window = glfwCreateWindow(m_width, m_height, title.c_str(), nullptr, nullptr);
         glfwSetWindowUserPointer(m_window, this);

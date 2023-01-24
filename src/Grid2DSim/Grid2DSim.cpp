@@ -150,11 +150,6 @@ void Grid2DSim::resetGrid(bool hardReset) {
     grid.updateBuffer();
 }
 
-void Grid2DSim::onResize(int width, int height) {
-    INSTANCE_COUNT = (width/SIZE)*(height/SIZE);
-    initializeObjects();
-}
-
 void Grid2DSim::updateUniformBuffer(uint32_t frameIndex) {
     UniformBufferObject ubo{};
     auto extent = window.extent();
@@ -209,39 +204,6 @@ void Grid2DSim::updateGrid(float deltaTime) {
     if (wallMode) {
         createWalls();
     } else {
-        double x, y;
-        glfwGetCursorPos(window.window(), &x, &y);
-        y = window.height() - y;
-
-        uint32_t idx = (uint32_t) (x/SIZE) + window.width()*((uint32_t) (y/SIZE))/SIZE;
-        auto i = (uint32_t) (x/SIZE), j = (uint32_t) (y/SIZE);
-        if (idx > 0 && idx < grid.size() && glfwGetMouseButton(window.window(), GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-            if (x >= grid[idx].position.x &&
-                x <= grid[idx].position.x + grid[idx].scale &&
-                y >= grid[idx].position.y &&
-                y <= grid[idx].position.y + grid[idx].scale){
-                std::cout << cellTypes[idx] << " " << (std::find(insideBoundaries.begin(), insideBoundaries.end(), glm::ivec2(i, j)) != insideBoundaries.end()) << "\n";
-                std::cout << i << " " << j << " " << curState.density[i] << "\nSum: ";
-                float sum = 0, amount = 0;
-                forEachNeighbor(i, j, [this, &sum, &amount](uint32_t i, uint32_t j){
-                    switch (cellTypes(i, j)) {
-                        case WALL:
-                            break;
-                        case OUT_BOUNDARY:
-                        case IN_BOUNDARY:
-                            sum += curState.density(i, j);
-                            amount += 1.0f;
-                            break;
-                        case EMPTY:
-                            sum += 2*curState.density(i, j);
-                            amount += 2.0f;
-                            break;
-                    }
-                });
-                std::cout << sum << " amount: " << amount << "\n";
-            }
-        }
-
         updateVelocities(deltaTime);
         updateDensities(deltaTime);
     }
@@ -457,7 +419,6 @@ void Grid2DSim::setInnerBounds(Matrix<float>& d, BoundConfig b) {
                     break;
             }
         });
-        if (vec.x == 10 && vec.y == 10) std::cout << sum << " " << amount << "\n";
         if (amount <= 0.0f) {
             d(vec) = 0.0f;
             continue;

@@ -27,7 +27,7 @@
 namespace vkb{
     class VulkanApp {
     public:
-        VulkanApp(int width, int height, const std::string &appName, Device::PhysicalDeviceType type = Device::INTEL);
+        VulkanApp(int width, int height, const std::string &appName, Device::PhysicalDeviceType type = Device::INTEL, bool resizable = true);
         VulkanApp(const VulkanApp &) = delete;
         VulkanApp &operator=(const VulkanApp &) = delete;
         ~VulkanApp() = default;

@@ -12,7 +12,7 @@
 namespace vkb {
     class Window {
     public:
-        Window(int width, int height, const std::string& title);
+        Window(int width, int height, const std::string& title, bool resizable = true);
         Window(const Window &) = delete;
         Window &operator=(const Window &) = delete;
         Window(Window &&) = delete;

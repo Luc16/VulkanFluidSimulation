@@ -67,7 +67,7 @@ public:
 class Grid2DSim: public vkb::VulkanApp {
 public:
     Grid2DSim(int width, int height, const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
-            VulkanApp(width, height, appName, type){}
+            VulkanApp(width, height, appName, type, false){}
 
 private:
     enum BoundConfig {
@@ -140,7 +140,6 @@ private:
     void initializeObjects();
     void createUniformBuffers();
     void mainLoop(float deltaTime) override;
-    void onResize(int width, int height) override;
     void updateGrid(float deltaTime);
     void createWalls();
     void resetGrid(bool hardReset = false);
