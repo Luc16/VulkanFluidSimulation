@@ -5,11 +5,6 @@
 #ifndef VULKANFLUIDSIMULATION_GRID2DSIM_H
 #define VULKANFLUIDSIMULATION_GRID2DSIM_H
 
-// TODO:
-/*
- * Arbitrary bounds
- *  */
-
 #include <sstream>
 #include <forward_list>
 #include "../../external/imgui/imgui.h"
@@ -28,17 +23,16 @@
 #include "../lib/InstancedObjects.h"
 #include "Grid2D.h"
 
-template<typename T>
+
+
+template<typename T, size_t size, uint32_t row>
 class Matrix{
 private:
-    std::vector<T> m_matrix;
-    uint32_t m_row{};
-public:
+    static constexpr size_t arraySize = size;
+    std::array<T, arraySize> m_matrix{};
 
-    void resize(size_t newSize, uint32_t row){
-        m_row = row;
-        m_matrix.resize(newSize);
-    }
+    uint32_t m_row = row;
+public:
 
     void swap(Matrix& other){
         m_matrix.swap(other.m_matrix);
@@ -67,7 +61,7 @@ public:
 class Grid2DSim: public vkb::VulkanApp {
 public:
     Grid2DSim(int width, int height, const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
-            VulkanApp(width, height, appName, type, false){}
+            VulkanApp(width, height, appName, type, false) {}
 
 private:
     enum BoundConfig {
@@ -78,8 +72,13 @@ private:
         EMPTY, OUT_BOUNDARY, IN_BOUNDARY, WALL
     };
 
-    const uint32_t SIZE = 10;
-    uint32_t INSTANCE_COUNT = 0;
+    constexpr static uint32_t WIDTH = 1000;
+    constexpr static uint32_t HEIGHT = 1000;
+    constexpr static uint32_t SIZE = 10;
+    constexpr static uint32_t numTilesX = WIDTH/SIZE;
+    constexpr static uint32_t numTilesMiddle = numTilesX - 2;
+    constexpr static uint32_t numTilesY = HEIGHT/SIZE;
+    constexpr static uint32_t INSTANCE_COUNT = numTilesX*numTilesY;
 
     const std::string planeModelPath = "../src/Grid2DSim/Models/quad.obj";
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
@@ -104,9 +103,7 @@ private:
     };
 
     struct FluidData {
-        Matrix<float> density, velX, velY;
-
-        void resize(size_t newSize, uint32_t row);
+        Matrix<float, INSTANCE_COUNT, numTilesX> density{}, velX{}, velY{};
     };
 
     // Vulkan variables
@@ -129,10 +126,8 @@ private:
     float viscosity = 0.005f, diffusionFactor = 0.001f, dissolveFactor = 0.015f, initialSpeed = 500.0f;
 
     FluidData curState, prevState;
-    Matrix<CellType> cellTypes;
+    Matrix<CellType, INSTANCE_COUNT, numTilesX> cellTypes;
     std::forward_list<glm::ivec2> insideBoundaries;
-
-    uint32_t numTilesX{}, numTilesY{}, numTilesMiddle{};
 
     static void forEachNeighbor(uint32_t i, uint32_t j, const std::function<void(uint32_t ni, uint32_t nj)>& func); // does not check if i, j pair is out of bounds
 
@@ -150,15 +145,15 @@ private:
     void updateVelocities(float deltaTime);
     void updateDensities(float deltaTime);
 
-    void diffuse(Matrix<float>& x, const Matrix<float>& x0, float diff, float dt);
-    void advect(Matrix<float>& d, const Matrix<float>& d0, const Matrix<float>& velX, const Matrix<float>& velY, float dt, BoundConfig b = REGULAR);
-    void project(Matrix<float> &velX, Matrix<float> &velY, Matrix<float> &div, Matrix<float> &p);
-    void setBounds(Matrix<float>& x, BoundConfig b = REGULAR) const;
+    void diffuse(Matrix<float, INSTANCE_COUNT, numTilesX>& x, const Matrix<float, INSTANCE_COUNT, numTilesX>& x0, float diff, float dt);
+    void advect(Matrix<float, INSTANCE_COUNT, numTilesX>& d, const Matrix<float, INSTANCE_COUNT, numTilesX>& d0, const Matrix<float, INSTANCE_COUNT, numTilesX>& velX, const Matrix<float, INSTANCE_COUNT, numTilesX>& velY, float dt, BoundConfig b = REGULAR);
+    void project(Matrix<float, INSTANCE_COUNT, numTilesX> &velX, Matrix<float, INSTANCE_COUNT, numTilesX> &velY, Matrix<float, INSTANCE_COUNT, numTilesX> &div, Matrix<float, INSTANCE_COUNT, numTilesX> &p);
+    static void setBounds(Matrix<float, INSTANCE_COUNT, numTilesX>& x, BoundConfig b = REGULAR) ;
 
     // custom boundaries functions
 
-    void diffuseInnerBounds(Matrix<float>& x, const Matrix<float>& x0, float a);
-    void setInnerBounds(Matrix<float> &d, BoundConfig b = REGULAR);
+    void diffuseInnerBounds(Matrix<float, INSTANCE_COUNT, numTilesX>& x, const Matrix<float, INSTANCE_COUNT, numTilesX>& x0, float a);
+    void setInnerBounds(Matrix<float, INSTANCE_COUNT, numTilesX> &d, BoundConfig b = REGULAR);
 };
 
 

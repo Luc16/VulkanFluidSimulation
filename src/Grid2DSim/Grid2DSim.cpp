@@ -5,12 +5,6 @@
 #include "Grid2DSim.h"
 #include <execution>
 
-void Grid2DSim::FluidData::resize(size_t newSize, uint32_t row) {
-    density.resize(newSize, row);
-    velX.resize(newSize, row);
-    velY.resize(newSize, row);
-}
-
 void Grid2DSim::forEachNeighbor(uint32_t i, uint32_t j, const std::function<void(uint32_t ni, uint32_t nj)>& func) { // does not check if i, j pair is out of bounds
     func(i - 1, j);
     func(i + 1, j);
@@ -49,16 +43,8 @@ void Grid2DSim::initializeObjects() {
 
     vkDeviceWaitIdle(device.device());
 
-    numTilesX = window.width()/SIZE;
-    numTilesMiddle = numTilesX - 2;
-    numTilesY = window.height()/SIZE;
-    INSTANCE_COUNT = numTilesX*numTilesY;
-
     grid.resizeBuffer(INSTANCE_COUNT);
     iter.resize(INSTANCE_COUNT);
-    curState.resize(INSTANCE_COUNT, numTilesX);
-    prevState.resize(INSTANCE_COUNT, numTilesX);
-    cellTypes.resize(INSTANCE_COUNT, numTilesX);
 
     auto size = (float) SIZE;
     auto accPos = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -292,7 +278,7 @@ void Grid2DSim::updateVelocities(float deltaTime) {
     project(curState.velX, curState.velY, prevState.velX, prevState.velY);
 }
 
-void Grid2DSim::diffuse(Matrix<float>& x, const Matrix<float>& x0, float diff, float dt){
+void Grid2DSim::diffuse(Matrix<float, INSTANCE_COUNT, numTilesX>& x, const Matrix<float, INSTANCE_COUNT, numTilesX>& x0, float diff, float dt){
     int i, j, k;
     float a = dt*diff* (float) (numTilesMiddle*numTilesMiddle);
     for (k = 0; k < 20; ++k) {
@@ -306,7 +292,7 @@ void Grid2DSim::diffuse(Matrix<float>& x, const Matrix<float>& x0, float diff, f
     }
 }
 
-void Grid2DSim::advect(Matrix<float>& d, const Matrix<float>& d0, const Matrix<float>& velX, const Matrix<float>& velY, float dt, BoundConfig b){
+void Grid2DSim::advect(Matrix<float, INSTANCE_COUNT, numTilesX>& d, const Matrix<float, INSTANCE_COUNT, numTilesX>& d0, const Matrix<float, INSTANCE_COUNT, numTilesX>& velX, const Matrix<float, INSTANCE_COUNT, numTilesX>& velY, float dt, BoundConfig b){
     int i, j, i0, j0, i1, j1;
     float x, y, s0, t0, s1, t1, dt0, fN = (float) numTilesMiddle;
     dt0 = dt*fN;
@@ -336,7 +322,7 @@ void Grid2DSim::advect(Matrix<float>& d, const Matrix<float>& d0, const Matrix<f
     setBounds(d, b);
 }
 
-void Grid2DSim::project(Matrix<float> &velX, Matrix<float> &velY, Matrix<float> &div, Matrix<float> &p) {
+void Grid2DSim::project(Matrix<float, INSTANCE_COUNT, numTilesX> &velX, Matrix<float, INSTANCE_COUNT, numTilesX> &velY, Matrix<float, INSTANCE_COUNT, numTilesX> &div, Matrix<float, INSTANCE_COUNT, numTilesX> &p) {
     float h = 1/(float) numTilesMiddle;
 
     for (int j = 1; j <= numTilesMiddle; ++j) {
@@ -374,7 +360,7 @@ void Grid2DSim::project(Matrix<float> &velX, Matrix<float> &velY, Matrix<float> 
 
 }
 
-void Grid2DSim::setBounds(Matrix<float>& x, BoundConfig b) const {
+void Grid2DSim::setBounds(Matrix<float, INSTANCE_COUNT, numTilesX>& x, BoundConfig b) {
     for (int i = 1; i<= numTilesMiddle; ++i) {
         x(0, i) = (b == MIRROR_X) ? -x(1, i) : x(1, i);
         x(numTilesMiddle+1, i) = (b == MIRROR_X) ? -x(numTilesMiddle, i) : x(numTilesMiddle, i);
@@ -389,7 +375,7 @@ void Grid2DSim::setBounds(Matrix<float>& x, BoundConfig b) const {
 
 }
 
-void Grid2DSim::diffuseInnerBounds(Matrix<float> &x, const Matrix<float> &x0, float a) {
+void Grid2DSim::diffuseInnerBounds(Matrix<float, INSTANCE_COUNT, numTilesX> &x, const Matrix<float, INSTANCE_COUNT, numTilesX> &x0, float a) {
     for (auto& vec: insideBoundaries) {
         float sum = 0.0f, amount = 0.0f;
         forEachNeighbor(vec.x, vec.y, [this, &sum, &amount, &x](uint32_t i, uint32_t j){
@@ -401,7 +387,7 @@ void Grid2DSim::diffuseInnerBounds(Matrix<float> &x, const Matrix<float> &x0, fl
     }
 }
 
-void Grid2DSim::setInnerBounds(Matrix<float>& d, BoundConfig b) {
+void Grid2DSim::setInnerBounds(Matrix<float, INSTANCE_COUNT, numTilesX>& d, BoundConfig b) {
     for (auto& vec: insideBoundaries) {
         float sum = 0.0f, amount = 0.0f;
         forEachNeighbor(vec.x, vec.y, [this, &sum, &amount, &d](uint32_t i, uint32_t j){
