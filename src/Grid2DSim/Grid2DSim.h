@@ -27,11 +27,6 @@
 
 template<typename T, size_t size, uint32_t row>
 class Matrix{
-private:
-    static constexpr size_t arraySize = size;
-    std::array<T, arraySize> m_matrix{};
-
-    uint32_t m_row = row;
 public:
 
     void swap(Matrix& other){
@@ -39,16 +34,16 @@ public:
     }
 
     constexpr T& operator() (uint32_t i, uint32_t j) {
-        return m_matrix[i + m_row*j];
+        return m_matrix[i + row*j];
     }
     constexpr const T& operator()(uint32_t i, uint32_t j) const{
-        return m_matrix[i + m_row*j];
+        return m_matrix[i + row*j];
     }
     constexpr T& operator() (glm::ivec2& vec) {
-        return m_matrix[vec.x + m_row*vec.y];
+        return m_matrix[vec.x + row*vec.y];
     }
     constexpr const T& operator()(glm::ivec2& vec) const{
-        return m_matrix[vec.x + m_row*vec.y];
+        return m_matrix[vec.x + row*vec.y];
     }
     constexpr T& operator[] (uint32_t i) {
         return m_matrix[i];
@@ -56,6 +51,9 @@ public:
     constexpr const T& operator[](uint32_t i) const{
         return m_matrix[i];
     }
+
+private:
+    std::array<T, size> m_matrix{};
 };
 
 class Grid2DSim: public vkb::VulkanApp {
@@ -80,7 +78,7 @@ private:
     constexpr static uint32_t numTilesY = HEIGHT/SIZE;
     constexpr static uint32_t INSTANCE_COUNT = numTilesX*numTilesY;
 
-    const std::string planeModelPath = "../src/Grid2DSim/Models/quad.obj";
+    const std::string planeModelPath = "../Models/quadXY.obj";
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
             "../src/Grid2DSim/Shaders/default.vert.spv",
             "../src/Grid2DSim/Shaders/default.frag.spv"

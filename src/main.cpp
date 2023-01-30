@@ -5,13 +5,14 @@
 
 #include "Instancing/InstancingApp.h"
 #include "Grid2DSim/Grid2DSim.h"
+#include "Grid3DSim/Grid3DSim.h"
 
 const uint32_t WIDTH = 1000;
 const uint32_t HEIGHT = 1000;
 const std::string APP_NAME = "Vulkan";
 
 int main() {
-    Grid2DSim app{WIDTH, HEIGHT, APP_NAME, vkb::Device::NVIDIA};
+    Grid3DSim app{WIDTH, HEIGHT, APP_NAME, vkb::Device::NVIDIA};
 
 
     try {

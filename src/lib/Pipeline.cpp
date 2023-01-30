@@ -133,7 +133,7 @@ namespace vkb {
         configInfo.rasterizer.rasterizerDiscardEnable = VK_FALSE;
         configInfo.rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
         configInfo.rasterizer.lineWidth = 1.0f;
-        configInfo.rasterizer.cullMode = VK_CULL_MODE_NONE;
+        configInfo.rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
         configInfo.rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
         configInfo.rasterizer.depthBiasEnable = VK_FALSE;
         configInfo.rasterizer.depthBiasConstantFactor = 0.0f; // Optional
