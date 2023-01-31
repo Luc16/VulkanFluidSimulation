@@ -3,6 +3,7 @@
 //
 
 #include "Grid3DSim.h"
+#include <cmath>
 #include <execution>
 
 void Grid3DSim::onCreate() {
@@ -26,6 +27,9 @@ void Grid3DSim::onCreate() {
             info.attributeDescription.push_back({4, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(InstanceData, position)});
             info.attributeDescription.push_back({5, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(InstanceData, color)});
             info.attributeDescription.push_back({6, 1, VK_FORMAT_R32_SFLOAT, offsetof(InstanceData, scale)});
+            info.attributeDescription.push_back({7, 1, VK_FORMAT_R32_SFLOAT, offsetof(InstanceData, alpha)});
+
+            info.rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
 
             info.enableAlphaBlending();
         });
@@ -47,17 +51,42 @@ void Grid3DSim::createInstances() {
 
     plane.setScale(100);
 
-    auto accPos = glm::vec3(0.0f, 0.0f, -10.0f);
+    auto accPos = glm::vec3(0.0f, 1.0f, -10.0f);
+    auto cubesPerLine = std::cbrt((float) INSTANCE_COUNT);
+
+    float scale = 0.1f;
+    float cubeSide = 2.0f*scale;
 
     for (uint32_t i = 0; i < instancedCubes.size(); i++) {
         auto& cube = instancedCubes[i];
-        cube.color = glm::vec3(1, 0, 0);
-        cube.scale = 1.0f;
-        cube.position = accPos + glm::vec3(0.0f, randomDouble(1.0f, 3.0f), 0.0f);
-        accPos.x += 1.5f;
+//        cube.color = glm::vec3(
+//                0.2f + randomDouble(0.0f, 0.8f),
+//                0.2f + randomDouble(0.0f, 0.8f),
+//                0.2f + randomDouble(0.0f, 0.8f)
+//        );
+        if (i == 21 || i == 22 || i == 25 || i == 26 || i == 37 || i == 38 || i == 41 || i == 42) {
+            cube.color = {0.9f, 0.9f, 0.9f};
+            cube.alpha = 0.6f;
+        }
+        else {
+            cube.color = {0, 0, 0};
+            cube.alpha = 0.0f;
+        }
+        cube.scale = scale;
+        cube.position = accPos;
+        accPos.x += cubeSide;
 
         iter[i] = i;
+        if (accPos.x >= cubesPerLine*cubeSide) {
+            accPos.y += cubeSide;
+            if (accPos.y >= cubesPerLine*cubeSide) {
+                accPos.z -= cubeSide;
+                accPos.y = 1.0f;
+            }
+            accPos.x = 0.0f;
+        }
     }
+
     instancedCubes.updateBuffer();
 }
 
@@ -75,6 +104,13 @@ void Grid3DSim::mainLoop(float deltaTime) {
 
     cameraController.moveCamera(window.window(), deltaTime, camera);
     updateUniformBuffer(renderer.currentFrame(), deltaTime);
+
+    std::sort(instancedCubes.begin(), instancedCubes.end(), [this](const InstanceData& d1, const InstanceData& d2) {
+        auto diff1 = d1.position - camera.m_translation;
+        auto diff2 = d2.position - camera.m_translation;
+
+        return glm::dot(diff1, diff1) > glm::dot(diff2, diff2);
+    });
     instancedCubes.updateBuffer();
 
     if (activateTimer) {

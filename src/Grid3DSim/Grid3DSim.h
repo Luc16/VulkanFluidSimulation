@@ -61,7 +61,7 @@ public:
             VulkanApp(width, height, appName, type) {}
 
 private:
-    uint32_t INSTANCE_COUNT = 1;
+    uint32_t INSTANCE_COUNT = 8000;
 
     const std::string planeModelPath = "../Models/quadXZ.obj";
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
@@ -81,9 +81,10 @@ private:
     };
 
     struct InstanceData {
-        glm::vec3 position;
-        glm::vec3 color;
-        float scale;
+        glm::vec3 position{};
+        glm::vec3 color{};
+        float scale{};
+        float alpha{};
     };
 
     vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, planeModelPath)};
