@@ -25,6 +25,7 @@ namespace vkb {
         using std::vector<InstanceData>::resize;
         using std::vector<InstanceData>::begin;
         using std::vector<InstanceData>::end;
+        using std::vector<InstanceData>::swap;
 
     private:
         void createInstanceBuffer();

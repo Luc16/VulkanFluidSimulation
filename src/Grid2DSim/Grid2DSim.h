@@ -116,7 +116,6 @@ private:
     vkb::InstancedObjects<InstanceData> grid{device, INSTANCE_COUNT, vkb::Model::createModelFromFile(device, planeModelPath)};
 
     // Simulation and control variables
-
     std::vector<uint32_t> iter;
     float gpuTime = 0, cpuTime = 0;
     bool activateTimer = false, wallMode = false;

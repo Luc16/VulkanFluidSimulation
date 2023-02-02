@@ -24,35 +24,48 @@
 
 
 
-template<typename T, uint32_t row, uint32_t col, uint32_t depth>
+template<typename T>
 class Matrix3D{
 public:
+    Matrix3D(uint32_t row, uint32_t col, uint32_t depth): m_row(row), m_col(col), m_depth(depth), m_rowCol(row*col), m_data(row*col*depth) {}
+    Matrix3D() = default;
+    Matrix3D(const Matrix3D<T> &) = delete;
+    Matrix3D &operator=(const Matrix3D<T> &) = delete;
+
+    void resize(uint32_t row, uint32_t col, uint32_t depth) {
+        m_row = row;
+        m_col = col;
+        m_depth = depth;
+        m_rowCol = row*col;
+        m_data.resize(row*col*depth);
+    }
 
     void swap(Matrix3D& other){
-        m_matrix.swap(other.m_matrix);
+        m_data.swap(other.m_data);
     }
 
     constexpr T& operator() (uint32_t i, uint32_t j, uint32_t k) {
-        return m_matrix[i + row*j + row*col*k];
+        return m_data[i + m_row*j + m_rowCol*k];
     }
     constexpr const T& operator()(uint32_t i, uint32_t j, uint32_t k) const{
-        return m_matrix[i + row*j + row*col*k];
+        return m_data[i + m_row*j + m_rowCol*k];
     }
     constexpr T& operator() (glm::ivec3& vec) {
-        return m_matrix[vec.x + row*vec.y + row*col*vec.z];
+        return m_data[vec.x + m_row*vec.y + m_rowCol*vec.z];
     }
     constexpr const T& operator()(glm::ivec3& vec) const{
-        return m_matrix[vec.x + row*vec.y + row*col*vec.z];
+        return m_data[vec.x + m_row*vec.y + m_rowCol*vec.z];
     }
     constexpr T& operator[] (uint32_t i) {
-        return m_matrix[i];
+        return m_data[i];
     }
     constexpr const T& operator[](uint32_t i) const{
-        return m_matrix[i];
+        return m_data[i];
     }
 
 private:
-    std::array<T, row*col*depth> m_matrix{};
+    std::vector<T> m_data{};
+    uint32_t m_row{}, m_col{}, m_depth{}, m_rowCol{};
 };
 
 class Grid3DSim: public vkb::VulkanApp {
@@ -61,7 +74,13 @@ public:
             VulkanApp(width, height, appName, type) {}
 
 private:
-    uint32_t INSTANCE_COUNT = 8000;
+    enum BoundConfig {
+        REGULAR, MIRROR_X, MIRROR_Y, MIRROR_Z
+    };
+
+    static constexpr uint32_t CUBE_SIDE = 20;
+    uint32_t INSTANCE_COUNT = CUBE_SIDE*CUBE_SIDE*CUBE_SIDE;
+    uint32_t CUBE_N = CUBE_SIDE - 2;
 
     const std::string planeModelPath = "../Models/quadXZ.obj";
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
@@ -82,9 +101,12 @@ private:
 
     struct InstanceData {
         glm::vec3 position{};
-        glm::vec3 color{};
+        glm::vec4 color{};
         float scale{};
-        float alpha{};
+    };
+
+    struct FluidData {
+        Matrix3D<float> density{}, velX{}, velY{}, velZ{};
     };
 
     vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, planeModelPath)};
@@ -100,17 +122,34 @@ private:
 
     vkb::InstancedObjects<InstanceData> instancedCubes{device, INSTANCE_COUNT, vkb::Model::createModelFromFile(device, cubeModelPath)};
 
-    std::vector<uint32_t> iter;
     float gpuTime = 0, cpuTime = 0;
     bool activateTimer = false;
+
+    float viscosity = 0.005f, diffusionFactor = 0.001f, dissolveFactor = 0.015f, initialSpeed = 50.0f;
+
+    FluidData curState, prevState;
+    std::vector<InstanceData> sortedData;
+    std::vector<std::pair<uint32_t, uint32_t>> indices;
 
     void onCreate() override;
     void initializeObjects();
     void createInstances();
     void createUniformBuffers();
     void mainLoop(float deltaTime) override;
-    void updateUniformBuffer(uint32_t frameIndex, float deltaTime);
+    void updateGrid(float deltaTime);
+    void updateUniformBuffer(uint32_t frameIndex);
     void showImGui();
 
+
+    // fluid simulation functions
+    void updateVelocities(float deltaTime);
+    void updateDensities(float deltaTime);
+
+    void diffuse(Matrix3D<float>& x, const Matrix3D<float>& x0, float diff, float dt);
+    void advect(Matrix3D<float>& d, const Matrix3D<float>& d0, const Matrix3D<float>& velX, const Matrix3D<float>& velY, const Matrix3D<float>& velZ, float dt, BoundConfig b = REGULAR);
+    void project(Matrix3D<float> &velX, Matrix3D<float> &velY, Matrix3D<float> &velZ, Matrix3D<float> &div, Matrix3D<float> &p);
+    void setBounds(Matrix3D<float>& x, BoundConfig b = REGULAR) const;
+
+    static std::tuple<uint32_t, uint32_t, float, float> linearBackTrace(float pos, float fN);
 };
 #endif //VULKANFLUIDSIMULATION_GRID3DSIM_H
