@@ -38,12 +38,17 @@ void Grid3DSim::onCreate() {
 void Grid3DSim::initializeObjects() {
     camera.setViewTarget({0.0f, 10.0f, 10.0f}, {12.0f, -1.0f, -12.0f }, {0.0f, 1.0f, 0.0f});
     camera.m_rotation = {0, glm::radians(180.0f), glm::radians(180.0f)};
+    plane.setScale(100);
+    plane.translate({0.0f, -1.0f, 0.0f});
 
     createInstances();
 }
 
 void Grid3DSim::createInstances() {
     vkDeviceWaitIdle(device.device());
+
+    INSTANCE_COUNT = CUBE_SIDE*CUBE_SIDE*CUBE_SIDE;
+    CUBE_N = CUBE_SIDE - 2;
 
     instancedCubes.resizeBuffer(INSTANCE_COUNT);
     indices.resize(INSTANCE_COUNT);
@@ -57,12 +62,9 @@ void Grid3DSim::createInstances() {
     prevState.velZ.resize(CUBE_SIDE, CUBE_SIDE, CUBE_SIDE);
     prevState.density.resize(CUBE_SIDE, CUBE_SIDE, CUBE_SIDE);
 
-    plane.setScale(100);
-    plane.translate({0.0f, -1.0f, 0.0f});
-
     auto accPos = glm::vec3(0.0f, 0.0f, -10.0f);
 
-    float scale = 0.4f;
+    float scale = 1.0f;
     float cubeSide = 2.0f*scale;
 
     for (uint32_t i = 0; i < INSTANCE_COUNT; i++) {
@@ -155,15 +157,20 @@ void Grid3DSim::showImGui(){
         ImGui::Text("Cpu time: %f ms", cpuTime);
     }
 
+    auto prevCbSide = CUBE_SIDE;
+    ImGui::DragInt("Cube Side", (int *) &CUBE_SIDE, 1, 2, 50);
+    if (CUBE_SIDE != prevCbSide) createInstances();
+
+    ImGui::NewLine();
     ImGui::DragFloat("Diffusion Factor", &diffusionFactor, 0.0001f, 0.0f, 5.0f, "%.4f");
     ImGui::DragFloat("Viscosity", &viscosity, 0.0001f, 0.0f, 5.0f, "%.4f");
     ImGui::DragFloat("Dissolve Factor", &dissolveFactor, 0.001f, 0.0f, 2.0f, "%.3f");
     ImGui::DragFloat("Speed", &initialSpeed, 1.0f, 000.0f, 1000.0f, "%.1f");
+    if (ImGui::Button("Reset")) createInstances();
 
     if (ImGui::CollapsingHeader("Plane", ImGuiTreeNodeFlags_DefaultOpen)) {
 
         ImGui::SliderFloat("y", &plane.m_translation.y, -100.0f, 10.0f);
-        if (ImGui::Button("Reset")) createInstances();
 
     }
 
@@ -357,6 +364,26 @@ void Grid3DSim::setBounds(Matrix3D<float>& x, BoundConfig b) const{
             x(i, j, CUBE_N+1) = (b == MIRROR_Z) ? -x(i, j, CUBE_N) : x(i, j, CUBE_N);
         }
     }
+
+    for (int i = 1; i <= CUBE_N; ++i) {
+        x(i, 0, 0) = 0.5f * (x(i, 1, 0) + x(i, 0, 1));
+        x(0, i, 0) = 0.5f * (x(1, i, 0) + x(0, i, 1));
+        x(0, 0, i) = 0.5f * (x(1, 0, i) + x(0, 1, i));
+
+
+        x(i, CUBE_N+1, 0) = 0.5f * (x(i, CUBE_N, 0) + x(i, CUBE_N+1, 1));
+        x(CUBE_N+1, i, 0) = 0.5f * (x(CUBE_N, i, 0) + x(CUBE_N+1, i, 1));
+        x(CUBE_N+1, 0, i) = 0.5f * (x(CUBE_N, 0, i) + x(CUBE_N+1, 1, i));
+
+        x(i, 0, CUBE_N+1) = 0.5f * (x(i, 1, CUBE_N+1) + x(i, 0, CUBE_N));
+        x(0, i, CUBE_N+1) = 0.5f * (x(1, i, CUBE_N+1) + x(0, i, CUBE_N));
+        x(0, CUBE_N+1, i) = 0.5f * (x(1, CUBE_N+1, i) + x(0, CUBE_N, i));
+
+        x(i, CUBE_N+1, CUBE_N+1) = 0.5f * (x(i, CUBE_N, CUBE_N+1) + x(i, CUBE_N+1, CUBE_N));
+        x(CUBE_N+1, i, CUBE_N+1) = 0.5f * (x(CUBE_N, i, CUBE_N+1) + x(CUBE_N+1, i, CUBE_N));
+        x(CUBE_N+1, CUBE_N+1, i) = 0.5f * (x(CUBE_N, CUBE_N+1, i) + x(CUBE_N+1, CUBE_N, i));
+    }
+
     x(0, 0, 0) = 0.333f*(x(1, 0, 0) +
                                  x(0, 1, 0) +
                                  x(0, 0, 1));

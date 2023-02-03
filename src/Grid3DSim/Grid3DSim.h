@@ -78,7 +78,7 @@ private:
         REGULAR, MIRROR_X, MIRROR_Y, MIRROR_Z
     };
 
-    static constexpr uint32_t CUBE_SIDE = 20;
+    uint32_t CUBE_SIDE = 30;
     uint32_t INSTANCE_COUNT = CUBE_SIDE*CUBE_SIDE*CUBE_SIDE;
     uint32_t CUBE_N = CUBE_SIDE - 2;
 
