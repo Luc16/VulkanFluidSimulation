@@ -36,7 +36,7 @@ void Grid3DSim::onCreate() {
 }
 
 void Grid3DSim::initializeObjects() {
-    camera.setViewTarget({0.0f, 10.0f, 10.0f}, {12.0f, -1.0f, -12.0f }, {0.0f, 1.0f, 0.0f});
+    camera.setViewTarget({10.0f, 10.0f, 10.0f}, {12.0f, -1.0f, -12.0f }, {0.0f, 1.0f, 0.0f});
     camera.m_rotation = {0, glm::radians(180.0f), glm::radians(180.0f)};
     plane.setScale(100);
     plane.translate({0.0f, -1.0f, 0.0f});
@@ -166,6 +166,7 @@ void Grid3DSim::showImGui(){
     ImGui::DragFloat("Viscosity", &viscosity, 0.0001f, 0.0f, 5.0f, "%.4f");
     ImGui::DragFloat("Dissolve Factor", &dissolveFactor, 0.001f, 0.0f, 2.0f, "%.3f");
     ImGui::DragFloat("Speed", &initialSpeed, 1.0f, 000.0f, 1000.0f, "%.1f");
+    ImGui::DragFloat("Gravity", &gravity, 0.01f, 000.0f, 4.0f, "%.3f");
     if (ImGui::Button("Reset")) createInstances();
 
     if (ImGui::CollapsingHeader("Plane", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -210,10 +211,6 @@ void Grid3DSim::updateGrid(float deltaTime){
 void Grid3DSim::updateDensities(float deltaTime) {
 
     curState.density(CUBE_SIDE/2, 1, CUBE_SIDE/2) += randomFloat(0.3f, 0.6f);
-    curState.density(CUBE_SIDE/2 + 1, 1, CUBE_SIDE/2) += randomFloat(0.3f, 0.6f);
-    curState.density(CUBE_SIDE/2 - 1, 1, CUBE_SIDE/2) += randomFloat(0.3f, 0.6f);
-    curState.density(CUBE_SIDE/2, 1, CUBE_SIDE/2 - 1) += randomFloat(0.3f, 0.6f);
-    curState.density(CUBE_SIDE/2, 1, CUBE_SIDE/2 + 1) += randomFloat(0.3f, 0.6f);
 
     curState.density.swap(prevState.density);
     diffuse(curState.density, prevState.density, diffusionFactor, deltaTime);
@@ -224,10 +221,10 @@ void Grid3DSim::updateDensities(float deltaTime) {
 void Grid3DSim::updateVelocities(float deltaTime) {
 
     curState.velY(CUBE_SIDE/2, 1, CUBE_SIDE/2) = deltaTime*initialSpeed;
-    curState.velY(CUBE_SIDE/2 + 1, 1, CUBE_SIDE/2) = deltaTime*initialSpeed;
-    curState.velY(CUBE_SIDE/2 - 1, 1, CUBE_SIDE/2) = deltaTime*initialSpeed;
-    curState.velY(CUBE_SIDE/2, 1, CUBE_SIDE/2 - 1) = deltaTime*initialSpeed;
-    curState.velY(CUBE_SIDE/2, 1, CUBE_SIDE/2 + 1) = deltaTime*initialSpeed;
+
+    for (uint32_t i = 0; i < INSTANCE_COUNT; i++) {
+        curState.velY[i] -= gravity*deltaTime;
+    }
 
     curState.velX.swap(prevState.velX);
     curState.velY.swap(prevState.velY);

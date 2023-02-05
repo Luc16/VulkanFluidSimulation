@@ -78,7 +78,7 @@ private:
         REGULAR, MIRROR_X, MIRROR_Y, MIRROR_Z
     };
 
-    uint32_t CUBE_SIDE = 30;
+    uint32_t CUBE_SIDE = 25;
     uint32_t INSTANCE_COUNT = CUBE_SIDE*CUBE_SIDE*CUBE_SIDE;
     uint32_t CUBE_N = CUBE_SIDE - 2;
 
@@ -125,7 +125,7 @@ private:
     float gpuTime = 0, cpuTime = 0;
     bool activateTimer = false;
 
-    float viscosity = 0.005f, diffusionFactor = 0.001f, dissolveFactor = 0.015f, initialSpeed = 50.0f;
+    float viscosity = 0.005f, diffusionFactor = 0.001f, dissolveFactor = 0.006f, initialSpeed = 200.0f, gravity = 0.5f;
 
     FluidData curState, prevState;
     std::vector<InstanceData> sortedData;
