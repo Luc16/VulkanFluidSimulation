@@ -11,6 +11,7 @@
 #include "Window.h"
 #include <GLFW/glfw3.h>
 
+// TODO: create dedicated queue family for transfer operations
 namespace vkb{
     class Device {
     public:
