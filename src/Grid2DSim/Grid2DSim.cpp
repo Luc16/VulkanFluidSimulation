@@ -146,7 +146,6 @@ void Grid2DSim::updateUniformBuffer(uint32_t frameIndex) {
 }
 
 void Grid2DSim::showImGui(){
-
     ImGui::Begin("Control Panel");
 
     ImGui::Text("Rendering %d instances", INSTANCE_COUNT);
@@ -163,6 +162,7 @@ void Grid2DSim::showImGui(){
     if (ImGui::Button("RESET ALL")) resetGrid(true);
     auto prevMode = wallMode;
     ImGui::Checkbox("Activate Wall Drawing Mode", &wallMode);
+    ImGui::Checkbox("Activate Middle Flow", &middleFlow);
     static bool prevSpace = false;
     bool space = glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_PRESS;
     if (space && !prevSpace) {
@@ -190,6 +190,7 @@ void Grid2DSim::updateGrid(float deltaTime) {
     if (wallMode) {
         createWalls();
     } else {
+        addExternalForces(deltaTime);
         updateVelocities(deltaTime);
         updateDensities(deltaTime);
     }
@@ -214,30 +215,65 @@ void Grid2DSim::createWalls() {
     uint32_t idx = (uint32_t) (x/SIZE) + window.width()*((uint32_t) (y/SIZE))/SIZE;
     auto i = (uint32_t) (x/SIZE), j = (uint32_t) (y/SIZE);
     if (idx > 0 && idx < grid.size() && glfwGetMouseButton(window.window(), GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-        if (x >= grid[idx].position.x &&
-            x <= grid[idx].position.x + grid[idx].scale &&
-            y >= grid[idx].position.y &&
-            y <= grid[idx].position.y + grid[idx].scale){
-            if (i > 0 && i < numTilesX - 1 && j > 0 && j < numTilesY - 1) {
-                if (cellTypes(i, j) == IN_BOUNDARY) insideBoundaries.remove(glm::vec2(i, j));
-                cellTypes(i, j) = WALL;
-                forEachNeighbor(i, j, [this](uint32_t ni, uint32_t nj){
-                    if (cellTypes(ni, nj) == EMPTY){
-                        cellTypes(ni, nj) = IN_BOUNDARY;
-                        insideBoundaries.emplace_front(ni, nj);
-                    }
-                });
-            }
+        if (i > 0 && i < numTilesX - 1 && j > 0 && j < numTilesY - 1) {
+            if (cellTypes(i, j) == IN_BOUNDARY) insideBoundaries.remove(glm::vec2(i, j));
+            cellTypes(i, j) = WALL;
+            forEachNeighbor(i, j, [this](uint32_t ni, uint32_t nj){
+                if (cellTypes(ni, nj) == EMPTY){
+                    cellTypes(ni, nj) = IN_BOUNDARY;
+                    insideBoundaries.emplace_front(ni, nj);
+                }
+            });
         }
+
     }
 }
 
-void Grid2DSim::updateDensities(float deltaTime) {
-    curState.density(numTilesX/2, numTilesY/2) += randomFloat(0.3f, 0.6f);
-    curState.density(numTilesX/2 + 1, numTilesY/2) += randomFloat(0.3f, 0.6f);
-    curState.density(numTilesX/2, numTilesY/2 + 1) += randomFloat(0.3f, 0.6f);
-    curState.density(numTilesX/2 + 1, numTilesY/2 + 1) += randomFloat(0.3f, 0.6f);
+void Grid2DSim::addExternalForces(float deltaTime) {
+    static glm::vec<2, double> prevPos{};
+    double x, y;
+    glfwGetCursorPos(window.window(), &x, &y);
+    y = window.height() - y;
 
+    if (middleFlow) {
+        float centerX = (float) window.width() / 2;
+        float centerY = (float) window.height() / 2;
+
+        auto vel = initialSpeed*deltaTime*glm::normalize(glm::vec2((float) x - centerX, (float) y - centerY));
+
+        curState.velX(numTilesX/2, numTilesY/2) = vel.x;
+        curState.velY(numTilesX/2, numTilesY/2) = vel.y;
+        curState.velX(numTilesX/2 + 1, numTilesY/2) = vel.x;
+        curState.velY(numTilesX/2 + 1, numTilesY/2) = vel.y;
+        curState.velX(numTilesX/2, numTilesY/2 + 1) = vel.x;
+        curState.velY(numTilesX/2, numTilesY/2 + 1) = vel.y;
+        curState.velX(numTilesX/2 + 1, numTilesY/2 + 1) = vel.x;
+        curState.velY(numTilesX/2 + 1, numTilesY/2 + 1) = vel.y;
+
+
+        curState.density(numTilesX/2, numTilesY/2) += randomFloat(0.3f, 0.6f);
+        curState.density(numTilesX/2 + 1, numTilesY/2) += randomFloat(0.3f, 0.6f);
+        curState.density(numTilesX/2, numTilesY/2 + 1) += randomFloat(0.3f, 0.6f);
+        curState.density(numTilesX/2 + 1, numTilesY/2 + 1) += randomFloat(0.3f, 0.6f);
+    } else {
+
+        auto i = (uint32_t) (x/SIZE), j = (uint32_t) (y/SIZE);
+        if (x > 0 && x < window.width() && y > 0 && y < window.height() && cellTypes(i, j) == EMPTY) {
+            if (glfwGetMouseButton(window.window(), GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+                curState.density(i, j) += 0.6;
+            }
+
+            curState.velX(i, j) = initialSpeed*deltaTime*float(x - prevPos.x);
+            curState.velY(i, j) = initialSpeed*deltaTime*float(y - prevPos.y);
+        }
+
+        prevPos.x = x;
+        prevPos.y = y;
+    }
+
+}
+
+void Grid2DSim::updateDensities(float deltaTime) {
     curState.density.swap(prevState.density);
     diffuse(curState.density, prevState.density, diffusionFactor, deltaTime);
     curState.density.swap(prevState.density);
@@ -245,24 +281,6 @@ void Grid2DSim::updateDensities(float deltaTime) {
 }
 
 void Grid2DSim::updateVelocities(float deltaTime) {
-    double x, y;
-    glfwGetCursorPos(window.window(), &x, &y);
-    y = window.height() - y;
-
-    float centerX = (float) window.width() / 2;
-    float centerY = (float) window.height() / 2;
-
-    auto vel = initialSpeed*deltaTime*glm::normalize(glm::vec2((float) x - centerX, (float) y - centerY));
-
-    curState.velX(numTilesX/2, numTilesY/2) = vel.x;
-    curState.velY(numTilesX/2, numTilesY/2) = vel.y;
-    curState.velX(numTilesX/2 + 1, numTilesY/2) = vel.x;
-    curState.velY(numTilesX/2 + 1, numTilesY/2) = vel.y;
-    curState.velX(numTilesX/2, numTilesY/2 + 1) = vel.x;
-    curState.velY(numTilesX/2, numTilesY/2 + 1) = vel.y;
-    curState.velX(numTilesX/2 + 1, numTilesY/2 + 1) = vel.x;
-    curState.velY(numTilesX/2 + 1, numTilesY/2 + 1) = vel.y;
-
     curState.velX.swap(prevState.velX);
     curState.velY.swap(prevState.velY);
     diffuse(curState.velX, prevState.velX, viscosity, deltaTime);

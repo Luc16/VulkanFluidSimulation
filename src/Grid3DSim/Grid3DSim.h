@@ -125,7 +125,7 @@ private:
     float gpuTime = 0, cpuTime = 0;
     bool activateTimer = false;
 
-    float viscosity = 0.005f, diffusionFactor = 0.001f, dissolveFactor = 0.006f, initialSpeed = 200.0f, gravity = 0.5f;
+    float viscosity = 0.005f, diffusionFactor = 0.001f, dissolveFactor = 0.006f, initialSpeed = 200.0f, gravity = 0.5f, cubeLen;
 
     FluidData curState, prevState;
     std::vector<InstanceData> sortedData;

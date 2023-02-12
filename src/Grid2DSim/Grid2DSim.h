@@ -119,9 +119,9 @@ private:
     // Simulation and control variables
     std::vector<uint32_t> iter;
     float gpuTime = 0, cpuTime = 0;
-    bool activateTimer = false, wallMode = false;
+    bool activateTimer = false, wallMode = false, middleFlow = false;
 
-    float viscosity = 0.005f, diffusionFactor = 0.001f, dissolveFactor = 0.015f, initialSpeed = 500.0f;
+    float viscosity = 0.005f, diffusionFactor = 0.001f, dissolveFactor = 0.010f, initialSpeed = 60.0f;
 
     FluidData curState, prevState;
     Matrix<CellType, INSTANCE_COUNT, numTilesX> cellTypes;
@@ -140,6 +140,8 @@ private:
     void showImGui();
 
     // fluid simulation functions
+    void addExternalForces(float deltaTime);
+
     void updateVelocities(float deltaTime);
     void updateDensities(float deltaTime);
 

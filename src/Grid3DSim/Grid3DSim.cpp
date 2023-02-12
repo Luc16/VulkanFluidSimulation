@@ -65,7 +65,7 @@ void Grid3DSim::createInstances() {
     auto accPos = glm::vec3(0.0f, 0.0f, -10.0f);
 
     float scale = 1.0f;
-    float cubeSide = 2.0f*scale;
+    cubeLen = 2.0f*scale;
 
     for (uint32_t i = 0; i < INSTANCE_COUNT; i++) {
         // initializing cell states
@@ -84,17 +84,18 @@ void Grid3DSim::createInstances() {
         cube.color = {0.0f, 0.0f, 0.0f, 0.0f};
         cube.scale = scale;
         cube.position = accPos;
-        accPos.x += cubeSide;
+        accPos.x += cubeLen;
 
-        if (accPos.x >= (float)CUBE_SIDE*cubeSide) {
-            accPos.y += cubeSide;
-            if (accPos.y >= (float)CUBE_SIDE*cubeSide) {
-                accPos.z -= cubeSide;
+        if (accPos.x >= (float)CUBE_SIDE*cubeLen) {
+            accPos.y += cubeLen;
+            if (accPos.y >= (float)CUBE_SIDE*cubeLen) {
+                accPos.z -= cubeLen;
                 accPos.y = 0.0f;
             }
             accPos.x = 0.0f;
         }
     }
+    curState.density(CUBE_SIDE/2, 1, CUBE_SIDE/2) = 10;
 
     instancedCubes.updateBuffer();
 }
@@ -187,7 +188,7 @@ void Grid3DSim::updateGrid(float deltaTime){
     updateDensities(deltaTime);
 
     for (const auto& [i, j] : indices){
-        curState.density[i] = std::clamp(curState.density[i] - deltaTime*dissolveFactor, 0.0f, 1.0f);
+        curState.density[i] = std::clamp(curState.density[i] - deltaTime*dissolveFactor, 0.0f, 10.0f);
         instancedCubes[j].color = glm::vec4(curState.density[i]);
     }
 
@@ -210,7 +211,7 @@ void Grid3DSim::updateGrid(float deltaTime){
 
 void Grid3DSim::updateDensities(float deltaTime) {
 
-    curState.density(CUBE_SIDE/2, 1, CUBE_SIDE/2) += randomFloat(0.3f, 0.6f);
+//    curState.density(CUBE_SIDE/2, 1, CUBE_SIDE/2) += randomFloat(0.3f, 0.6f);
 
     curState.density.swap(prevState.density);
     diffuse(curState.density, prevState.density, diffusionFactor, deltaTime);

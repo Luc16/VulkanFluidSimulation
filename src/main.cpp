@@ -13,7 +13,7 @@ const uint32_t HEIGHT = 1000;
 const std::string APP_NAME = "Vulkan";
 
 int main() {
-    Grid3DSim app{WIDTH, HEIGHT, APP_NAME, vkb::Device::NVIDIA};
+    Grid2DSim app{WIDTH, HEIGHT, APP_NAME, vkb::Device::NVIDIA};
 
     try {
         app.run();
