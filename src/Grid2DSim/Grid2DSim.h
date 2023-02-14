@@ -24,6 +24,10 @@
 #include "../lib/InstancedObjects.h"
 #include "Grid2D.h"
 
+// TODO: grid with less vertices
+// TODO: matrix with vectors
+// TODO: check order of for's
+// TODO: non square screen
 
 
 template<typename T, size_t size, uint32_t row>
