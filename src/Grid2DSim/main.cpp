@@ -5,12 +5,10 @@
 
 #include "Grid2DSim.h"
 
-const uint32_t WIDTH = 1000;
-const uint32_t HEIGHT = 1000;
 const std::string APP_NAME = "Vulkan";
 
 int main() {
-    Grid2DSim app{WIDTH, HEIGHT, APP_NAME, vkb::Device::NVIDIA};
+    Grid2DSim app{Grid2DSim::WIDTH, Grid2DSim::HEIGHT, APP_NAME, vkb::Device::NVIDIA};
 
     try {
         app.run();

@@ -70,16 +70,19 @@ void Grid2DSim::initializeObjects() {
             accPos.x = 0.0f;
         }
     }
-    for (int i = 1; i<= numTilesMiddle; ++i) {
-        cellTypes(0, i) = OUT_BOUNDARY;
-        cellTypes(numTilesMiddle+1, i) = OUT_BOUNDARY;
+    for (int i = 1; i <= numTilesMiddleX; ++i) {
         cellTypes(i, 0) = OUT_BOUNDARY;
-        cellTypes(i, numTilesMiddle+1) = OUT_BOUNDARY;
+        cellTypes(i, numTilesMiddleY+1) = OUT_BOUNDARY;
     }
+    for (int i = 1; i <= numTilesMiddleY; ++i) {
+        cellTypes(0, i) = OUT_BOUNDARY;
+        cellTypes(numTilesMiddleX+1, i) = OUT_BOUNDARY;
+    }
+
     cellTypes(0, 0) = OUT_BOUNDARY;
-    cellTypes(0, numTilesMiddle+1) = OUT_BOUNDARY;
-    cellTypes(numTilesMiddle+1, 0) = OUT_BOUNDARY;
-    cellTypes(numTilesMiddle+1, numTilesMiddle+1) = OUT_BOUNDARY;
+    cellTypes(0, numTilesMiddleY+1) = OUT_BOUNDARY;
+    cellTypes(numTilesMiddleX+1, 0) = OUT_BOUNDARY;
+    cellTypes(numTilesMiddleX+1, numTilesMiddleY+1) = OUT_BOUNDARY;
 
 
     grid.updateBuffer();
@@ -297,11 +300,10 @@ void Grid2DSim::updateVelocities(float deltaTime) {
 }
 
 void Grid2DSim::diffuse(Matrix<float, INSTANCE_COUNT, numTilesX>& x, const Matrix<float, INSTANCE_COUNT, numTilesX>& x0, float diff, float dt){
-    int i, j, k;
-    float a = dt*diff* (float) (numTilesMiddle*numTilesMiddle);
-    for (k = 0; k < 20; ++k) {
-        for (i = 1; i <= numTilesMiddle; ++i) {
-            for (j = 1; j <= numTilesMiddle; ++j) {
+    float a = dt*diff* (float) (numTilesMiddleY*numTilesMiddleX);
+    for (uint32_t k = 0; k < 20; ++k) {
+        for (uint32_t j = 1; j <= numTilesMiddleY; ++j) {
+            for (uint32_t i = 1; i <= numTilesMiddleX; ++i) {
                 if (cellTypes(i, j) == EMPTY) x(i,j) = (x0(i,j) + a*(x(i-1,j) + x(i+1,j) + x(i,j-1) + x(i,j+1)))/(1+4*a);
             }
         }
@@ -311,19 +313,22 @@ void Grid2DSim::diffuse(Matrix<float, INSTANCE_COUNT, numTilesX>& x, const Matri
 }
 
 void Grid2DSim::advect(Matrix<float, INSTANCE_COUNT, numTilesX>& d, const Matrix<float, INSTANCE_COUNT, numTilesX>& d0, const Matrix<float, INSTANCE_COUNT, numTilesX>& velX, const Matrix<float, INSTANCE_COUNT, numTilesX>& velY, float dt, BoundConfig b){
-    int i, j, i0, j0, i1, j1;
-    float x, y, s0, t0, s1, t1, dt0, fN = (float) numTilesMiddle;
-    dt0 = dt*fN;
+    int i0, j0, i1, j1;
+    float x, y, s0, t0, s1, t1;
+    auto fNX = (float) numTilesMiddleX;
+    auto fNY = (float) numTilesMiddleY;
+    float dt0X = dt*fNX;
+    float dt0Y = dt*fNY;
 
-    for (i = 1; i <= numTilesMiddle; ++i) {
-        for (j = 1; j <= numTilesMiddle; ++j) {
+    for (uint32_t j = 1; j <= numTilesMiddleY; ++j) {
+        for (uint32_t i = 1; i <= numTilesMiddleX; ++i) {
             if (cellTypes(i, j) != EMPTY) continue;
-            x = (float) i - dt0*velX(i, j);
+            x = (float) i - dt0X*velX(i, j);
             if (x < 0.5f) x = 0.5f;
-            if (x > fN + 0.5f) x = fN + 0.5f;
-            y = (float) j - dt0*velY(i, j);
+            if (x > fNX + 0.5f) x = fNX + 0.5f;
+            y = (float) j - dt0Y*velY(i, j);
             if (y < 0.5f) y = 0.5f;
-            if (y > fN + 0.5f) y = fN + 0.5f;
+            if (y > fNX + 0.5f) y = fNY + 0.5f;
             i0 = (int) x;
             i1 = i0 + 1;
             j0 = (int) y;
@@ -341,10 +346,10 @@ void Grid2DSim::advect(Matrix<float, INSTANCE_COUNT, numTilesX>& d, const Matrix
 }
 
 void Grid2DSim::project(Matrix<float, INSTANCE_COUNT, numTilesX> &velX, Matrix<float, INSTANCE_COUNT, numTilesX> &velY, Matrix<float, INSTANCE_COUNT, numTilesX> &div, Matrix<float, INSTANCE_COUNT, numTilesX> &p) {
-    float h = 1/(float) numTilesMiddle;
+    float h = 1/(float) std::min(numTilesMiddleX, numTilesMiddleY);
 
-    for (int j = 1; j <= numTilesMiddle; ++j) {
-        for (int i = 1; i <= numTilesMiddle; ++i) {
+    for (uint32_t j = 1; j <= numTilesMiddleY; ++j) {
+        for (uint32_t i = 1; i <= numTilesMiddleX; ++i) {
             if (cellTypes(i, j) != WALL)
                 div(i, j) = -0.5f*h*(velX(i + 1, j) - velX(i - 1, j) + velY(i, j + 1) - velY(i, j - 1));
             p(i, j) = 0;
@@ -354,9 +359,9 @@ void Grid2DSim::project(Matrix<float, INSTANCE_COUNT, numTilesX> &velX, Matrix<f
     setBounds(p);
 
 
-    for (int k = 0; k < 20; ++k) {
-        for (int j = 1; j <= numTilesMiddle; ++j) {
-            for (int i = 1; i <= numTilesMiddle; ++i) {
+    for (uint32_t k = 0; k < 20; ++k) {
+        for (uint32_t j = 1; j <= numTilesMiddleY; ++j) {
+            for (uint32_t i = 1; i <= numTilesMiddleX; ++i) {
                 if (cellTypes(i, j) != WALL) p(i,j) = (div(i,j) + p(i + 1,j) + p(i - 1,j) + p(i,j + 1) + p(i,j - 1))/4;
             }
         }
@@ -364,8 +369,8 @@ void Grid2DSim::project(Matrix<float, INSTANCE_COUNT, numTilesX> &velX, Matrix<f
         setInnerBounds(p);
     }
 
-    for (int j = 1; j <= numTilesMiddle; ++j) {
-        for (int i = 1; i <= numTilesMiddle; ++i) {
+    for (uint32_t j = 1; j <= numTilesMiddleY; ++j) {
+        for (uint32_t i = 1; i <= numTilesMiddleX; ++i) {
             if (cellTypes(i, j) != EMPTY) continue;
             velX(i,j) -= 0.5f*(p(i + 1,j) - p(i - 1,j))/h;
             velY(i,j) -= 0.5f*(p(i,j + 1) - p(i,j - 1))/h;
@@ -379,16 +384,20 @@ void Grid2DSim::project(Matrix<float, INSTANCE_COUNT, numTilesX> &velX, Matrix<f
 }
 
 void Grid2DSim::setBounds(Matrix<float, INSTANCE_COUNT, numTilesX>& x, BoundConfig b) {
-    for (int i = 1; i<= numTilesMiddle; ++i) {
-        x(0, i) = (b == MIRROR_X) ? -x(1, i) : x(1, i);
-        x(numTilesMiddle+1, i) = (b == MIRROR_X) ? -x(numTilesMiddle, i) : x(numTilesMiddle, i);
+    for (uint32_t i = 1; i <= numTilesMiddleX; ++i) {
         x(i, 0) = (b == MIRROR_Y) ? -x(i, 1) : x(i, 1);
-        x(i, numTilesMiddle+1) = (b == MIRROR_Y) ? -x(i, numTilesMiddle) : x(i, numTilesMiddle);
+        x(i, numTilesMiddleY+1) = (b == MIRROR_Y) ? -x(i, numTilesMiddleY) : x(i, numTilesMiddleY);
     }
+    for (uint32_t i = 1; i <= numTilesMiddleY; ++i) {
+        x(0, i) = (b == MIRROR_X) ? -x(1, i) : x(1, i);
+        x(numTilesMiddleX+1, i) = (b == MIRROR_X) ? -x(numTilesMiddleX, i) : x(numTilesMiddleX, i);
+    }
+
+
     x(0, 0) = 0.5f*(x(1, 0)+x(0, 1));
-    x(0, numTilesMiddle+1) = 0.5f*(x(1, numTilesMiddle+1)+x(0, numTilesMiddle));
-    x(numTilesMiddle+1, 0) = 0.5f*(x(numTilesMiddle, 0)+x(numTilesMiddle+1, 1));
-    x(numTilesMiddle+1, numTilesMiddle+1) = 0.5f*(x(numTilesMiddle, numTilesMiddle+1)+x(numTilesMiddle+1, numTilesMiddle));
+    x(0, numTilesMiddleY+1) = 0.5f*(x(1, numTilesMiddleY+1)+x(0, numTilesMiddleY));
+    x(numTilesMiddleX+1, 0) = 0.5f*(x(numTilesMiddleX, 0)+x(numTilesMiddleX+1, 1));
+    x(numTilesMiddleX+1, numTilesMiddleY+1) = 0.5f*(x(numTilesMiddleX, numTilesMiddleY+1)+x(numTilesMiddleX+1, numTilesMiddleY));
 
 
 }

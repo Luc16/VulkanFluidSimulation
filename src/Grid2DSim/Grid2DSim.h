@@ -25,9 +25,7 @@
 #include "Grid2D.h"
 
 // TODO: grid with less vertices
-// TODO: matrix with vectors
-// TODO: check order of for's
-// TODO: non square screen
+// TODO: matrix with vectors???
 
 
 template<typename T, size_t size, uint32_t row>
@@ -66,6 +64,9 @@ public:
     Grid2DSim(int width, int height, const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
             VulkanApp(width, height, appName, type, false) {}
 
+    constexpr static uint32_t WIDTH = 1500;
+    constexpr static uint32_t HEIGHT = 1000;
+
 private:
     enum BoundConfig {
         REGULAR, MIRROR_X, MIRROR_Y
@@ -75,12 +76,11 @@ private:
         EMPTY, OUT_BOUNDARY, IN_BOUNDARY, WALL
     };
 
-    constexpr static uint32_t WIDTH = 1000;
-    constexpr static uint32_t HEIGHT = 1000;
     constexpr static uint32_t SIZE = 10;
     constexpr static uint32_t numTilesX = WIDTH/SIZE;
-    constexpr static uint32_t numTilesMiddle = numTilesX - 2;
+    constexpr static uint32_t numTilesMiddleX = numTilesX - 2;
     constexpr static uint32_t numTilesY = HEIGHT/SIZE;
+    constexpr static uint32_t numTilesMiddleY = numTilesY - 2;
     constexpr static uint32_t INSTANCE_COUNT = numTilesX*numTilesY;
 
     const std::string planeModelPath = "../Models/quadXY.obj";
