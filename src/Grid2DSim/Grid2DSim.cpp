@@ -65,7 +65,7 @@ void Grid2DSim::initializeObjects() {
         accPos.x += size;
 
         iter[i] = i;
-        if (accPos.x + size > (float) screenExtent.width) {
+        if (accPos.x > (float) screenExtent.width) {
             accPos.y += size;
             accPos.x = 0.0f;
         }

@@ -12,8 +12,8 @@ namespace vkb {
         auto fsize = (float) size;
 
         m_vertices.resize((numW+1) * (numH+1));
-        for (uint32_t i = 0; i < m_vertices.size(); ++i) {
-            m_vertices[i] = {pos, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}};
+        for (auto & vertex : m_vertices) {
+            vertex = {pos, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}};
             pos.x += fsize;
 
             if (pos.x > (float) width) {
