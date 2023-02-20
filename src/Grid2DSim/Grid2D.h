@@ -11,15 +11,6 @@
 
 namespace vkb {
     class Grid2D {
-    private:
-        const std::vector<vkb::Model::Vertex> quad {
-                {{0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, {0.0f, 0.0f}},
-                {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, {0.0f, 1.0f}},
-                {{1.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f}},
-                {{1.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 0.0f}}
-        };
-        const std::vector<uint32_t> quadIndices {0, 2, 1, 2, 0, 3};
-
 
     public:
         Grid2D(const Device& device, uint32_t width, uint32_t height, uint32_t size);

@@ -114,9 +114,14 @@ void Grid2DSim::mainLoop(float deltaTime) {
         showImGui();
 
         renderer.runRenderPass([this](VkCommandBuffer& commandBuffer){
+            if (instancingMode){
+                instanceSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
+                grid.render(instanceSystem, commandBuffer);
+            } else {
+                defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
+                grid2D.render(commandBuffer);
 
-            instanceSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
-            grid.render(instanceSystem, commandBuffer);
+            }
         });
     });
     if (activateTimer) gpuTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
@@ -165,6 +170,7 @@ void Grid2DSim::showImGui(){
     if (ImGui::Button("RESET ALL")) resetGrid(true);
     auto prevMode = wallMode;
     ImGui::Checkbox("Activate Wall Drawing Mode", &wallMode);
+    ImGui::Checkbox("Activate Instancing Mode", &instancingMode);
     ImGui::Checkbox("Activate Middle Flow", &middleFlow);
     static bool prevSpace = false;
     bool space = glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_PRESS;
@@ -201,13 +207,17 @@ void Grid2DSim::updateGrid(float deltaTime) {
     for (uint32_t i = 0; i < grid.size(); i++){
         if (cellTypes[i] == WALL) {
             grid[i].color = {0.1f, 0.2f, 0.0f};
+            grid2D.updateColor(i, {0.1f, 0.2f, 0.0f});
             continue;
         }
         curState.density[i] = std::clamp(curState.density[i] - deltaTime*dissolveFactor, 0.0f, 1.0f);
         grid[i].color = glm::vec3(curState.density[i]);
+        grid2D.updateColor(i, glm::vec3(curState.density[i]));
+
     }
 
     grid.updateBuffer();
+    grid2D.updateBuffer();
 }
 
 void Grid2DSim::createWalls() {

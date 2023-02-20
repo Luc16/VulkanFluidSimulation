@@ -77,9 +77,9 @@ private:
     };
 
     constexpr static uint32_t SIZE = 10;
-    constexpr static uint32_t numTilesX = WIDTH/SIZE;
+    constexpr static uint32_t numTilesX = WIDTH/SIZE + 1;
     constexpr static uint32_t numTilesMiddleX = numTilesX - 2;
-    constexpr static uint32_t numTilesY = HEIGHT/SIZE;
+    constexpr static uint32_t numTilesY = HEIGHT/SIZE + 1;
     constexpr static uint32_t numTilesMiddleY = numTilesY - 2;
     constexpr static uint32_t INSTANCE_COUNT = numTilesX*numTilesY;
 
@@ -119,11 +119,12 @@ private:
     vkb::Camera camera{};
 
     vkb::InstancedObjects<InstanceData> grid{device, INSTANCE_COUNT, vkb::Model::createModelFromFile(device, planeModelPath)};
+    vkb::Grid2D grid2D{device, WIDTH, HEIGHT, SIZE};
 
     // Simulation and control variables
     std::vector<uint32_t> iter;
     float gpuTime = 0, cpuTime = 0;
-    bool activateTimer = false, wallMode = false, middleFlow = false;
+    bool activateTimer = false, wallMode = false, middleFlow = false, instancingMode = true;
 
     float viscosity = 0.005f, diffusionFactor = 0.001f, dissolveFactor = 0.010f, initialSpeed = 60.0f;
 

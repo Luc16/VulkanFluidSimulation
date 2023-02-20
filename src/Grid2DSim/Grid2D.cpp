@@ -11,32 +11,34 @@ namespace vkb {
         auto pos = glm::vec3(0.0f, 0.0f, 0.0f);
         auto fsize = (float) size;
 
-        m_vertices.resize(numW * numH * 4);
-        m_indices.resize(numW * numH * 6);
-
-        for (int i = 0; i < numH*numW; ++i) {
-            for (int j = 0; j < 4; j++){
-                m_vertices[4 * i + j] = {pos + quad[j].pos * fsize, quad[j].color, quad[j].normal, quad[j].texCoord};
-            }
-            for (int j = 0; j < quadIndices.size(); ++j) {
-                m_indices[6 * i + j] = 4*i + quadIndices[j];
-            }
+        m_vertices.resize((numW+1) * (numH+1));
+        for (uint32_t i = 0; i < m_vertices.size(); ++i) {
+            m_vertices[i] = {pos, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}};
             pos.x += fsize;
 
-            if (pos.x + fsize > (float) width) {
+            if (pos.x > (float) width) {
                 pos.x = 0.0f;
                 pos.y += fsize;
             }
         }
+
+        std::array<uint32_t, 6> defIndices{0, 1, numW+1, numW+1, 1, numW+2};
+        m_indices.resize(numW * numH * defIndices.size());
+
+        for (uint32_t i = 0, idx = 0; i < numW*numH; ++i, ++idx){
+            if (idx % (numW + 1) == numW) idx++;
+            for (uint32_t j = 0; j < defIndices.size(); ++j){
+                m_indices[defIndices.size()*i + j] = idx + defIndices[j];
+            }
+        }
+
 
         m_gridModel = std::make_unique<Model>(device, m_vertices, m_indices);
 
     }
 
     void Grid2D::updateColor(uint32_t idx, glm::vec3 color) {
-        for (int j = 0; j < 4; j++){
-            m_vertices[4 * idx + j].color = color;
-        }
+        m_vertices[idx].color = color;
     }
 
     void Grid2D::updateBuffer() {
