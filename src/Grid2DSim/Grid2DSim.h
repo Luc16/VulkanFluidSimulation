@@ -24,10 +24,6 @@
 #include "../lib/InstancedObjects.h"
 #include "Grid2D.h"
 
-// TODO: grid with less vertices
-// TODO: matrix with vectors???
-
-
 template<typename T, size_t size, uint32_t row>
 class Matrix{
 public:

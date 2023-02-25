@@ -327,16 +327,15 @@ void Grid2DSim::advect(Matrix<float, INSTANCE_COUNT, numTilesX>& d, const Matrix
     float x, y, s0, t0, s1, t1;
     auto fNX = (float) numTilesMiddleX;
     auto fNY = (float) numTilesMiddleY;
-    float dt0X = dt*fNX;
-    float dt0Y = dt*fNY;
+    float dt0 = dt*std::min(fNX, fNY);
 
     for (uint32_t j = 1; j <= numTilesMiddleY; ++j) {
         for (uint32_t i = 1; i <= numTilesMiddleX; ++i) {
             if (cellTypes(i, j) != EMPTY) continue;
-            x = (float) i - dt0X*velX(i, j);
+            x = (float) i - dt0*velX(i, j);
             if (x < 0.5f) x = 0.5f;
             if (x > fNX + 0.5f) x = fNX + 0.5f;
-            y = (float) j - dt0Y*velY(i, j);
+            y = (float) j - dt0*velY(i, j);
             if (y < 0.5f) y = 0.5f;
             if (y > fNX + 0.5f) y = fNY + 0.5f;
             i0 = (int) x;

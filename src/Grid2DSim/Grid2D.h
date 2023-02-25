@@ -28,8 +28,6 @@ namespace vkb {
         std::vector<uint32_t> m_indices;
 
         std::unique_ptr<vkb::Model> m_gridModel;
-
-
     };
 }
 
