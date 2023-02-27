@@ -128,7 +128,7 @@ namespace vkb {
 
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.commandPool = m_deviceRef.commandPool();
+        allocInfo.commandPool = m_deviceRef.graphicsCommandPool();
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         allocInfo.commandBufferCount = static_cast<uint32_t>(m_commandBuffers.size());
 
@@ -139,7 +139,7 @@ namespace vkb {
     }
 
     void Renderer::freeCommandBuffers(){
-        vkFreeCommandBuffers(m_deviceRef.device(), m_deviceRef.commandPool(),
+        vkFreeCommandBuffers(m_deviceRef.device(), m_deviceRef.graphicsCommandPool(),
                              static_cast<uint32_t>(m_commandBuffers.size()), m_commandBuffers.data());
         m_commandBuffers.clear();
 
@@ -180,13 +180,13 @@ namespace vkb {
         {
             VkResult err;
             // Use any command queue
-            VkCommandPool command_pool = m_deviceRef.commandPool();
+            VkCommandPool command_pool = m_deviceRef.graphicsCommandPool();
 
             err = vkResetCommandPool(m_deviceRef.device(), command_pool, 0);
             checkVkResultImGui(err);
             m_deviceRef.executeSingleCommand([](VkCommandBuffer commandBuffer) {
                 ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
-            });
+            }, true);
 
             ImGui_ImplVulkan_DestroyFontUploadObjects();
         }

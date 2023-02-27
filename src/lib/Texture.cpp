@@ -152,7 +152,7 @@ namespace vkb {
                                  0, nullptr,
                                  1, &barrier);
 
-        });
+        }, true);
 
         m_textureImage->setLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 

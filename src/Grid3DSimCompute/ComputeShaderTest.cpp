@@ -18,6 +18,7 @@ void ComputeShaderTest::onCreate() {
         defaultSystem.createPipeline(renderer.renderPass(), shaderPaths);
     }
 
+
     {
         instanceSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
         instanceSystem.createPipeline(renderer.renderPass(), instanceShaderPaths, [this](vkb::Pipeline::PipelineConfigInfo& info) {

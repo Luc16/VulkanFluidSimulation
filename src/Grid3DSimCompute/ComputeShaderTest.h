@@ -42,14 +42,14 @@ private:
 
     const std::string planeModelPath = "../Models/quadXZ.obj";
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../src/Instancing/Shaders/default.vert.spv",
-            "../src/Instancing/Shaders/default.frag.spv"
+            "../src/Grid3DSimCompute/Shaders/default.vert.spv",
+            "../src/Grid3DSimCompute/Shaders/default.frag.spv"
     };
 
     const std::string sphereModelPath = "../Models/lowsphere.obj";
     const vkb::RenderSystem::ShaderPaths instanceShaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../src/Instancing/Shaders/instancing.vert.spv",
-            "../src/Instancing/Shaders/instancing.frag.spv",
+            "../src/Grid3DSimCompute/Shaders/instancing.vert.spv",
+            "../src/Grid3DSimCompute/Shaders/instancing.frag.spv",
     };
 
     struct UniformBufferObject {
@@ -64,7 +64,7 @@ private:
         float scale;
     };
 
-    vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, planeModelPath)};
+    vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, planeModelPath), std::make_shared<vkb::Texture>(device, "../textures/viking_room.png")};
 
     std::vector<std::unique_ptr<vkb::Buffer>> uniformBuffers;
 

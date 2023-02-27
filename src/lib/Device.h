@@ -30,10 +30,11 @@ namespace vkb{
         struct QueueFamilyIndices {
             std::optional<uint32_t> graphicsFamily{};
             std::optional<uint32_t> presentFamily{};
+            std::optional<uint32_t> computeFamily{};
 
 
             [[nodiscard]] bool isComplete() const {
-                return graphicsFamily.has_value() && presentFamily.has_value();
+                return graphicsFamily.has_value() && presentFamily.has_value() && computeFamily.has_value();
             }
         };
 
@@ -55,7 +56,8 @@ namespace vkb{
         [[nodiscard]] VkDevice device() const { return m_device; }
         [[nodiscard]] VkPhysicalDevice physicalDevice() const { return m_physicalDevice; }
         [[nodiscard]] VkSurfaceKHR surface() const { return m_surface; }
-        [[nodiscard]] VkCommandPool commandPool() const { return m_commandPool; }
+        [[nodiscard]] VkCommandPool graphicsCommandPool() const { return m_graphicsCommandPool; }
+        [[nodiscard]] VkCommandPool computeCommandPool() const { return m_computeCommandPool; }
         [[nodiscard]] VkQueue graphicsQueue() const { return m_graphicsQueue; }
         [[nodiscard]] VkQueue presentQueue() const { return m_presentQueue; }
         [[nodiscard]] VkSampleCountFlagBits msaaSamples() const { return m_msaaSamples; }
@@ -63,7 +65,7 @@ namespace vkb{
         // helper functions
         [[nodiscard]] QueueFamilyIndices findQueueFamilies(VkPhysicalDevice physicalDevice) const;
         [[nodiscard]] uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
-        void executeSingleCommand(const std::function<void(VkCommandBuffer&)>& function) const;
+        void executeSingleCommand(const std::function<void(VkCommandBuffer&)>& function, bool useGraphicsQueue = false) const;
         void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) const;
         void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
                           VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const;
@@ -76,7 +78,7 @@ namespace vkb{
         void createSurface();
         void pickPhysicalDevice();
         void createLogicalDevice();
-        void createCommandPool();
+        void createCommandPools();
 
         // helper functions
         bool checkValidationLayerSupport();
@@ -98,7 +100,9 @@ namespace vkb{
         VkDevice m_device{};
         VkQueue m_graphicsQueue{};
         VkQueue m_presentQueue{};
-        VkCommandPool m_commandPool{};
+        VkQueue m_computeQueue{};
+        VkCommandPool m_graphicsCommandPool{};
+        VkCommandPool m_computeCommandPool{};
 
         const std::vector<const char*> validationLayers = {
                 "VK_LAYER_KHRONOS_validation"
