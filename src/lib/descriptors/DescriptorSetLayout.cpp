@@ -9,6 +9,7 @@ namespace vkb {
     DescriptorSetLayout::DescriptorSetLayout(const Device &device, const std::unordered_map<uint32_t,
                                              VkDescriptorSetLayoutBinding>& bindings): m_deviceRef(device), m_bindings(bindings) {
         std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings{};
+        setLayoutBindings.reserve(bindings.size());
         for (auto kv : bindings) {
             setLayoutBindings.push_back(kv.second);
         }

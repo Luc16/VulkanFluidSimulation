@@ -49,10 +49,11 @@ namespace vkb {
 
         static PipelineConfigInfo defaultConfigInfo(VkPipelineLayout layout, VkRenderPass renderPass);
         static PipelineConfigInfo defaultConfigInfo();
-    private:
-        VkShaderModule createShaderModule(const std::vector<char>& code);
-        static std::vector<char> readFile(const std::string& filename);
 
+        static std::vector<char> readFile(const std::string& filename);
+        VkShaderModule createShaderModule(const std::vector<char>& code);
+
+    private:
 
         const Device& m_deviceRef;
         VkPipeline m_pipeline{};

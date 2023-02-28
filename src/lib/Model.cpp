@@ -22,15 +22,15 @@ namespace vkb {
 
     Model::Model(const Device &device, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices): m_deviceRef(device) {
         m_hasIndexBuffer = true;
-        createVertexBuffer(vertices);
+        updateVertexBuffer(vertices, true);
         createIndexBuffer(indices);
     }
 
     Model::Model(const Device &device, std::vector<Vertex>& vertices): m_deviceRef(device) {
-        createVertexBuffer(vertices);
+        updateVertexBuffer(vertices, true);
     }
 
-    void Model::updateVertexBuffer(std::vector<Vertex>& vertices) {
+    void Model::updateVertexBuffer(std::vector<Vertex>& vertices, bool createBuffer) {
         VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
         m_vertexCount = static_cast<uint32_t>(vertices.size());
 
@@ -38,20 +38,10 @@ namespace vkb {
                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
         stagingBuffer.singleWrite(vertices.data());
 
-        m_deviceRef.copyBuffer(stagingBuffer.getBuffer(), m_vertexBuffer->getBuffer(), bufferSize);
-    }
-
-    void Model::createVertexBuffer(std::vector<Vertex>& vertices){
-        VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-        m_vertexCount = static_cast<uint32_t>(vertices.size());
-
-        vkb::Buffer stagingBuffer(m_deviceRef, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        stagingBuffer.singleWrite(vertices.data());
-
-        m_vertexBuffer = std::make_unique<vkb::Buffer>(m_deviceRef, bufferSize,
-                                                     VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        if (createBuffer)
+            m_vertexBuffer = std::make_unique<vkb::Buffer>(m_deviceRef, bufferSize,
+                                                           VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                                                           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
         m_deviceRef.copyBuffer(stagingBuffer.getBuffer(), m_vertexBuffer->getBuffer(), bufferSize);
     }

@@ -25,7 +25,7 @@ namespace vkb {
 
     void Buffer::map() {
         if (m_mapped != nullptr)
-            throw std::runtime_error("Trying to map m_mapped m_buffer m_memory!");
+            throw std::runtime_error("Trying to map mapped buffer memory!");
         auto res = vkMapMemory(m_deviceRef.device(), m_memory, 0, m_bufferSize, 0, &m_mapped);
         if (res != VK_SUCCESS || m_mapped == nullptr)
             throw std::runtime_error("Failed to map memory");
@@ -34,14 +34,14 @@ namespace vkb {
 
     void Buffer::unmap() {
         if (m_mapped == nullptr)
-            throw std::runtime_error("Trying to unmap unmapped m_buffer m_memory!");
+            throw std::runtime_error("Trying to unmap unmapped buffer memory!");
         vkUnmapMemory(m_deviceRef.device(), m_memory);
         m_mapped = nullptr;
     }
 
     void Buffer::write(void *data, VkDeviceSize size, VkDeviceSize offset) {
         if (m_mapped == nullptr)
-            throw std::runtime_error("Trying to write to unmapped m_buffer m_memory!");
+            throw std::runtime_error("Trying to write to unmapped buffer memory!");
 
         if (size == VK_WHOLE_SIZE)
             memcpy(m_mapped, data, (size_t) m_bufferSize);

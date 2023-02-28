@@ -60,6 +60,7 @@ namespace vkb{
         [[nodiscard]] VkCommandPool computeCommandPool() const { return m_computeCommandPool; }
         [[nodiscard]] VkQueue graphicsQueue() const { return m_graphicsQueue; }
         [[nodiscard]] VkQueue presentQueue() const { return m_presentQueue; }
+        [[nodiscard]] VkQueue computeQueue() const { return m_computeQueue; }
         [[nodiscard]] VkSampleCountFlagBits msaaSamples() const { return m_msaaSamples; }
 
         // helper functions

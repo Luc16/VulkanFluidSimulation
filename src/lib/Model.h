@@ -38,9 +38,8 @@ namespace vkb {
 
         void bind(VkCommandBuffer commandBuffer);
         void draw(VkCommandBuffer commandBuffer, size_t numInstances = 1) const;
-        void updateVertexBuffer(std::vector<Vertex>& vertices);
+        void updateVertexBuffer(std::vector<Vertex>& vertices, bool createBuffer = false);
     private:
-        void createVertexBuffer(std::vector<Vertex>& vertices);
         void createIndexBuffer(std::vector<uint32_t>& indices);
 
         const Device& m_deviceRef;

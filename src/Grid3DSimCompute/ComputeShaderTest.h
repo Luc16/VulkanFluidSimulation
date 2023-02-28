@@ -23,7 +23,7 @@
 #include "../lib/InstancedObjects.h"
 
 // TODO for compute shader:
-/* create a compute queue family (get queue?)
+/*
  * Create buffers to compute and send to GPU
  * Create the corresponding descriptors
  * Create compute pipeline
@@ -84,6 +84,7 @@ private:
     bool activateTimer = false;
 
     void onCreate() override;
+    void testCompute();
     void initializeObjects();
     void createInstances();
     void createUniformBuffers();
