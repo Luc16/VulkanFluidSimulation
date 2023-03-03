@@ -5,7 +5,7 @@
 #include "ComputeShaderTest.h"
 
 void ComputeShaderTest::onCreate() {
-    testCompute();
+//    testCompute();
     initializeObjects();
     createUniformBuffers();
 
@@ -230,7 +230,7 @@ void ComputeShaderTest::testCompute() {
     computeSubmitInfo.pWaitDstStageMask = &waitStageMask;
     computeSubmitInfo.commandBufferCount = 1;
     computeSubmitInfo.pCommandBuffers = &commandBuffer;
-    vkQueueSubmit(device.graphicsQueue(), 1, &computeSubmitInfo, fence);
+    vkQueueSubmit(device.computeQueue(), 1, &computeSubmitInfo, fence);
     vkWaitForFences(device.device(), 1, &fence, VK_TRUE, UINT64_MAX);
 
     // Make device writes visible to the host
@@ -247,7 +247,7 @@ void ComputeShaderTest::testCompute() {
     memcpy(computeOutput.data(), mapped, bufferSize);
     vkUnmapMemory(device.device(), stagingBuffer.getMemory());
 
-    vkQueueWaitIdle(device.graphicsQueue());
+    vkQueueWaitIdle(device.computeQueue());
 
     // Output buffer contents
     printf("Compute input:\n");

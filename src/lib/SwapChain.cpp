@@ -146,10 +146,10 @@ namespace vkb {
         createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
         Device::QueueFamilyIndices familyIndices = m_deviceRef.findQueueFamilies(m_deviceRef.physicalDevice());
-        uint32_t queueFamilyIndices[] = {familyIndices.graphicsFamily.value(), familyIndices.presentFamily.value()};
-        m_queueFamily = familyIndices.graphicsFamily.value();
+        uint32_t queueFamilyIndices[] = {familyIndices.graphicsAndComputeFamily.value(), familyIndices.presentFamily.value()};
+        m_queueFamily = familyIndices.graphicsAndComputeFamily.value();
 
-        if (familyIndices.graphicsFamily != familyIndices.presentFamily) {
+        if (familyIndices.graphicsAndComputeFamily != familyIndices.presentFamily) {
             createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
             createInfo.queueFamilyIndexCount = 2;
             createInfo.pQueueFamilyIndices = queueFamilyIndices;

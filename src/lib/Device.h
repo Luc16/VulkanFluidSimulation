@@ -28,13 +28,13 @@ namespace vkb{
         };
 
         struct QueueFamilyIndices {
-            std::optional<uint32_t> graphicsFamily{};
+            std::optional<uint32_t> graphicsAndComputeFamily{};
             std::optional<uint32_t> presentFamily{};
-            std::optional<uint32_t> computeFamily{};
+            std::optional<uint32_t> transferFamily{};
 
 
             [[nodiscard]] bool isComplete() const {
-                return graphicsFamily.has_value() && presentFamily.has_value() && computeFamily.has_value();
+                return graphicsAndComputeFamily.has_value() && presentFamily.has_value() && transferFamily.has_value();
             }
         };
 
@@ -57,7 +57,6 @@ namespace vkb{
         [[nodiscard]] VkPhysicalDevice physicalDevice() const { return m_physicalDevice; }
         [[nodiscard]] VkSurfaceKHR surface() const { return m_surface; }
         [[nodiscard]] VkCommandPool graphicsCommandPool() const { return m_graphicsCommandPool; }
-        [[nodiscard]] VkCommandPool computeCommandPool() const { return m_computeCommandPool; }
         [[nodiscard]] VkQueue graphicsQueue() const { return m_graphicsQueue; }
         [[nodiscard]] VkQueue presentQueue() const { return m_presentQueue; }
         [[nodiscard]] VkQueue computeQueue() const { return m_computeQueue; }
@@ -102,8 +101,9 @@ namespace vkb{
         VkQueue m_graphicsQueue{};
         VkQueue m_presentQueue{};
         VkQueue m_computeQueue{};
+        VkQueue m_transferQueue{};
         VkCommandPool m_graphicsCommandPool{};
-        VkCommandPool m_computeCommandPool{};
+        VkCommandPool m_transferCommandPool{};
 
         const std::vector<const char*> validationLayers = {
                 "VK_LAYER_KHRONOS_validation"
