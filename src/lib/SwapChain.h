@@ -49,7 +49,7 @@ namespace vkb {
         }
 
         VkResult acquireNextImage(uint32_t* imageIndex);
-        VkResult submitCommandBuffers(const VkCommandBuffer* buffers, const uint32_t* imageIndex);
+        VkResult submitCommandBuffers(const VkCommandBuffer* buffers, const uint32_t* imageIndex, const std::vector<VkSemaphore>& additionalSemaphores = {}, const std::vector<VkPipelineStageFlags>& additionalStages = {});
         void beginRenderPass(VkCommandBuffer commandBuffer, uint32_t imageIndex) const;
         void endRenderPass(VkCommandBuffer commandBuffer) const;
 

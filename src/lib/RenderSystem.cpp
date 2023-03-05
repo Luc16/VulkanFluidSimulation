@@ -12,7 +12,8 @@ namespace vkb {
 
     void RenderSystem::bind(VkCommandBuffer commandBuffer, VkDescriptorSet* descriptorSet) {
         m_pipeline->bind(commandBuffer);
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout,
+        if (descriptorSet != nullptr)
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout,
                                 0, 1, descriptorSet, 0, nullptr);
     }
 
@@ -39,15 +40,15 @@ namespace vkb {
     }
 
     void RenderSystem::createPipeline(VkRenderPass renderPass, const ShaderPaths& shaderPaths,
-                                      const std::function<void(Pipeline::PipelineConfigInfo&)>& configurePipeline) {
+                                      const std::function<void(GraphicsPipeline::PipelineConfigInfo&)>& configurePipeline) {
         if (!m_layoutCreated) throw std::runtime_error("Need to create pipeline layout before creating pipeline!");
 
-        auto pipelineConfigInfo = Pipeline::defaultConfigInfo(m_pipelineLayout, renderPass);
+        auto pipelineConfigInfo = GraphicsPipeline::defaultConfigInfo(m_pipelineLayout, renderPass);
 
         if (configurePipeline) configurePipeline(pipelineConfigInfo);
 
-        m_pipeline = std::make_unique<Pipeline>(m_deviceRef, shaderPaths.vertPath,
-                                                     shaderPaths.fragPath, pipelineConfigInfo);
+        m_pipeline = std::make_unique<GraphicsPipeline>(m_deviceRef, shaderPaths.vertPath,
+                                                        shaderPaths.fragPath, pipelineConfigInfo);
     }
 }
 

@@ -14,7 +14,7 @@
 #include "Model.h"
 #include "utils.h"
 #include "Texture.h"
-#include "Pipeline.h"
+#include "GraphicsPipeline.h"
 #include "Renderer.h"
 #include "descriptors/DescriptorSetLayout.h"
 #include "descriptors/DescriptorPool.h"

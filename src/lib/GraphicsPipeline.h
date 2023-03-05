@@ -8,7 +8,7 @@
 #include "Device.h"
 
 namespace vkb {
-    class Pipeline {
+    class GraphicsPipeline {
     public:
         struct PipelineConfigInfo {
             PipelineConfigInfo() = default;
@@ -39,10 +39,10 @@ namespace vkb {
 
         };
 
-        Pipeline(const Device& device, const std::string& vertShaderPath, const std::string& fragShaderPath, PipelineConfigInfo& configInfo);
-        ~Pipeline();
-        Pipeline(const Pipeline &) = delete;
-        Pipeline &operator=(const Pipeline &) = delete;
+        GraphicsPipeline(const Device& device, const std::string& vertShaderPath, const std::string& fragShaderPath, PipelineConfigInfo& configInfo);
+        ~GraphicsPipeline();
+        GraphicsPipeline(const GraphicsPipeline &) = delete;
+        GraphicsPipeline &operator=(const GraphicsPipeline &) = delete;
 
         void createGraphicsPipeline(const std::string& vertShaderPath, const std::string& fragShaderPath, PipelineConfigInfo& configInfo);
         void bind(VkCommandBuffer commandBuffer);
@@ -51,7 +51,7 @@ namespace vkb {
         static PipelineConfigInfo defaultConfigInfo();
 
         static std::vector<char> readFile(const std::string& filename);
-        VkShaderModule createShaderModule(const std::vector<char>& code);
+        static VkShaderModule createShaderModule(const Device& device, const std::vector<char>& code);
 
     private:
 

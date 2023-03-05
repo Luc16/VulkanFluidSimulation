@@ -19,7 +19,7 @@ add_library( VkFluidSim
         src/lib/Image.cpp src/lib/Image.h
         src/lib/Model.cpp src/lib/Model.h
         src/lib/Texture.cpp src/lib/Texture.h
-        src/lib/Pipeline.cpp src/lib/Pipeline.h
+        src/lib/GraphicsPipeline.cpp src/lib/GraphicsPipeline.h
         src/lib/Renderer.cpp src/lib/Renderer.h
         src/lib/descriptors/DescriptorSetLayout.cpp src/lib/descriptors/DescriptorSetLayout.h
         src/lib/descriptors/DescriptorPool.cpp src/lib/descriptors/DescriptorPool.h
@@ -34,15 +34,15 @@ add_library( VkFluidSim
         src/Grid2DSim/Grid2DSim.cpp src/Grid2DSim/Grid2DSim.h
         src/Grid2DSim/Grid2D.cpp src/Grid2DSim/Grid2D.h
         src/Grid3DSim/Grid3DSim.cpp src/Grid3DSim/Grid3DSim.h
-        src/Grid3DSimCompute/ComputeShaderTest.cpp src/Grid3DSimCompute/ComputeShaderTest.h
-        )
+        src/ComputeShaderTest/ComputeShaderTest.cpp src/ComputeShaderTest/ComputeShaderTest.h
+        src/lib/ComputeSystem.cpp src/lib/ComputeSystem.h)
 
 
 set( APPS
         "Instancing"
         "Grid2DSim"
         "Grid3DSim"
-        "Grid3DSimCompute")
+        "ComputeShaderTest")
 
 foreach( testsourcefolder ${APPS} )
     add_executable( ${testsourcefolder} src/${testsourcefolder}/main.cpp )

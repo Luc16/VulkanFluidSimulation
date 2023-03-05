@@ -32,7 +32,7 @@ namespace vkb {
         m_imGuiActivated = true;
     }
 
-    void Renderer::runFrame(const std::function<void(VkCommandBuffer&)>& function) {
+    void Renderer::runFrame(const std::function<void(VkCommandBuffer&)>& function, const std::vector<VkSemaphore>& additionalSemaphores, const std::vector<VkPipelineStageFlags>& additionalStages) {
         if (m_isFrameStarted) throw std::runtime_error("Can't run frame while another frame is running");
 
         VkResult result = m_swapChain->acquireNextImage(&m_imageIndex);
@@ -68,7 +68,7 @@ namespace vkb {
             throw std::runtime_error("failed to record command m_buffer!");
         }
 
-        result = m_swapChain->submitCommandBuffers(&commandBuffer, &m_imageIndex);
+        result = m_swapChain->submitCommandBuffers(&commandBuffer, &m_imageIndex, additionalSemaphores, additionalStages);
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_windowRef.frameBufferResized()) {
             m_windowRef.frameBufferNotResized();
             recreateSwapChain();

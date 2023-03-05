@@ -31,7 +31,7 @@ namespace vkb {
         }
 
         void runRenderPass(const std::function<void(VkCommandBuffer&)>& function) const;
-        void runFrame(const std::function<void(VkCommandBuffer&)>& function);
+        void runFrame(const std::function<void(VkCommandBuffer&)>& function, const std::vector<VkSemaphore>& additionalSemaphores = {}, const std::vector<VkPipelineStageFlags>& additionalStages = {});
         void activateImGui(VkDescriptorPool descriptorPool);
     private:
         void recreateSwapChain();

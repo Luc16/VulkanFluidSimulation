@@ -77,12 +77,12 @@ namespace vkb {
 
             auto writer = vkb::DescriptorWriter(layout, *globalDescriptorPool);
 
-            for (auto& bufferInfo : bufferInfos){
-                writer.writeBuffer(0, &bufferInfo);
+            uint32_t curBinding;
+            for (curBinding = 0; curBinding < bufferInfos.size(); curBinding++){
+                writer.writeBuffer(curBinding, &bufferInfos[curBinding]);
             }
-
-            for (auto& imageInfo : imageInfos){
-                writer.writeImage(1, &imageInfo);
+            for (uint32_t i = 0; i < imageInfos.size(); i++){
+                writer.writeImage(curBinding + i, &imageInfos[i]);
             }
 
             writer.build(descriptorSet);

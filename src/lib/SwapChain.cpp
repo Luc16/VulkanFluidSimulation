@@ -48,15 +48,19 @@ namespace vkb {
                               VK_NULL_HANDLE, imageIndex);
     }
 
-    VkResult SwapChain::submitCommandBuffers(const VkCommandBuffer* buffers, const uint32_t* imageIndex) {
+    VkResult SwapChain::submitCommandBuffers(const VkCommandBuffer* buffers, const uint32_t* imageIndex, const std::vector<VkSemaphore>& additionalSemaphores, const std::vector<VkPipelineStageFlags>& additionalStages) {
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-        VkSemaphore waitSemaphore[] = {m_imageAvailableSemaphores[currentFrame]};
-        VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-        submitInfo.waitSemaphoreCount = 1;
-        submitInfo.pWaitSemaphores = waitSemaphore;
-        submitInfo.pWaitDstStageMask = waitStages;
+        std::vector<VkSemaphore> waitSemaphores{m_imageAvailableSemaphores[currentFrame]};
+        waitSemaphores.insert(waitSemaphores.end(), additionalSemaphores.begin(), additionalSemaphores.end());
+
+        std::vector<VkPipelineStageFlags> waitStages{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+        waitStages.insert(waitStages.end(), additionalStages.begin(), additionalStages.end());
+
+        submitInfo.waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size());
+        submitInfo.pWaitSemaphores = waitSemaphores.data();
+        submitInfo.pWaitDstStageMask = waitStages.data();
 
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = buffers;

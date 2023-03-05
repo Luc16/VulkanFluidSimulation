@@ -21,6 +21,7 @@
 #include "../lib/DrawableObject.h"
 #include "../lib/VulkanApp.h"
 #include "../lib/InstancedObjects.h"
+#include "../lib/ComputeSystem.h"
 
 // TODO for compute shader:
 /*
@@ -38,58 +39,41 @@ public:
             VulkanApp(width, height, appName, type) {}
 
 private:
-    uint32_t INSTANCE_COUNT = 65536;
-
-    const std::string planeModelPath = "../Models/quadXZ.obj";
+    static constexpr uint32_t PARTICLE_COUNT = 1024;
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../src/Grid3DSimCompute/Shaders/default.vert.spv",
-            "../src/Grid3DSimCompute/Shaders/default.frag.spv"
+            "../src/ComputeShaderTest/Shaders/default.vert.spv",
+            "../src/ComputeShaderTest/Shaders/default.frag.spv"
     };
+    const std::string computeShaderPath = "../src/ComputeShaderTest/Shaders/default.comp.spv";
 
-    const std::string sphereModelPath = "../Models/lowsphere.obj";
-    const vkb::RenderSystem::ShaderPaths instanceShaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../src/Grid3DSimCompute/Shaders/instancing.vert.spv",
-            "../src/Grid3DSimCompute/Shaders/instancing.frag.spv",
+
+    struct Particle {
+        glm::vec2 position, velocity;
+        glm::vec4 color;
     };
 
     struct UniformBufferObject {
-        alignas(16) glm::mat4 view;
-        alignas(16) glm::mat4 proj;
-        alignas(16) glm::vec3 lightDirection = glm::normalize(glm::vec3(1.0f, 1.0f, 0.0f));
+        float deltaTime;
     };
 
-    struct InstanceData {
-        glm::vec3 position;
-        glm::vec3 color;
-        float scale;
-    };
-
-    vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, planeModelPath), std::make_shared<vkb::Texture>(device, "../textures/viking_room.png")};
 
     std::vector<std::unique_ptr<vkb::Buffer>> uniformBuffers;
+    std::vector<std::unique_ptr<vkb::Buffer>> computeData;
 
     vkb::RenderSystem defaultSystem{device};
     std::vector<VkDescriptorSet> defaultDescriptorSets;
-    vkb::RenderSystem instanceSystem{device};
+    vkb::ComputeSystem computeSystem{device};
+    std::vector<VkDescriptorSet> computeDescriptorSets;
 
     vkb::Camera camera{};
-    vkb::CameraMovementController cameraController{};
 
-    vkb::InstancedObjects<InstanceData> instancedSpheres{device, INSTANCE_COUNT, vkb::Model::createModelFromFile(device, sphereModelPath)};
-
-    float damping = 0.05f, sphereRadius = 0.641f;
-    std::vector<float> sphereSpeeds;
-    std::vector<uint32_t> iter;
     float gpuTime = 0, cpuTime = 0;
     bool activateTimer = false;
 
     void onCreate() override;
-    void testCompute();
     void initializeObjects();
-    void createInstances();
     void createUniformBuffers();
     void mainLoop(float deltaTime) override;
-    void updateSpheres(float deltaTime);
     void updateUniformBuffer(uint32_t frameIndex, float deltaTime);
     void showImGui();
 

@@ -3,32 +3,32 @@
 //
 
 #include <fstream>
-#include "Pipeline.h"
+#include "GraphicsPipeline.h"
 #include "Model.h"
 
 
 namespace vkb {
 
-    Pipeline::Pipeline(const Device &device, const std::string &vertShaderPath, const std::string &fragShaderPath,
-                       Pipeline::PipelineConfigInfo &configInfo): m_deviceRef(device) {
+    GraphicsPipeline::GraphicsPipeline(const Device &device, const std::string &vertShaderPath, const std::string &fragShaderPath,
+                                       GraphicsPipeline::PipelineConfigInfo &configInfo): m_deviceRef(device) {
         createGraphicsPipeline(vertShaderPath, fragShaderPath, configInfo);
 
     }
 
-    Pipeline::~Pipeline() {
+    GraphicsPipeline::~GraphicsPipeline() {
         vkDestroyPipeline(m_deviceRef.device(), m_pipeline, nullptr);
     }
 
-    void Pipeline::createGraphicsPipeline(const std::string &vertShaderPath, const std::string &fragShaderPath,
-                                          Pipeline::PipelineConfigInfo &configInfo) {
+    void GraphicsPipeline::createGraphicsPipeline(const std::string &vertShaderPath, const std::string &fragShaderPath,
+                                                  GraphicsPipeline::PipelineConfigInfo &configInfo) {
 
         if (configInfo.pipelineLayout == VK_NULL_HANDLE) throw std::runtime_error("Trying to initialize graphics pipeline with no layout");
         if (configInfo.renderPass == VK_NULL_HANDLE) throw std::runtime_error("Trying to initialize graphics pipeline with no renderPass");
         auto vertShaderCode = readFile(vertShaderPath);
         auto fragShaderCode = readFile(fragShaderPath);
 
-        VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
-        VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+        VkShaderModule vertShaderModule = createShaderModule(m_deviceRef, vertShaderCode);
+        VkShaderModule fragShaderModule = createShaderModule(m_deviceRef, fragShaderCode);
 
         VkPipelineShaderStageCreateInfo vertShaderStageCreateInfo{};
         vertShaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -82,25 +82,25 @@ namespace vkb {
         vkDestroyShaderModule(m_deviceRef.device(), fragShaderModule, nullptr);
     }
 
-    VkShaderModule Pipeline::createShaderModule(const std::vector<char>& code){
+    VkShaderModule GraphicsPipeline::createShaderModule(const Device& device, const std::vector<char>& code){
         VkShaderModuleCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
         createInfo.codeSize = code.size();
         createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
 
         VkShaderModule shaderModule;
-        if (vkCreateShaderModule(m_deviceRef.device(), &createInfo, nullptr, &shaderModule) != VK_SUCCESS){
+        if (vkCreateShaderModule(device.device(), &createInfo, nullptr, &shaderModule) != VK_SUCCESS){
             throw std::runtime_error("failed to create shader module!");
         }
 
         return shaderModule;
     }
 
-    void Pipeline::bind(VkCommandBuffer commandBuffer) {
+    void GraphicsPipeline::bind(VkCommandBuffer commandBuffer) {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
     }
 
-    std::vector<char> Pipeline::readFile(const std::string& filename){
+    std::vector<char> GraphicsPipeline::readFile(const std::string& filename){
         std::ifstream file;
         file.open(filename, std::ios::ate | std::ios::binary);
 
@@ -117,7 +117,7 @@ namespace vkb {
         return buffer;
     }
 
-    Pipeline::PipelineConfigInfo Pipeline::defaultConfigInfo() {
+    GraphicsPipeline::PipelineConfigInfo GraphicsPipeline::defaultConfigInfo() {
         PipelineConfigInfo configInfo;
 
         configInfo.inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -191,14 +191,14 @@ namespace vkb {
         return configInfo;
     }
 
-    Pipeline::PipelineConfigInfo Pipeline::defaultConfigInfo(VkPipelineLayout layout, VkRenderPass renderPass) {
+    GraphicsPipeline::PipelineConfigInfo GraphicsPipeline::defaultConfigInfo(VkPipelineLayout layout, VkRenderPass renderPass) {
         PipelineConfigInfo configInfo = defaultConfigInfo();
         configInfo.setPipelineLayout(layout);
         configInfo.setRenderPass(renderPass);
         return configInfo;
     }
 
-    void Pipeline::PipelineConfigInfo::enableAlphaBlending() {
+    void GraphicsPipeline::PipelineConfigInfo::enableAlphaBlending() {
         colorBlendAttachment.blendEnable = VK_TRUE;
         colorBlendAttachment.colorWriteMask =
                 VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |

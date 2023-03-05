@@ -28,7 +28,7 @@ void Grid2DSim::onCreate() {
 
     {
         instanceSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
-        instanceSystem.createPipeline(renderer.renderPass(), instanceShaderPaths, [this](vkb::Pipeline::PipelineConfigInfo& info) {
+        instanceSystem.createPipeline(renderer.renderPass(), instanceShaderPaths, [this](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
             info.bindingDescription.push_back(grid.getBindingDescription());
             info.attributeDescription.push_back({4, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(InstanceData, position)});
             info.attributeDescription.push_back({5, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(InstanceData, color)});

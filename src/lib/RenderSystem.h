@@ -9,7 +9,7 @@
 
 #include "utils.h"
 #include "Device.h"
-#include "Pipeline.h"
+#include "GraphicsPipeline.h"
 
 namespace vkb {
     class RenderSystem {
@@ -30,16 +30,16 @@ namespace vkb {
         void bind(VkCommandBuffer commandBuffer, VkDescriptorSet* descriptorSet);
 
         void createPipelineLayout(VkDescriptorSetLayout globalSetLayout, uint32_t pushConstantSize = 0);
-        void createPipeline(VkRenderPass renderPass, const ShaderPaths& shaderPaths, const std::function<void(Pipeline::PipelineConfigInfo&)>& configurePipeline = {});
+        void createPipeline(VkRenderPass renderPass, const ShaderPaths& shaderPaths, const std::function<void(GraphicsPipeline::PipelineConfigInfo&)>& configurePipeline = {});
     private:
 
         const Device& m_deviceRef;
 
-        std::unique_ptr<Pipeline> m_pipeline;
+        std::unique_ptr<GraphicsPipeline> m_pipeline;
         VkPipelineLayout m_pipelineLayout{};
 
         bool m_layoutCreated = false;
-        uint32_t m_pushConstantSize;
+        uint32_t m_pushConstantSize{};
     };
 }
 
