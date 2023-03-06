@@ -69,6 +69,7 @@ private:
     };
 
     struct UniformBufferObject {
+        glm::vec2 mousePos;
         float deltaTime;
     };
 

@@ -11,13 +11,12 @@ void ComputeShaderTest::onCreate() {
     // Default render system
     defaultSystem.createPipelineLayout(nullptr, 0);
     defaultSystem.createPipeline(renderer.renderPass(), shaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& configInfo){
-        configInfo.enableAlphaBlending();
-
         configInfo.colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
         configInfo.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
 
         configInfo.attributeDescription = Particle::getAttributeDescriptions();
         configInfo.bindingDescription = {Particle::getBindingDescription()};
+        configInfo.enableAlphaBlending();
     });
 
 
@@ -49,47 +48,18 @@ void ComputeShaderTest::createComputeDescriptorSets(vkb::DescriptorSetLayout &la
     }
 
     for (size_t i = 0; i < vkb::SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
-        VkDescriptorBufferInfo uniformBufferInfo{};
-        uniformBufferInfo.buffer = uniformBuffers[i]->getBuffer();
-        uniformBufferInfo.offset = 0;
-        uniformBufferInfo.range = sizeof(UniformBufferObject);
+        auto writer = vkb::DescriptorWriter(layout, *globalDescriptorPool);
 
-        std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
-        descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[0].dstSet = computeDescriptorSets[i];
-        descriptorWrites[0].dstBinding = 0;
-        descriptorWrites[0].dstArrayElement = 0;
-        descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptorWrites[0].descriptorCount = 1;
-        descriptorWrites[0].pBufferInfo = &uniformBufferInfo;
+        auto uniformBufferInfo = uniformBuffers[i]->descriptorInfo();
+        writer.writeBuffer(0, &uniformBufferInfo);
 
-        VkDescriptorBufferInfo storageBufferInfoLastFrame{};
-        storageBufferInfoLastFrame.buffer = computeData[(i - 1) % vkb::SwapChain::MAX_FRAMES_IN_FLIGHT]->getBuffer();
-        storageBufferInfoLastFrame.offset = 0;
-        storageBufferInfoLastFrame.range = sizeof(Particle) * PARTICLE_COUNT;
+        auto storageBufferInfoLastFrame = computeData[(i - 1) % vkb::SwapChain::MAX_FRAMES_IN_FLIGHT]->descriptorInfo();
+        writer.writeBuffer(1, &storageBufferInfoLastFrame);
 
-        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[1].dstSet = computeDescriptorSets[i];
-        descriptorWrites[1].dstBinding = 1;
-        descriptorWrites[1].dstArrayElement = 0;
-        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        descriptorWrites[1].descriptorCount = 1;
-        descriptorWrites[1].pBufferInfo = &storageBufferInfoLastFrame;
+        auto storageBufferInfoCurrentFrame = computeData[i]->descriptorInfo();
+        writer.writeBuffer(2, &storageBufferInfoCurrentFrame);
 
-        VkDescriptorBufferInfo storageBufferInfoCurrentFrame{};
-        storageBufferInfoCurrentFrame.buffer = computeData[i]->getBuffer();
-        storageBufferInfoCurrentFrame.offset = 0;
-        storageBufferInfoCurrentFrame.range = sizeof(Particle) * PARTICLE_COUNT;
-
-        descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[2].dstSet = computeDescriptorSets[i];
-        descriptorWrites[2].dstBinding = 2;
-        descriptorWrites[2].dstArrayElement = 0;
-        descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        descriptorWrites[2].descriptorCount = 1;
-        descriptorWrites[2].pBufferInfo = &storageBufferInfoCurrentFrame;
-
-        vkUpdateDescriptorSets(device.device(), 3, descriptorWrites.data(), 0, nullptr);
+        writer.build(computeDescriptorSets[i], false);
     }
 
 }
@@ -97,20 +67,17 @@ void ComputeShaderTest::createComputeDescriptorSets(vkb::DescriptorSetLayout &la
 void ComputeShaderTest::initializeObjects() {
     vkDeviceWaitIdle(device.device());
 
-    // Initialize particles
-    std::default_random_engine rndEngine((unsigned)time(nullptr));
-    std::uniform_real_distribution<float> rndDist(0.0f, 1.0f);
-
-    // Initial particle positions on a circle
     std::vector<Particle> particles(PARTICLE_COUNT);
     for (auto& particle : particles) {
-        float r = 0.25f * std::sqrt(rndDist(rndEngine));
-        float theta = rndDist(rndEngine) * 2 * 3.14159265358979323846f;
-        float x = r * std::cos(theta) * float(window.height()) / float(window.width());
-        float y = r * std::sin(theta);
+//        float r = 0.25f * std::sqrt(rndDist(rndEngine));
+//        float theta = rndDist(rndEngine) * 2 * 3.14159265358979323846f;
+//        float x = r * std::cos(theta) * float(window.height()) / float(window.width());
+//        float y = r * std::sin(theta);
+        float x = randomFloat(-1.0f, 1.0f);
+        float y = randomFloat(-1.0f, 1.0f);
         particle.position = glm::vec2(x, y);
         particle.velocity = glm::normalize(glm::vec2(x,y)) * 0.25f;
-        particle.color = glm::vec4(rndDist(rndEngine), rndDist(rndEngine), rndDist(rndEngine), 1.0f);
+        particle.color = glm::vec4(randomFloat(), randomFloat(), randomFloat(), 1.0f);
     }
 
     VkDeviceSize bufferSize = PARTICLE_COUNT * sizeof(Particle);
@@ -134,6 +101,7 @@ void ComputeShaderTest::createUniformBuffers() {
     for (size_t i = 0; i < vkb::SwapChain::MAX_FRAMES_IN_FLIGHT; ++i) {
         uniformBuffers[i] = std::make_unique<vkb::Buffer>(device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        uniformBuffers[i]->map();
     }
 }
 
@@ -170,8 +138,12 @@ void ComputeShaderTest::mainLoop(float deltaTime) {
 
 void ComputeShaderTest::updateUniformBuffer(uint32_t frameIndex, float deltaTime){
     UniformBufferObject ubo{};
+    double x, y;
+    glfwGetCursorPos(window.window(), &x, &y);
+    ubo.mousePos.x = 2*float(x)/float(window.width()) - 1;
+    ubo.mousePos.y = 2*float(y)/float(window.height()) - 1;
     ubo.deltaTime = deltaTime;
-    uniformBuffers[frameIndex]->singleWrite(&ubo);
+    uniformBuffers[frameIndex]->write(&ubo);
 }
 
 void ComputeShaderTest::showImGui(){

@@ -44,8 +44,8 @@ namespace vkb {
         return *this;
     }
 
-    void DescriptorWriter::build(VkDescriptorSet &set) {
-        m_pool.allocateDescriptor(m_layout.descriptorSetLayout(), set);
+    void DescriptorWriter::build(VkDescriptorSet &set, bool allocDescriptor) {
+        if (allocDescriptor) m_pool.allocateDescriptor(m_layout.descriptorSetLayout(), set);
         update(set);
     }
 

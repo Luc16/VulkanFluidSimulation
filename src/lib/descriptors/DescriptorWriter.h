@@ -16,7 +16,7 @@ namespace vkb {
         DescriptorWriter &writeBuffer(uint32_t binding, VkDescriptorBufferInfo *bufferInfo);
         DescriptorWriter &writeImage(uint32_t binding, VkDescriptorImageInfo *imageInfo);
 
-        void build(VkDescriptorSet &set);
+        void build(VkDescriptorSet &set, bool allocateDescriptor=true);
         void update(VkDescriptorSet &set);
     private:
         DescriptorSetLayout& m_layout;
