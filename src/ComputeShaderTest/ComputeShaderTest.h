@@ -35,7 +35,8 @@ private:
             "../src/ComputeShaderTest/Shaders/default.vert.spv",
             "../src/ComputeShaderTest/Shaders/default.frag.spv"
     };
-    const std::string computeShaderPath = "../src/ComputeShaderTest/Shaders/default.comp.spv";
+    const std::string calculateForcesShaderPath = "../src/ComputeShaderTest/Shaders/calculate_forces.comp.spv";
+    const std::string moveParticlesShaderPath = "../src/ComputeShaderTest/Shaders/move_particles.comp.spv";
 
 
     struct Particle {
@@ -69,16 +70,20 @@ private:
     };
 
     struct UniformBufferObject {
-        glm::vec2 mousePos;
-        float deltaTime;
+        float gravitationalConstant = 0.00002f;
+        float deltaTime = 1.0f/60.0f;
     };
 
     std::vector<std::unique_ptr<vkb::Buffer>> uniformBuffers;
+    UniformBufferObject ubo;
     std::vector<std::unique_ptr<vkb::Buffer>> computeData;
 
     vkb::RenderSystem defaultSystem{device};
-    vkb::ComputeSystem computeSystem{device};
+    vkb::ComputeSystem calculateForcesComputeSystem{device};
+    vkb::ComputeSystem moveParticlesComputeSystem{device};
     std::vector<VkDescriptorSet> computeDescriptorSets;
+    std::array<std::vector<VkSemaphore>, vkb::SwapChain::MAX_FRAMES_IN_FLIGHT> computeSemaphores;
+    std::vector<VkPipelineStageFlags> computeWaitStages;
 
     float gpuTime = 0, cpuTime = 0;
     bool activateTimer = false;

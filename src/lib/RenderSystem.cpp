@@ -18,6 +18,9 @@ namespace vkb {
     }
 
     void RenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout, uint32_t pushConstantSize) {
+        if (m_layoutCreated) {
+            vkDestroyPipelineLayout(m_deviceRef.device(), m_pipelineLayout, nullptr);
+        }
         m_pushConstantSize = pushConstantSize;
         VkPushConstantRange pushConstantRange{};
         pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;

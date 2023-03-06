@@ -28,9 +28,9 @@ namespace vkb {
         ComputeSystem &operator=(const ComputeSystem &) = delete;
 
         [[nodiscard]] std::vector<VkSemaphore> currentSemaphore(uint32_t currentFrame) { return {m_computeFinishedSemaphores[currentFrame]}; }
-        [[nodiscard]] std::vector<VkPipelineStageFlags> waitStages() { return {VK_PIPELINE_STAGE_VERTEX_INPUT_BIT}; }
+        [[nodiscard]] static std::vector<VkPipelineStageFlags> waitStages() { return {VK_PIPELINE_STAGE_VERTEX_INPUT_BIT}; }
 
-        void runCompute(VkDescriptorSet *descriptorSet, uint32_t currentFrame, uint32_t x, uint32_t y, uint32_t z);
+        void runCompute(uint32_t currentFrame, std::function<void(VkCommandBuffer computeCommandBuffer)> func);
 
         void bind(VkCommandBuffer commandBuffer, VkDescriptorSet *descriptorSet);
         void dispatch(VkCommandBuffer commandBuffer, uint32_t x, uint32_t y, uint32_t z);
@@ -38,6 +38,8 @@ namespace vkb {
         void createPipelineLayout(VkDescriptorSetLayout computeSetLayout);
 
         void createPipeline(const std::string& computeShaderPath);
+
+        void destroyPipeline();
 
     private:
 
@@ -52,6 +54,7 @@ namespace vkb {
         std::vector<VkCommandBuffer> m_computeCommandBuffers{};
 
         bool m_layoutCreated = false;
+        bool m_pipelineCreated = false;
 
     };
 }

@@ -7,7 +7,6 @@
 
 #include "utils.h"
 
-// TODO revisar a matematica
 namespace vkb {
     class Camera {
     public:

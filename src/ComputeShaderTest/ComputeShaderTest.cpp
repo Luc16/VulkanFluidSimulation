@@ -19,7 +19,8 @@ void ComputeShaderTest::onCreate() {
         configInfo.enableAlphaBlending();
     });
 
-
+    calculateForcesComputeSystem.destroyPipeline();
+    moveParticlesComputeSystem.destroyPipeline();
     auto computeDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
             .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
@@ -27,10 +28,17 @@ void ComputeShaderTest::onCreate() {
             .build();
 
     createComputeDescriptorSets(computeDescriptorLayout);
-    computeSystem.createPipelineLayout(computeDescriptorLayout.descriptorSetLayout());
-    computeSystem.createPipeline(computeShaderPath);
+    calculateForcesComputeSystem.createPipelineLayout(computeDescriptorLayout.descriptorSetLayout());
+    calculateForcesComputeSystem.createPipeline(calculateForcesShaderPath);
+
+    moveParticlesComputeSystem.createPipelineLayout(computeDescriptorLayout.descriptorSetLayout());
+    moveParticlesComputeSystem.createPipeline(moveParticlesShaderPath);
 
 
+    for (uint32_t i = 0; i < vkb::SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
+        computeSemaphores[i] = {calculateForcesComputeSystem.currentSemaphore(i)[0]};
+    }
+    computeWaitStages = {vkb::ComputeSystem::waitStages()[0]};
 }
 
 void ComputeShaderTest::createComputeDescriptorSets(vkb::DescriptorSetLayout &layout) {
@@ -69,14 +77,14 @@ void ComputeShaderTest::initializeObjects() {
 
     std::vector<Particle> particles(PARTICLE_COUNT);
     for (auto& particle : particles) {
-//        float r = 0.25f * std::sqrt(rndDist(rndEngine));
-//        float theta = rndDist(rndEngine) * 2 * 3.14159265358979323846f;
-//        float x = r * std::cos(theta) * float(window.height()) / float(window.width());
-//        float y = r * std::sin(theta);
-        float x = randomFloat(-1.0f, 1.0f);
-        float y = randomFloat(-1.0f, 1.0f);
+        float r = 0.25f * std::sqrt(randomFloat());
+        float theta = randomFloat() * 2 * 3.14159265358979323846f;
+        float x = r * std::cos(theta) * float(window.height()) / float(window.width());
+        float y = r * std::sin(theta);
+//        float x = randomFloat(-1.0f, 1.0f);
+//        float y = randomFloat(-1.0f, 1.0f);
         particle.position = glm::vec2(x, y);
-        particle.velocity = glm::normalize(glm::vec2(x,y)) * 0.25f;
+        particle.velocity = glm::vec2(0.0f);
         particle.color = glm::vec4(randomFloat(), randomFloat(), randomFloat(), 1.0f);
     }
 
@@ -116,7 +124,38 @@ void ComputeShaderTest::mainLoop(float deltaTime) {
         currentTime = time;
     }
 
-    computeSystem.runCompute(&computeDescriptorSets[renderer.currentFrame()], renderer.currentFrame(), PARTICLE_COUNT/256, 1, 1);
+    calculateForcesComputeSystem.runCompute(renderer.currentFrame(), [this](VkCommandBuffer computeCommandBuffer){
+        calculateForcesComputeSystem.bind(computeCommandBuffer, &computeDescriptorSets[(renderer.currentFrame() + 1)%vkb::SwapChain::MAX_FRAMES_IN_FLIGHT]);
+        calculateForcesComputeSystem.dispatch(computeCommandBuffer, PARTICLE_COUNT/32, PARTICLE_COUNT/32, 1);
+
+        // Add memory barrier to ensure that the computer shader has finished writing to the buffer
+        std::array<VkBufferMemoryBarrier, vkb::SwapChain::MAX_FRAMES_IN_FLIGHT> bufferMemoryBarriers{};
+        for (uint32_t i = 0; i < computeData.size(); i++){
+            bufferMemoryBarriers[i].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+            bufferMemoryBarriers[i].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            bufferMemoryBarriers[i].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            bufferMemoryBarriers[i].buffer = computeData[i]->getBuffer();
+            bufferMemoryBarriers[i].size = computeData[i]->getSize();
+            bufferMemoryBarriers[i].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+            bufferMemoryBarriers[i].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        }
+
+        vkCmdPipelineBarrier(
+                computeCommandBuffer,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                0,
+                0, nullptr,
+                bufferMemoryBarriers.size(), bufferMemoryBarriers.data(),
+                0, nullptr);
+
+
+        moveParticlesComputeSystem.bind(computeCommandBuffer, &computeDescriptorSets[renderer.currentFrame()]);
+        moveParticlesComputeSystem.dispatch(computeCommandBuffer, PARTICLE_COUNT/256, 1, 1);
+
+    });
+
+
 
     renderer.runFrame([this](VkCommandBuffer commandBuffer){
         showImGui();
@@ -131,17 +170,12 @@ void ComputeShaderTest::mainLoop(float deltaTime) {
             vkCmdDraw(commandBuffer, PARTICLE_COUNT, 1, 0, 0);
 
         });
-    }, computeSystem.currentSemaphore(renderer.currentFrame()), computeSystem.waitStages());
+    }, computeSemaphores[renderer.currentFrame()], computeWaitStages);
     if (activateTimer) gpuTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
 }
 
 
 void ComputeShaderTest::updateUniformBuffer(uint32_t frameIndex, float deltaTime){
-    UniformBufferObject ubo{};
-    double x, y;
-    glfwGetCursorPos(window.window(), &x, &y);
-    ubo.mousePos.x = 2*float(x)/float(window.width()) - 1;
-    ubo.mousePos.y = 2*float(y)/float(window.height()) - 1;
     ubo.deltaTime = deltaTime;
     uniformBuffers[frameIndex]->write(&ubo);
 }
@@ -154,6 +188,10 @@ void ComputeShaderTest::showImGui(){
         ImGui::Text("Gpu time: %f ms", gpuTime);
         ImGui::Text("Cpu time: %f ms", cpuTime);
     }
+
+    ImGui::DragFloat("Gravitational Constant", &ubo.gravitationalConstant, 0.000002f, 0.0f, 0.002f, "%.7f");
+
+    if (ImGui::Button("Reset")) onCreate();
 
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                 ImGui::GetIO().Framerate);

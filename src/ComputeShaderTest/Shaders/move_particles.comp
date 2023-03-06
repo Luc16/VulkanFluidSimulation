@@ -7,7 +7,7 @@ struct Particle {
 };
 
 layout (binding = 0) uniform ParameterUBO {
-    vec2 mousePos;
+    float gravitationalConstant;
     float deltaTime;
 } ubo;
 
@@ -27,10 +27,6 @@ void main()
 
     Particle particleIn = particlesIn[index];
 
-    vec2 res = particleIn.position - ubo.mousePos;
-    if (dot(res, res) < 0.1f) particleIn.velocity = length(particleIn.velocity)*normalize(res);
-
-
     particlesOut[index].position = particleIn.position + particleIn.velocity.xy * ubo.deltaTime;
     particlesOut[index].velocity = particleIn.velocity;
 
@@ -49,4 +45,5 @@ void main()
         particlesOut[index].position.y = 1.0;
         particlesOut[index].velocity.y = -particlesOut[index].velocity.y;
     }
+
 }

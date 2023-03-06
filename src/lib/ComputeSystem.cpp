@@ -38,15 +38,23 @@ namespace vkb {
 
 
     ComputeSystem::~ComputeSystem() {
-        vkDestroyPipelineLayout(m_deviceRef.device(), m_computePipelineLayout, nullptr);
-        vkDestroyPipeline(m_deviceRef.device(), m_computePipeline, nullptr);
+        destroyPipeline();
         for (size_t i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
             vkDestroySemaphore(m_deviceRef.device(), m_computeFinishedSemaphores[i], nullptr);
             vkDestroyFence(m_deviceRef.device(), m_computeInFlightFences[i], nullptr);
         }
     }
 
-    void ComputeSystem::runCompute(VkDescriptorSet *descriptorSet, uint32_t currentFrame, uint32_t x, uint32_t y, uint32_t z) {
+    void ComputeSystem::destroyPipeline() {
+        if (m_pipelineCreated) {
+            vkDestroyPipelineLayout(m_deviceRef.device(), m_computePipelineLayout, nullptr);
+            vkDestroyPipeline(m_deviceRef.device(), m_computePipeline, nullptr);
+            m_layoutCreated = false;
+            m_pipelineCreated = false;
+        }
+    }
+
+    void ComputeSystem::runCompute(uint32_t currentFrame, std::function<void(VkCommandBuffer computeCommandBuffer)> func) {
         vkWaitForFences(m_deviceRef.device(), 1, &m_computeInFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
         vkResetFences(m_deviceRef.device(), 1, &m_computeInFlightFences[currentFrame]);
@@ -62,11 +70,7 @@ namespace vkb {
             throw std::runtime_error("failed to begin recording compute command buffer!");
         }
 
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipeline);
-
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipelineLayout, 0, 1, descriptorSet, 0, nullptr);
-
-        vkCmdDispatch(commandBuffer, x, y, z);
+        func(commandBuffer);
 
         if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
             throw std::runtime_error("failed to record compute command buffer!");
@@ -108,6 +112,7 @@ namespace vkb {
 
     void ComputeSystem::createPipeline(const std::string& computeShaderPath) {
         if (!m_layoutCreated) throw std::runtime_error("Need to create pipeline layout before creating pipeline!");
+        m_pipelineCreated = true;
 
         auto computeShaderCode = GraphicsPipeline::readFile(computeShaderPath);
 
