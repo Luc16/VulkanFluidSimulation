@@ -48,7 +48,7 @@ namespace vkb {
         else {
             char *memOffset = (char *)m_mapped;
             memOffset += offset;
-            memcpy(m_mapped, data, (size_t) size);
+            memcpy(memOffset, data, (size_t) size);
 
         }
     }

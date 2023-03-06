@@ -23,15 +23,6 @@
 #include "../lib/InstancedObjects.h"
 #include "../lib/ComputeSystem.h"
 
-// TODO for compute shader:
-/*
- * Create buffers to compute and send to GPU
- * Create the corresponding descriptors
- * Create compute pipeline
- * Shader stage
- * Synchronize the compute shaders
- * Call compute operation
- * */
 
 class ComputeShaderTest: public vkb::VulkanApp {
 public:
@@ -39,7 +30,7 @@ public:
             VulkanApp(width, height, appName, type) {}
 
 private:
-    static constexpr uint32_t PARTICLE_COUNT = 1024;
+    static constexpr uint32_t PARTICLE_COUNT = 8192;
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
             "../src/ComputeShaderTest/Shaders/default.vert.spv",
             "../src/ComputeShaderTest/Shaders/default.frag.spv"
@@ -50,28 +41,50 @@ private:
     struct Particle {
         glm::vec2 position, velocity;
         glm::vec4 color;
+
+        static VkVertexInputBindingDescription getBindingDescription() {
+            VkVertexInputBindingDescription bindingDescription{};
+            bindingDescription.binding = 0;
+            bindingDescription.stride = sizeof(Particle);
+            bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+            return bindingDescription;
+        }
+
+        static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions() {
+            std::vector<VkVertexInputAttributeDescription> attributeDescriptions{2};
+
+            attributeDescriptions[0].binding = 0;
+            attributeDescriptions[0].location = 0;
+            attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+            attributeDescriptions[0].offset = offsetof(Particle, position);
+
+            attributeDescriptions[1].binding = 0;
+            attributeDescriptions[1].location = 1;
+            attributeDescriptions[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+            attributeDescriptions[1].offset = offsetof(Particle, color);
+
+            return attributeDescriptions;
+        }
     };
 
     struct UniformBufferObject {
         float deltaTime;
     };
 
-
     std::vector<std::unique_ptr<vkb::Buffer>> uniformBuffers;
     std::vector<std::unique_ptr<vkb::Buffer>> computeData;
 
     vkb::RenderSystem defaultSystem{device};
-    std::vector<VkDescriptorSet> defaultDescriptorSets;
     vkb::ComputeSystem computeSystem{device};
     std::vector<VkDescriptorSet> computeDescriptorSets;
-
-    vkb::Camera camera{};
 
     float gpuTime = 0, cpuTime = 0;
     bool activateTimer = false;
 
     void onCreate() override;
     void initializeObjects();
+    void createComputeDescriptorSets(vkb::DescriptorSetLayout& layout);
     void createUniformBuffers();
     void mainLoop(float deltaTime) override;
     void updateUniformBuffer(uint32_t frameIndex, float deltaTime);
