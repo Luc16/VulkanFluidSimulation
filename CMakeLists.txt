@@ -35,7 +35,7 @@ add_library( VkFluidSim
         src/Grid2DSim/Grid2D.cpp src/Grid2DSim/Grid2D.h
         src/Grid3DSim/Grid3DSim.cpp src/Grid3DSim/Grid3DSim.h
         src/ComputeShaderTest/ComputeShaderTest.cpp src/ComputeShaderTest/ComputeShaderTest.h
-        src/lib/ComputeSystem.cpp src/lib/ComputeSystem.h)
+        src/lib/ComputeSystem.cpp src/lib/ComputeSystem.h src/lib/ComputeShaderHandler.cpp src/lib/ComputeShaderHandler.h)
 
 
 set( APPS

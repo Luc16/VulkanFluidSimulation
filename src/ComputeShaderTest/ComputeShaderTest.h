@@ -22,6 +22,7 @@
 #include "../lib/VulkanApp.h"
 #include "../lib/InstancedObjects.h"
 #include "../lib/ComputeSystem.h"
+#include "../lib/ComputeShaderHandler.h"
 
 
 class ComputeShaderTest: public vkb::VulkanApp {
@@ -79,11 +80,10 @@ private:
     std::vector<std::unique_ptr<vkb::Buffer>> computeData;
 
     vkb::RenderSystem defaultSystem{device};
+    vkb::ComputeShaderHandler computeHandler{device};
     vkb::ComputeSystem calculateForcesComputeSystem{device};
     vkb::ComputeSystem moveParticlesComputeSystem{device};
     std::vector<VkDescriptorSet> computeDescriptorSets;
-    std::array<std::vector<VkSemaphore>, vkb::SwapChain::MAX_FRAMES_IN_FLIGHT> computeSemaphores;
-    std::vector<VkPipelineStageFlags> computeWaitStages;
 
     float gpuTime = 0, cpuTime = 0;
     bool activateTimer = false;
