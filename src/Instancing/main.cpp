@@ -7,7 +7,7 @@
 
 const uint32_t WIDTH = 1000;
 const uint32_t HEIGHT = 1000;
-const std::string APP_NAME = "Vulkan";
+const std::string APP_NAME = "Vulkan Fluid Example";
 
 int main() {
     InstancingApp app{WIDTH, HEIGHT, APP_NAME, vkb::Device::NVIDIA};

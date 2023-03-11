@@ -9,7 +9,7 @@ layout(binding = 0) uniform UniformBufferObject {
     mat4 view;
     mat4 proj;
     vec3 lightDirection;
-} ubo;
+} computeUniformBuffer;
 
 layout(push_constant) uniform Push {
     mat4 model;

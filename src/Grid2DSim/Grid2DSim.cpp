@@ -40,6 +40,11 @@ void Grid2DSim::onCreate() {
 
 void Grid2DSim::initializeObjects() {
     camera.setViewTarget({0.0f, 0.0f, -1.0f}, {0.0f, 0.0f, 0.0f }, {0.0f, 1.0f, 0.0f});
+    camera.updateView();
+    auto extent = window.extent();
+    camera.setOrthographicProjection(0.0f, (float) extent.width, (float) extent.height, 0.0f, 0.1f, 1000.f);
+    ubo.view = camera.getView();
+    ubo.proj = camera.getProjection();
 
     vkDeviceWaitIdle(device.device());
 
@@ -94,13 +99,13 @@ void Grid2DSim::createUniformBuffers() {
     for (size_t i = 0; i < vkb::SwapChain::MAX_FRAMES_IN_FLIGHT; ++i) {
         uniformBuffers[i] = std::make_unique<vkb::Buffer>(device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        uniformBuffers[i]->map();
     }
 }
 
 void Grid2DSim::mainLoop(float deltaTime) {
     auto currentTime = std::chrono::high_resolution_clock::now();
 
-    camera.updateView();
     updateGrid(deltaTime);
     updateUniformBuffer(renderer.currentFrame());
 
@@ -145,12 +150,7 @@ void Grid2DSim::resetGrid(bool hardReset) {
 }
 
 void Grid2DSim::updateUniformBuffer(uint32_t frameIndex) {
-    UniformBufferObject ubo{};
-    auto extent = window.extent();
-    camera.setOrthographicProjection(0.0f, (float) extent.width, (float) extent.height, 0.0f, 0.1f, 1000.f);
-    ubo.view = camera.getView();
-    ubo.proj = camera.getProjection();
-    uniformBuffers[frameIndex]->singleWrite(&ubo);
+    uniformBuffers[frameIndex]->write(&ubo);
 }
 
 void Grid2DSim::showImGui(){

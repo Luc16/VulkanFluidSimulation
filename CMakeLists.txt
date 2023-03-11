@@ -42,10 +42,12 @@ set( APPS
         "Instancing"
         "Grid2DSim"
         "Grid3DSim"
-        "ComputeShaderTest")
+        "ComputeShaderTest"
+        "SPHCPUSim"
+        )
 
 foreach( testsourcefolder ${APPS} )
-    add_executable( ${testsourcefolder} src/${testsourcefolder}/main.cpp )
+    add_executable( ${testsourcefolder} src/${testsourcefolder}/main.cpp src/SPHCPUSim/SPHCPUSim.cpp src/SPHCPUSim/SPHCPUSim.h)
     target_link_libraries( ${testsourcefolder} VkFluidSim GL glfw Vulkan::Vulkan)
 
     # Make sure YourLib is linked to each app

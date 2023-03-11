@@ -1,9 +1,9 @@
 //
-// Created by luc on 05/02/23.
+// Created by luc on 11/03/23.
 //
 
-#ifndef VULKANFLUIDSIMULATION_COMPUTESHADERTEST_H
-#define VULKANFLUIDSIMULATION_COMPUTESHADERTEST_H
+#ifndef VULKANFLUIDSIMULATION_SPHCPUSIM_H
+#define VULKANFLUIDSIMULATION_SPHCPUSIM_H
 
 
 #include <sstream>
@@ -25,19 +25,19 @@
 #include "../lib/ComputeShaderHandler.h"
 
 
-class ComputeShaderTest: public vkb::VulkanApp {
+class SPHCPUSim: public vkb::VulkanApp {
 public:
-    ComputeShaderTest(int width, int height, const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
+    SPHCPUSim(int width, int height, const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
             VulkanApp(width, height, appName, type) {}
 
 private:
-    static constexpr uint32_t PARTICLE_COUNT = 8192;
+    static constexpr uint32_t PARTICLE_COUNT = 256;
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../src/ComputeShaderTest/Shaders/default.vert.spv",
-            "../src/ComputeShaderTest/Shaders/default.frag.spv"
+            "../src/SPHCPUSim/Shaders/default.vert.spv",
+            "../src/SPHCPUSim/Shaders/default.frag.spv"
     };
-    const std::string calculateForcesShaderPath = "../src/ComputeShaderTest/Shaders/calculate_forces.comp.spv";
-    const std::string moveParticlesShaderPath = "../src/ComputeShaderTest/Shaders/move_particles.comp.spv";
+    const std::string calculateForcesShaderPath = "../src/SPHCPUSim/Shaders/calculate_forces.comp.spv";
+    const std::string moveParticlesShaderPath = "../src/SPHCPUSim/Shaders/move_particles.comp.spv";
 
 
     struct Particle {
@@ -70,33 +70,19 @@ private:
         }
     };
 
-    struct ComputeUniformBufferObject {
-        float gravitationalConstant;
-        float deltaTime;
-        float width;
-        float height;
-    };
-
     struct UniformBufferObject {
         glm::mat4 view;
         glm::mat4 proj;
     };
 
-    std::vector<std::unique_ptr<vkb::Buffer>> computeData;
-    std::vector<std::unique_ptr<vkb::Buffer>> computeUniformBuffers;
-    ComputeUniformBufferObject cUbo{500.0f, 1/60.0f, float(window.width()), float(window.height())};
+    std::vector<std::unique_ptr<vkb::Buffer>> uniformBuffers;
+    UniformBufferObject ubo{};
 
-    std::vector<std::unique_ptr<vkb::Buffer>> graphicsUniformBuffers;
-    UniformBufferObject gUbo{};
+    std::vector<Particle> particles{PARTICLE_COUNT};
+    std::vector<std::unique_ptr<vkb::Buffer>> particleData;
 
     vkb::RenderSystem defaultSystem{device};
     std::vector<VkDescriptorSet> defaultDescriptorSets;
-
-    vkb::ComputeShaderHandler computeHandler{device};
-    vkb::ComputeSystem calculateForcesComputeSystem{device};
-    vkb::ComputeSystem moveParticlesComputeSystem{device};
-    std::vector<VkDescriptorSet> computeDescriptorSets;
-
 
     vkb::Camera camera{};
 
@@ -105,13 +91,12 @@ private:
 
     void onCreate() override;
     void initializeObjects();
-    void createComputeDescriptorSets(vkb::DescriptorSetLayout& layout);
     void createUniformBuffers();
     void mainLoop(float deltaTime) override;
-    void updateUniformBuffers(uint32_t frameIndex, float deltaTime);
+    void updateBuffers(uint32_t frameIndex, float deltaTime);
     void showImGui();
+
 
 };
 
-
-#endif //VULKANFLUIDSIMULATION_COMPUTESHADERTEST_H
+#endif //VULKANFLUIDSIMULATION_SPHCPUSIM_H

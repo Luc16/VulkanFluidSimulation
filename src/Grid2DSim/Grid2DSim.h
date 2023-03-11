@@ -105,6 +105,8 @@ private:
         Matrix<float, INSTANCE_COUNT, numTilesX> density{}, velX{}, velY{};
     };
 
+    UniformBufferObject ubo{};
+
     // Vulkan variables
     std::vector<std::unique_ptr<vkb::Buffer>> uniformBuffers;
 
