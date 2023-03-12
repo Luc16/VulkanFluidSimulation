@@ -1,0 +1,66 @@
+#version 450
+
+struct Particle {
+    vec3 position, velocity, force;
+    float density, pressure;
+    vec4 color;
+};
+
+layout (binding = 0) uniform ParameterUBO {
+    float deltaTime;
+    float width;
+    float height;
+
+    vec3 G;   // external (gravitational) forces
+    float REST_DENS;  // rest density
+    float GAS_CONST; // const for equation of state
+    float H;           // kernel radius
+    float HSQ;        // radius^2 for optimization
+    float MASS;        // assume all particles have the same mass
+    float VISC;       // viscosity constant
+    float DT;       // integration timestep
+    float POLY6;
+    float SPIKY_GRAD;
+    float VISC_LAP;
+    float EPS;
+    float BOUND_DAMPING;
+} ubo;
+
+layout(std140, binding = 1) buffer ParticleSSBO {
+    Particle particles[ ];
+};
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+void main()
+{
+    uint index = gl_GlobalInvocationID.x;
+
+    particles[index].force += ubo.G*ubo.MASS/particles[index].density;
+
+    particles[index].velocity += ubo.DT * particles[index].force / particles[index].density;
+    particles[index].position += ubo.DT * particles[index].velocity;
+
+
+    // enforce boundary conditions
+    if (particles[index].position.x - ubo.EPS < 0.f)
+    {
+        particles[index].velocity.x *= ubo.BOUND_DAMPING;
+        particles[index].position.x = ubo.EPS;
+    }
+    if (particles[index].position.x + ubo.EPS > ubo.width)
+    {
+        particles[index].velocity.x *= ubo.BOUND_DAMPING;
+        particles[index].position.x = ubo.width - ubo.EPS;
+    }
+    if (particles[index].position.y - ubo.EPS < 0.f)
+    {
+        particles[index].velocity.y *= ubo.BOUND_DAMPING;
+        particles[index].position.y = ubo.EPS;
+    }
+
+    particles[index].density = 0;
+    particles[index].pressure = -ubo.GAS_CONST * ubo.REST_DENS;
+    particles[index].force = vec3(0);
+
+}

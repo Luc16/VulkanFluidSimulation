@@ -2,8 +2,8 @@
 // Created by luc on 11/03/23.
 //
 
-#ifndef VULKANFLUIDSIMULATION_SPHCPUSIM_H
-#define VULKANFLUIDSIMULATION_SPHCPUSIM_H
+#ifndef VULKANFLUIDSIMULATION_SPHCPU2DSIM_H
+#define VULKANFLUIDSIMULATION_SPHCPU2DSIM_H
 
 #define GLM_GTX_norm
 #include <sstream>
@@ -25,9 +25,9 @@
 #include "../lib/ComputeShaderHandler.h"
 
 
-class SPHCPUSim: public vkb::VulkanApp {
+class SPHCPU2DSim: public vkb::VulkanApp {
 public:
-    SPHCPUSim(int width, int height, const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
+    SPHCPU2DSim(int width, int height, const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
             VulkanApp(width, height, appName, type) {}
 
 private:
@@ -53,11 +53,9 @@ private:
 
 
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../src/SPHCPUSim/Shaders/default.vert.spv",
-            "../src/SPHCPUSim/Shaders/default.frag.spv"
+            "../src/SPHCPU2DSim/Shaders/default.vert.spv",
+            "../src/SPHCPU2DSim/Shaders/default.frag.spv"
     };
-    const std::string calculateForcesShaderPath = "../src/SPHCPUSim/Shaders/calculate_forces.comp.spv";
-    const std::string moveParticlesShaderPath = "../src/SPHCPUSim/Shaders/move_particles.comp.spv";
 
 
     struct Particle {
@@ -126,4 +124,4 @@ private:
 
 };
 
-#endif //VULKANFLUIDSIMULATION_SPHCPUSIM_H
+#endif //VULKANFLUIDSIMULATION_SPHCPU2DSIM_H

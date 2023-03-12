@@ -35,19 +35,21 @@ add_library( VkFluidSim
         src/Grid2DSim/Grid2D.cpp src/Grid2DSim/Grid2D.h
         src/Grid3DSim/Grid3DSim.cpp src/Grid3DSim/Grid3DSim.h
         src/ComputeShaderTest/ComputeShaderTest.cpp src/ComputeShaderTest/ComputeShaderTest.h
-        src/lib/ComputeSystem.cpp src/lib/ComputeSystem.h src/lib/ComputeShaderHandler.cpp src/lib/ComputeShaderHandler.h)
-
+        src/lib/ComputeSystem.cpp src/lib/ComputeSystem.h src/lib/ComputeShaderHandler.cpp src/lib/ComputeShaderHandler.h
+        src/SPHCPU2DSim/SPHCPU2DSim.cpp src/SPHCPU2DSim/SPHCPU2DSim.h
+        src/SPHGPU2DSim/SPHGPU2DSim.cpp src/SPHGPU2DSim/SPHGPU2DSim.h)
 
 set( APPS
         "Instancing"
         "Grid2DSim"
         "Grid3DSim"
         "ComputeShaderTest"
-        "SPHCPUSim"
+        "SPHCPU2DSim"
+        "SPHGPU2DSim"
         )
 
 foreach( testsourcefolder ${APPS} )
-    add_executable( ${testsourcefolder} src/${testsourcefolder}/main.cpp src/SPHCPUSim/SPHCPUSim.cpp src/SPHCPUSim/SPHCPUSim.h)
+    add_executable( ${testsourcefolder} src/${testsourcefolder}/main.cpp)
     target_link_libraries( ${testsourcefolder} VkFluidSim GL glfw Vulkan::Vulkan)
 
     # Make sure YourLib is linked to each app

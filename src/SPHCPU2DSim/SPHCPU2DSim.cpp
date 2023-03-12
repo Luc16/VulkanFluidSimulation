@@ -2,9 +2,9 @@
 // Created by luc on 11/03/23.
 //
 
-#include "SPHCPUSim.h"
+#include "SPHCPU2DSim.h"
 
-void SPHCPUSim::onCreate() {
+void SPHCPU2DSim::onCreate() {
     initializeObjects();
     createUniformBuffers();
 
@@ -26,7 +26,7 @@ void SPHCPUSim::onCreate() {
 }
 
 
-void SPHCPUSim::initializeObjects() {
+void SPHCPU2DSim::initializeObjects() {
     camera.setViewTarget({0.0f, 0.0f, -1.0f}, {0.0f, 0.0f, 0.0f }, {0.0f, 1.0f, 0.0f});
     camera.updateView();
     auto extent = window.extent();
@@ -70,7 +70,7 @@ void SPHCPUSim::initializeObjects() {
 
 }
 
-void SPHCPUSim::createUniformBuffers() {
+void SPHCPU2DSim::createUniformBuffers() {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
     uniformBuffers.resize(vkb::SwapChain::MAX_FRAMES_IN_FLIGHT);
     for (size_t i = 0; i < vkb::SwapChain::MAX_FRAMES_IN_FLIGHT; ++i) {
@@ -80,7 +80,7 @@ void SPHCPUSim::createUniformBuffers() {
     }
 }
 
-void SPHCPUSim::mainLoop(float deltaTime) {
+void SPHCPU2DSim::mainLoop(float deltaTime) {
     auto currentTime = std::chrono::high_resolution_clock::now();
 
     updateParticles();
@@ -110,7 +110,7 @@ void SPHCPUSim::mainLoop(float deltaTime) {
 }
 
 
-void SPHCPUSim::updateBuffers(uint32_t frameIndex, float deltaTime){
+void SPHCPU2DSim::updateBuffers(uint32_t frameIndex, float deltaTime){
     uniformBuffers[frameIndex]->write(&ubo);
 
 
@@ -126,7 +126,7 @@ void SPHCPUSim::updateBuffers(uint32_t frameIndex, float deltaTime){
     }
 }
 
-void SPHCPUSim::showImGui(){
+void SPHCPU2DSim::showImGui(){
     ImGui::Begin("Control Panel");
 
     ImGui::Text("Rendering %d instances", PARTICLE_COUNT);
@@ -145,13 +145,13 @@ void SPHCPUSim::showImGui(){
 
 }
 
-void SPHCPUSim::updateParticles() {
+void SPHCPU2DSim::updateParticles() {
     computeDensityPressure();
     computeForces();
     integrate();
 }
 
-void SPHCPUSim::computeDensityPressure() {
+void SPHCPU2DSim::computeDensityPressure() {
     for (auto &particle: particles) {
         particle.density = 0.0f;
         for (auto& other : particles) {
@@ -167,7 +167,7 @@ void SPHCPUSim::computeDensityPressure() {
 
 }
 
-void SPHCPUSim::computeForces() {
+void SPHCPU2DSim::computeForces() {
     for (auto &particle: particles) {
         glm::vec3 fPress{0.0f}, fVisc{0.0f};
         for (auto& other : particles) {
@@ -186,31 +186,26 @@ void SPHCPUSim::computeForces() {
     }
 }
 
-void SPHCPUSim::integrate() {
-    for (auto &particle : particles)
-    {
+void SPHCPU2DSim::integrate() {
+    for (auto &particle : particles) {
         // forward Euler integration
         particle.velocity += DT * particle.force / particle.density;
         particle.position += DT * particle.velocity;
 
         // enforce boundary conditions
-        if (particle.position.x - EPS < 0.f)
-        {
+        if (particle.position.x - EPS < 0.f) {
             particle.velocity.x *= BOUND_DAMPING;
             particle.position.x = EPS;
         }
-        if (particle.position.x + EPS > float(window.width()))
-        {
+        if (particle.position.x + EPS > float(window.width())) {
             particle.velocity.x *= BOUND_DAMPING;
             particle.position.x = float(window.width()) - EPS;
         }
-        if (particle.position.y - EPS < 0.f)
-        {
+        if (particle.position.y - EPS < 0.f) {
             particle.velocity.y *= BOUND_DAMPING;
             particle.position.y = EPS;
         }
-        if (particle.position.y + EPS > float(window.height()))
-        {
+        if (particle.position.y + EPS > float(window.height())) {
             particle.velocity.y *= BOUND_DAMPING;
             particle.position.y = float(window.height()) - EPS;
         }

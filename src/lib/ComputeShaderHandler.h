@@ -25,7 +25,8 @@ namespace vkb {
 
         void runCompute(uint32_t currentFrame, const std::function<void(VkCommandBuffer computeCommandBuffer)>& func);
 
-        void computeBarrier(VkCommandBuffer commandBuffer, const std::vector<std::unique_ptr<Buffer>>& buffers);
+        static void computeBarrier(VkCommandBuffer commandBuffer, const std::vector<std::unique_ptr<Buffer>>& buffers);
+        static void computeBarrier(VkCommandBuffer commandBuffer, const std::unique_ptr<Buffer>& buffer);
 
     private:
 
