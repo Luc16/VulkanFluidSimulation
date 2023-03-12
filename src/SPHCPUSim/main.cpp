@@ -7,15 +7,13 @@
 
 const uint32_t WIDTH = 1000;
 const uint32_t HEIGHT = 1000;
-const std::string APP_NAME = "Vulkan N-body simulation";
+const std::string APP_NAME = "Vulkan CPU SPH 2D fluid simulation";
 
 int main() {
     SPHCPUSim app{WIDTH, HEIGHT, APP_NAME, vkb::Device::NVIDIA};
 
-//    system("glslc ../src/SPHCPU/Shaders/default.vert -o ../src/SPHCPU/Shaders/default.vert.spv");
-//    system("glslc ../src/SPHCPU/Shaders/default.frag -o ../src/SPHCPU/Shaders/default.frag.spv");
-//    system("glslc ../src/SPHCPU/Shaders/move_particles.comp -o ../src/SPHCPU/Shaders/move_particles.comp.spv");
-//    system("glslc ../src/SPHCPU/Shaders/calculate_forces.comp -o ../src/SPHCPU/Shaders/calculate_forces.comp.spv");
+    system("glslc ../src/SPHCPUSim/Shaders/default.vert -o ../src/SPHCPUSim/Shaders/default.vert.spv");
+    system("glslc ../src/SPHCPUSim/Shaders/default.frag -o ../src/SPHCPUSim/Shaders/default.frag.spv");
     try {
         app.run();
     } catch (const std::exception& e) {

@@ -11,5 +11,6 @@ void main() {
     if (length(gl_PointCoord - vec2(0.5)) > radius) {
         discard;
     }
-    outColor = vec4(fragColor, 1);
+//    outColor = vec4(fragColor, 1);
+    outColor = vec4(fragColor, 0.8 - length(coord));
 }

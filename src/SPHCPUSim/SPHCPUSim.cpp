@@ -33,16 +33,25 @@ void SPHCPUSim::initializeObjects() {
     camera.setOrthographicProjection(0.0f, (float) extent.width, (float) extent.height, 0.0f, 0.1f, 1000.f);
     ubo.view = camera.getView();
     ubo.proj = camera.getProjection();
+    ubo.radius = H/1.0f;
 
     vkDeviceWaitIdle(device.device());
 
+    auto accPos = glm::vec3(3*float(window.width())/8, 100, 0);
+
     for (uint32_t i = 0; i < PARTICLE_COUNT; i++) {
         auto& particle = particles[i];
-        float x = randomFloat(0.0f, float(window.width()));
-        float y = randomFloat(0.0f, float(window.height()));
-        particle.position = glm::vec2(x, y);
-        particle.velocity = glm::vec2(0.0f);
-        particle.color = glm::vec4(randomFloat(), randomFloat(), randomFloat(), 1.0f);
+        particle.position = accPos;
+        particle.velocity = glm::vec3(0.0f);
+        particle.color = glm::vec4(0.2f, 0.6f, 1.0f, 1.0f);
+
+        accPos.x += H*0.95f;
+
+        if (accPos.x > (float) 5*float(window.width())/8) {
+            accPos.y += H*0.95f;
+            accPos.x = 3*float(window.width())/8;
+        }
+
     }
 
     VkDeviceSize bufferSize = PARTICLE_COUNT * sizeof(Particle);
@@ -74,6 +83,7 @@ void SPHCPUSim::createUniformBuffers() {
 void SPHCPUSim::mainLoop(float deltaTime) {
     auto currentTime = std::chrono::high_resolution_clock::now();
 
+    updateParticles();
     updateBuffers(renderer.currentFrame(), deltaTime);
 
     if (activateTimer) {
@@ -134,3 +144,78 @@ void SPHCPUSim::showImGui(){
     ImGui::End();
 
 }
+
+void SPHCPUSim::updateParticles() {
+    computeDensityPressure();
+    computeForces();
+    integrate();
+}
+
+void SPHCPUSim::computeDensityPressure() {
+    for (auto &particle: particles) {
+        particle.density = 0.0f;
+        for (auto& other : particles) {
+            auto vec = particle.position - other.position;
+            auto dist2 = glm::dot(vec, vec);
+
+            if (dist2 < HSQ) {
+                particle.density += MASS * POLY6 * std::pow(HSQ - dist2, 3.f);
+            }
+        }
+        particle.pressure = GAS_CONST * (particle.density - REST_DENS);
+    }
+
+}
+
+void SPHCPUSim::computeForces() {
+    for (auto &particle: particles) {
+        glm::vec3 fPress{0.0f}, fVisc{0.0f};
+        for (auto& other : particles) {
+               if (&other == &particle) continue;
+
+               auto vec = other.position - particle.position;
+               auto dist = glm::length(vec);
+
+               if (dist < H) {
+                   fPress += -glm::normalize(vec) * MASS * (particle.pressure + other.pressure ) / (2.f * other.density) * SPIKY_GRAD * std::pow(H - dist, 3.f);
+                   fVisc += VISC * MASS * (other.velocity - particle.velocity) / other.density * VISC_LAP * (H - dist);
+               }
+
+        }
+        particle.force = fPress + fVisc + G*MASS/particle.density;
+    }
+}
+
+void SPHCPUSim::integrate() {
+    for (auto &particle : particles)
+    {
+        // forward Euler integration
+        particle.velocity += DT * particle.force / particle.density;
+        particle.position += DT * particle.velocity;
+
+        // enforce boundary conditions
+        if (particle.position.x - EPS < 0.f)
+        {
+            particle.velocity.x *= BOUND_DAMPING;
+            particle.position.x = EPS;
+        }
+        if (particle.position.x + EPS > float(window.width()))
+        {
+            particle.velocity.x *= BOUND_DAMPING;
+            particle.position.x = float(window.width()) - EPS;
+        }
+        if (particle.position.y - EPS < 0.f)
+        {
+            particle.velocity.y *= BOUND_DAMPING;
+            particle.position.y = EPS;
+        }
+        if (particle.position.y + EPS > float(window.height()))
+        {
+            particle.velocity.y *= BOUND_DAMPING;
+            particle.position.y = float(window.height()) - EPS;
+        }
+    }
+}
+
+
+
