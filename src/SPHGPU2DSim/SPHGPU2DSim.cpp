@@ -146,13 +146,13 @@ void SPHGPU2DSim::mainLoop(float deltaTime) {
     computeHandler.runCompute(renderer.currentFrame(), [this](VkCommandBuffer computeCommandBuffer){
         calculateDensityPressureComputeSystem.bindAndDispatch(computeCommandBuffer,
                                                      &computeDescriptorSet,
-                                                     PARTICLE_COUNT/32, PARTICLE_COUNT/32, 1);
+                                                     PARTICLE_COUNT/256, 1, 1);
 
         vkb::ComputeShaderHandler::computeBarrier(computeCommandBuffer, particleBuffer);
 
         calculateForcesComputeSystem.bindAndDispatch(computeCommandBuffer,
                                                      &computeDescriptorSet,
-                                                     PARTICLE_COUNT/32, PARTICLE_COUNT/32, 1);
+                                                     PARTICLE_COUNT/256, 1, 1);
 
 
         // Add memory barrier to ensure that the computer shader has finished writing to the buffer

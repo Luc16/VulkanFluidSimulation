@@ -24,27 +24,33 @@ layout (binding = 0) uniform ParameterUBO {
     float VISC_LAP;
     float EPS;
     float BOUND_DAMPING;
+    uint numParticles;
 } ubo;
 
 layout(std140, binding = 1) buffer ParticleSSBO {
     Particle particles[ ];
 };
 
-layout (local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 void main()
 {
     uint i = gl_GlobalInvocationID.x;
-    uint j = gl_GlobalInvocationID.y;
 
-    if (i == j) return;
+    vec3 pForce = vec3(0);
+    vec3 vForce = vec3(0);
+    for (uint j = 0; j < ubo.numParticles; j++) {
+        if (i == j) continue;
 
-    vec3 vec = particles[j].position - particles[i].position;
-    float dist = length(vec);
+        vec3 vec = particles[j].position - particles[i].position;
+        float dist = length(vec);
 
-    if (dist < ubo.H) {
-        particles[i].force += -normalize(vec) * ubo.MASS * (particles[i].pressure + particles[j].pressure)/(2.f * particles[j].density) * ubo.SPIKY_GRAD * pow(ubo.H - dist, 3.f);
-        + ubo.VISC * ubo.MASS * (particles[j].velocity - particles[i].velocity) / particles[j].density * ubo.VISC_LAP * (ubo.H - dist);
+        if (dist < ubo.H) {
+            pForce += -normalize(vec) * ubo.MASS * (particles[i].pressure + particles[j].pressure)/(2.f * particles[j].density) * ubo.SPIKY_GRAD * pow(ubo.H - dist, 3.f);
+            vForce += ubo.VISC * ubo.MASS * (particles[j].velocity - particles[i].velocity) / particles[j].density * ubo.VISC_LAP * (ubo.H - dist);
+        }
     }
+
+    particles[i].force = pForce + vForce + ubo.G*ubo.MASS/particles[i].density;
 
 }

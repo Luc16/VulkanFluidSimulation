@@ -24,6 +24,7 @@ layout (binding = 0) uniform ParameterUBO {
     float VISC_LAP;
     float EPS;
     float BOUND_DAMPING;
+    uint numParticles;
 } ubo;
 
 layout(std140, binding = 1) buffer ParticleSSBO {
@@ -36,13 +37,8 @@ void main()
 {
     uint index = gl_GlobalInvocationID.x;
 
-
-    particles[index].force = ubo.G*ubo.MASS/particles[index].density;
-
     particles[index].velocity += ubo.DT * particles[index].force / particles[index].density;
-    if (particles[index].density < ubo.MASS * ubo.POLY6 * pow(ubo.HSQ, 3.f)) particles[index].velocity = vec3(0);
     particles[index].position += ubo.DT * particles[index].velocity;
-
 
     // enforce boundary conditions
     if (particles[index].position.x - ubo.EPS < 0.f) {
@@ -57,9 +53,5 @@ void main()
         particles[index].velocity.y *= ubo.BOUND_DAMPING;
         particles[index].position.y = ubo.EPS;
     }
-
-    particles[index].density = 0;
-    particles[index].pressure = -ubo.GAS_CONST * ubo.REST_DENS;
-    particles[index].force = vec3(0);
 
 }
