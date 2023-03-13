@@ -36,25 +36,24 @@ void main()
 {
     uint index = gl_GlobalInvocationID.x;
 
-    particles[index].force += ubo.G*ubo.MASS/particles[index].density;
+
+    particles[index].force = ubo.G*ubo.MASS/particles[index].density;
 
     particles[index].velocity += ubo.DT * particles[index].force / particles[index].density;
+    if (particles[index].density < ubo.MASS * ubo.POLY6 * pow(ubo.HSQ, 3.f)) particles[index].velocity = vec3(0);
     particles[index].position += ubo.DT * particles[index].velocity;
 
 
     // enforce boundary conditions
-    if (particles[index].position.x - ubo.EPS < 0.f)
-    {
+    if (particles[index].position.x - ubo.EPS < 0.f) {
         particles[index].velocity.x *= ubo.BOUND_DAMPING;
         particles[index].position.x = ubo.EPS;
     }
-    if (particles[index].position.x + ubo.EPS > ubo.width)
-    {
+    if (particles[index].position.x + ubo.EPS > ubo.width) {
         particles[index].velocity.x *= ubo.BOUND_DAMPING;
         particles[index].position.x = ubo.width - ubo.EPS;
     }
-    if (particles[index].position.y - ubo.EPS < 0.f)
-    {
+    if (particles[index].position.y - ubo.EPS < 0.f) {
         particles[index].velocity.y *= ubo.BOUND_DAMPING;
         particles[index].position.y = ubo.EPS;
     }

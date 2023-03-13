@@ -71,6 +71,7 @@ private:
     };
 
     struct ComputeUniformBufferObject {
+        unsigned int numParticles;
         float gravitationalConstant;
         float deltaTime;
         float width;
@@ -84,7 +85,7 @@ private:
 
     std::vector<std::unique_ptr<vkb::Buffer>> computeData;
     std::vector<std::unique_ptr<vkb::Buffer>> computeUniformBuffers;
-    ComputeUniformBufferObject cUbo{500.0f, 1/60.0f, float(window.width()), float(window.height())};
+    ComputeUniformBufferObject cUbo{PARTICLE_COUNT, 500.0f, 1/60.0f, float(window.width()), float(window.height())};
 
     std::vector<std::unique_ptr<vkb::Buffer>> graphicsUniformBuffers;
     UniformBufferObject gUbo{};

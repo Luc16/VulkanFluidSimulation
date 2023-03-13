@@ -31,7 +31,7 @@ public:
             VulkanApp(width, height, appName, type) {}
 
 private:
-    static constexpr uint32_t PARTICLE_COUNT = 2048;
+    static constexpr uint32_t PARTICLE_COUNT = 512;
     static constexpr glm::vec3 G{0.0f, -10.0f, 0.0f};   // external (gravitational) forces
     static constexpr float REST_DENS = 300.f;  // rest density
     static constexpr float GAS_CONST = 2000.f; // const for equation of state

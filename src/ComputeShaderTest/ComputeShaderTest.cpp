@@ -140,11 +140,11 @@ void ComputeShaderTest::mainLoop(float deltaTime) {
     computeHandler.runCompute(renderer.currentFrame(), [this](VkCommandBuffer computeCommandBuffer){
         calculateForcesComputeSystem.bindAndDispatch(computeCommandBuffer,
                                                      &computeDescriptorSets[(renderer.currentFrame() + 1)%vkb::SwapChain::MAX_FRAMES_IN_FLIGHT],
-                                                     PARTICLE_COUNT/32, PARTICLE_COUNT/32, 1);
+                                                     PARTICLE_COUNT/256, 1, 1);
 
 
         // Add memory barrier to ensure that the computer shader has finished writing to the buffer
-        computeHandler.computeBarrier(computeCommandBuffer, computeData);
+        vkb::ComputeShaderHandler::computeBarrier(computeCommandBuffer, computeData);
 
 
         moveParticlesComputeSystem.bindAndDispatch(computeCommandBuffer,

@@ -153,23 +153,23 @@ void SPHCPU2DSim::updateParticles() {
 
 void SPHCPU2DSim::computeDensityPressure() {
     for (auto &particle: particles) {
-        particle.density = 0.0f;
         for (auto& other : particles) {
             auto vec = particle.position - other.position;
             auto dist2 = glm::dot(vec, vec);
 
             if (dist2 < HSQ) {
-                particle.density += MASS * POLY6 * std::pow(HSQ - dist2, 3.f);
+                float partialDensity = MASS * POLY6 * std::pow(HSQ - dist2, 3.f);
+                particle.density += partialDensity;
+                particle.pressure += GAS_CONST * partialDensity;
             }
         }
-        particle.pressure = GAS_CONST * (particle.density - REST_DENS);
     }
 
 }
 
 void SPHCPU2DSim::computeForces() {
     for (auto &particle: particles) {
-        glm::vec3 fPress{0.0f}, fVisc{0.0f};
+//        glm::vec3 fPress{0.0f}, fVisc{0.0f};
         for (auto& other : particles) {
                if (&other == &particle) continue;
 
@@ -177,17 +177,19 @@ void SPHCPU2DSim::computeForces() {
                auto dist = glm::length(vec);
 
                if (dist < H) {
-                   fPress += -glm::normalize(vec) * MASS * (particle.pressure + other.pressure ) / (2.f * other.density) * SPIKY_GRAD * std::pow(H - dist, 3.f);
-                   fVisc += VISC * MASS * (other.velocity - particle.velocity) / other.density * VISC_LAP * (H - dist);
+                   particle.force += -glm::normalize(vec) * MASS * (particle.pressure + other.pressure ) / (2.f * other.density) * SPIKY_GRAD * std::pow(H - dist, 3.f)
+                   + VISC * MASS * (other.velocity - particle.velocity) / other.density * VISC_LAP * (H - dist);
                }
 
         }
-        particle.force = fPress + fVisc + G*MASS/particle.density;
+//        particle.force = fPress + fVisc + G*MASS/particle.density;
     }
 }
 
 void SPHCPU2DSim::integrate() {
     for (auto &particle : particles) {
+        particle.force += G*MASS/particle.density;
+
         // forward Euler integration
         particle.velocity += DT * particle.force / particle.density;
         particle.position += DT * particle.velocity;
@@ -209,6 +211,11 @@ void SPHCPU2DSim::integrate() {
             particle.velocity.y *= BOUND_DAMPING;
             particle.position.y = float(window.height()) - EPS;
         }
+
+        particle.density = 0.0f;
+        particle.pressure = -GAS_CONST*REST_DENS;
+        particle.force = glm::vec3(0.0f);
+
     }
 }
 

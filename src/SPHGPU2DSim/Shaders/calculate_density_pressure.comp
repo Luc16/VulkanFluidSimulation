@@ -39,8 +39,9 @@ void main()
 
     vec3 vec = particles[i].position - particles[j].position;
     float dist2 = dot(vec, vec);
+
     if (dist2 < ubo.HSQ) {
-        float partialDensity = ubo.MASS * ubo.POLY6 * pow(ubo.HSQ, 3.f);
+        float partialDensity = ubo.MASS * ubo.POLY6 * pow(ubo.HSQ - dist2, 3.f);
         particles[i].density += partialDensity;
         particles[i].pressure += ubo.GAS_CONST * partialDensity;
     }

@@ -31,7 +31,7 @@ public:
             VulkanApp(width, height, appName, type) {}
 
 private:
-    static constexpr uint32_t PARTICLE_COUNT = 256;
+    static constexpr uint32_t PARTICLE_COUNT = 512;
 
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
             "../src/SPHGPU2DSim/Shaders/default.vert.spv",
@@ -43,7 +43,9 @@ private:
     const std::string calculateDensityPressureShaderPath = "../src/SPHGPU2DSim/Shaders/calculate_density_pressure.comp.spv";
 
     struct Particle {
-        alignas(16) glm::vec3 position{}, velocity{}, force{};
+        alignas(16) glm::vec3 position{};
+        alignas(16) glm::vec3 velocity{};
+        alignas(16) glm::vec3 force{};
         float density{}, pressure{};
         glm::vec4 color{};
 
@@ -84,24 +86,24 @@ private:
         float width = 0.0f;
         float height = 0.0f;
 
-        alignas(16) const glm::vec3 G{0.0f, -10.0f, 0.0f};   // external (gravitational) forces
-        const float REST_DENS = 300.f;  // rest density
-        const float GAS_CONST = 2000.f; // const for equation of state
-        const float H = 10.f;           // kernel radius
-        const float HSQ = H * H;        // radius^2 for optimization
-        const float MASS = 2.5f;        // assume all particles have the same mass
-        const float VISC = 200.f;       // viscosity constant
-        const float DT = 0.0007f;       // integration timestep
+        alignas(16) glm::vec3 G{0.0f, -10.0f, 0.0f};   // external (gravitational) forces
+        float REST_DENS = 300.f;  // rest density
+        float GAS_CONST = 2000.f; // const for equation of state
+        float H = 16.f;           // kernel radius
+        float HSQ = H * H;        // radius^2 for optimization
+        float MASS = 2.5f;        // assume all particles have the same mass
+        float VISC = 200.f;       // viscosity constant
+        float DT = 0.0007f;       // integration timestep
 
         // smoothing kernels defined in Müller and their gradients
         // adapted to 2D per "SPH Based Shallow Water Simulation" by Solenthaler et al.
-        const float POLY6 = 4.f / (glm::pi<float>() * H*H*H*H*H*H*H*H);
-        const float SPIKY_GRAD = -10.f / (glm::pi<float>() * H*H*H*H*H);
-        const float VISC_LAP = 40.f / (glm::pi<float>() * H*H*H*H*H);
+        float POLY6 = 4.f / (glm::pi<float>() * H*H*H*H*H*H*H*H);
+        float SPIKY_GRAD = -10.f / (glm::pi<float>() * H*H*H*H*H);
+        float VISC_LAP = 40.f / (glm::pi<float>() * H*H*H*H*H);
 
         // simulation parameters
-        const float EPS = H; // boundary epsilon
-        const float BOUND_DAMPING = -0.5f;
+        float EPS = H; // boundary epsilon
+        float BOUND_DAMPING = -0.5f;
     };
 
     std::vector<std::unique_ptr<vkb::Buffer>> graphicsUniformBuffers;

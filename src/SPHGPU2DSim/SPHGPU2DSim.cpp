@@ -74,7 +74,7 @@ void SPHGPU2DSim::initializeObjects() {
     camera.setOrthographicProjection(0.0f, (float) extent.width, (float) extent.height, 0.0f, 0.1f, 1000.f);
     gUbo.view = camera.getView();
     gUbo.proj = camera.getProjection();
-    gUbo.radius = cUbo.H/1.5f;
+    gUbo.radius = cUbo.H/1.0f;
 
     vkDeviceWaitIdle(device.device());
 
