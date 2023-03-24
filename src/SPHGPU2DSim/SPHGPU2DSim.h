@@ -31,7 +31,7 @@ public:
             VulkanApp(width, height, appName, type) {}
 
 private:
-    static constexpr uint32_t PARTICLE_COUNT = 2048*6;
+    static constexpr uint32_t PARTICLE_COUNT = 2048*4;
 
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
             "../src/SPHGPU2DSim/Shaders/default.vert.spv",

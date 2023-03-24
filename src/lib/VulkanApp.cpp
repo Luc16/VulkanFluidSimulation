@@ -54,7 +54,7 @@ namespace vkb {
                 double fps = double(frames) / accTime;
 
                 std::stringstream ss;
-                ss << m_appName <<" " << "[" << fps << " FPS]";
+                ss << m_appName <<" [" << fps << " FPS]";
 
                 glfwSetWindowTitle(window.window(), ss.str().c_str());
 

@@ -31,7 +31,7 @@ void main()
 
     particlesOut[i].velocity = particleIn.velocity;
     for (uint j = 0; j < ubo.numParticles; j++) {
-        if (i == j) return;
+        if (i == j) continue;
 
         vec2 aceleration = particlesIn[j].position - particleIn.position;
         float dist2 = dot(aceleration, aceleration);
