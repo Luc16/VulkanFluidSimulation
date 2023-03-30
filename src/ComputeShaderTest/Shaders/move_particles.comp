@@ -34,17 +34,17 @@ void main()
     particlesOut[index].velocity = particleIn.velocity;
 
     // Flip movement at window border
-    if (particlesOut[index].position.x <= 0.0f) {
+    if (particlesOut[index].position.x < 0.0f) {
         particlesOut[index].position.x = 0.0f;
         particlesOut[index].velocity.x = -particlesOut[index].velocity.x;
-    } else if (particlesOut[index].position.x >= ubo.width) {
+    } else if (particlesOut[index].position.x > ubo.width) {
         particlesOut[index].position.x = ubo.width;
         particlesOut[index].velocity.x = -particlesOut[index].velocity.x;
     }
-    if (particlesOut[index].position.y <= 0.0f) {
+    if (particlesOut[index].position.y < 0.0f) {
         particlesOut[index].position.y = 0.0f;
         particlesOut[index].velocity.y = -particlesOut[index].velocity.y;
-    } else if (particlesOut[index].position.y >= ubo.height) {
+    } else if (particlesOut[index].position.y > ubo.height) {
         particlesOut[index].position.y = ubo.height;
         particlesOut[index].velocity.y = -particlesOut[index].velocity.y;
     }

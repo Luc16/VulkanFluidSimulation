@@ -84,7 +84,7 @@ void SPHCPU2DSim::mainLoop(float deltaTime) {
     auto currentTime = std::chrono::high_resolution_clock::now();
 
     updateParticles();
-    updateBuffers(renderer.currentFrame(), deltaTime);
+    updateBuffers(renderer.currentFrame());
 
     if (activateTimer) {
         auto time = std::chrono::high_resolution_clock::now();
@@ -110,7 +110,7 @@ void SPHCPU2DSim::mainLoop(float deltaTime) {
 }
 
 
-void SPHCPU2DSim::updateBuffers(uint32_t frameIndex, float deltaTime){
+void SPHCPU2DSim::updateBuffers(uint32_t frameIndex) {
     uniformBuffers[frameIndex]->write(&ubo);
 
 

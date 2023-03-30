@@ -1,11 +1,10 @@
 //
-// Created by luc on 11/03/23.
+// Created by luc on 13/12/22.
 //
 
-#ifndef VULKANFLUIDSIMULATION_SPHCPU2DSIM_H
-#define VULKANFLUIDSIMULATION_SPHCPU2DSIM_H
+#ifndef VULKANBASE_INSTANCINGAPP_H
+#define VULKANBASE_INSTANCINGAPP_H
 
-#define GLM_GTX_norm
 #include <sstream>
 #include "../../external/imgui/imgui.h"
 #include "../../external/objloader/tiny_obj_loader.h"
@@ -21,21 +20,18 @@
 #include "../lib/DrawableObject.h"
 #include "../lib/VulkanApp.h"
 #include "../lib/InstancedObjects.h"
-#include "../lib/ComputeSystem.h"
-#include "../lib/ComputeShaderHandler.h"
 
-
-class SPHCPU2DSim: public vkb::VulkanApp {
+class ThreadedGridSpatialPartition: public vkb::VulkanApp {
 public:
-    SPHCPU2DSim(int width, int height, const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
-            VulkanApp(width, height, appName, type) {}
+    ThreadedGridSpatialPartition(int width, int height, const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
+    VulkanApp(width, height, appName, type) {}
 
 private:
-    static constexpr uint32_t PARTICLE_COUNT = 512;
+    uint32_t INSTANCE_COUNT = 1024;
     static constexpr glm::vec3 G{0.0f, -10.0f, 0.0f};   // external (gravitational) forces
     static constexpr float REST_DENS = 300.f;  // rest density
     static constexpr float GAS_CONST = 2000.f; // const for equation of state
-    static constexpr float H = 16.f;           // kernel radius
+    static constexpr float H = 1.5f;           // kernel radius
     static constexpr float HSQ = H * H;        // radius^2 for optimization
     static constexpr float MASS = 2.5f;        // assume all particles have the same mass
     static constexpr float VISC = 200.f;       // viscosity constant
@@ -51,77 +47,64 @@ private:
     static constexpr float EPS = H; // boundary epsilon
     static constexpr float BOUND_DAMPING = -0.5f;
 
-
+    const std::string planeModelPath = "../Models/quadXZ1.obj";
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../src/SPHCPU2DSim/Shaders/default.vert.spv",
-            "../src/SPHCPU2DSim/Shaders/default.frag.spv"
+            "../src/ThreadedGridSpatialPartition/Shaders/default.vert.spv",
+            "../src/ThreadedGridSpatialPartition/Shaders/default.frag.spv"
     };
 
-
-    struct Particle {
-        alignas(16) glm::vec3 position, velocity, force;
-        float density, pressure;
-        glm::vec4 color;
-
-        static VkVertexInputBindingDescription getBindingDescription() {
-            VkVertexInputBindingDescription bindingDescription{};
-            bindingDescription.binding = 0;
-            bindingDescription.stride = sizeof(Particle);
-            bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-            return bindingDescription;
-        }
-
-        static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions() {
-            std::vector<VkVertexInputAttributeDescription> attributeDescriptions{2};
-
-            attributeDescriptions[0].binding = 0;
-            attributeDescriptions[0].location = 0;
-            attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-            attributeDescriptions[0].offset = offsetof(Particle, position);
-
-            attributeDescriptions[1].binding = 0;
-            attributeDescriptions[1].location = 1;
-            attributeDescriptions[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-            attributeDescriptions[1].offset = offsetof(Particle, color);
-
-            return attributeDescriptions;
-        }
+    const std::string sphereModelPath = "../Models/sphere.obj";
+    const vkb::RenderSystem::ShaderPaths instanceShaderPaths = vkb::RenderSystem::ShaderPaths {
+            "../src/ThreadedGridSpatialPartition/Shaders/instancing.vert.spv",
+            "../src/ThreadedGridSpatialPartition/Shaders/instancing.frag.spv",
     };
 
     struct UniformBufferObject {
-        glm::mat4 view;
-        glm::mat4 proj;
-        float radius;
+        alignas(16) glm::mat4 view;
+        alignas(16) glm::mat4 proj;
+        alignas(16) glm::vec3 lightDirection = glm::normalize(glm::vec3(1.0f, 1.0f, 0.0f));
     };
 
-    std::vector<std::unique_ptr<vkb::Buffer>> uniformBuffers;
-    UniformBufferObject ubo{};
+    struct InstanceData {
+        alignas(16) glm::vec3 position, velocity, force;
+        float density, pressure;
+        alignas(16) glm::vec3 color;
+        float scale;
+    };
 
-    std::vector<Particle> particles{PARTICLE_COUNT};
-    std::vector<std::unique_ptr<vkb::Buffer>> particleData;
+    vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, planeModelPath)};
+
+    std::vector<std::unique_ptr<vkb::Buffer>> uniformBuffers;
 
     vkb::RenderSystem defaultSystem{device};
     std::vector<VkDescriptorSet> defaultDescriptorSets;
+    vkb::RenderSystem instanceSystem{device};
 
     vkb::Camera camera{};
+    vkb::CameraMovementController cameraController{};
 
+    vkb::InstancedObjects<InstanceData> instancedSpheres{device, INSTANCE_COUNT, vkb::Model::createModelFromFile(device, sphereModelPath)};
+
+    float gravityFactor = 10.f, sphereRadius = 0.641f;
+    std::vector<float> sphereSpeeds;
+    std::vector<uint32_t> iter;
     float gpuTime = 0, cpuTime = 0;
     bool activateTimer = false;
 
     void onCreate() override;
     void initializeObjects();
+    void createInstances();
     void createUniformBuffers();
     void mainLoop(float deltaTime) override;
-    void updateBuffers(uint32_t frameIndex);
+    void updateUniformBuffer(uint32_t frameIndex);
     void showImGui();
 
-    void updateParticles();
+    void updateSpheres(float deltaTime);
 
     void computeDensityPressure();
     void computeForces();
     void integrate();
-
 };
 
-#endif //VULKANFLUIDSIMULATION_SPHCPU2DSIM_H
+
+#endif //VULKANBASE_INSTANCINGAPP_H
