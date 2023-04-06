@@ -165,6 +165,12 @@ void SPHGPU2DSim::mainLoop(float deltaTime) {
 
     });
 
+    if (activateTimer) {
+        auto time = std::chrono::high_resolution_clock::now();
+        computeTime = std::chrono::duration<float, std::chrono::milliseconds::period>(time - currentTime).count();
+        currentTime = time;
+    }
+
     renderer.runFrame([this](VkCommandBuffer commandBuffer){
         showImGui();
 
@@ -179,7 +185,7 @@ void SPHGPU2DSim::mainLoop(float deltaTime) {
 
         });
     }, computeHandler.currentSemaphore(renderer.currentFrame()), vkb::ComputeShaderHandler::waitStages());
-    if (activateTimer) gpuTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
+    if (activateTimer) drawTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
 }
 
 
@@ -195,8 +201,9 @@ void SPHGPU2DSim::showImGui(){
     ImGui::Text("Rendering %d instances", PARTICLE_COUNT);
     ImGui::Checkbox("Display time", &activateTimer);
     if(activateTimer){
-        ImGui::Text("Gpu time: %f ms", gpuTime);
         ImGui::Text("Cpu time: %f ms", cpuTime);
+        ImGui::Text("Compute time: %f ms", computeTime);
+        ImGui::Text("Draw time: %f ms", drawTime);
     }
 
 

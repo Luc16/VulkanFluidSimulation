@@ -124,7 +124,7 @@ private:
 
     vkb::Camera camera{};
 
-    float gpuTime = 0, cpuTime = 0;
+    float drawTime = 0, cpuTime = 0, computeTime = 0;
     bool activateTimer = false;
 
     void onCreate() override;
