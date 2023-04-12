@@ -60,6 +60,7 @@ namespace vkb{
         [[nodiscard]] VkQueue presentQueue() const { return m_presentQueue; }
         [[nodiscard]] VkQueue computeQueue() const { return m_computeQueue; }
         [[nodiscard]] VkSampleCountFlagBits msaaSamples() const { return m_msaaSamples; }
+        [[nodiscard]] QueueFamilyIndices getQueueFamilies() const {return m_queueFamilyIndices; };
 
         // helper functions
         [[nodiscard]] QueueFamilyIndices findQueueFamilies(VkPhysicalDevice physicalDevice) const;
@@ -103,6 +104,7 @@ namespace vkb{
         VkQueue m_transferQueue{};
         VkCommandPool m_graphicsCommandPool{};
         VkCommandPool m_transferCommandPool{};
+        QueueFamilyIndices m_queueFamilyIndices;
 
         const std::vector<const char*> validationLayers = {
                 "VK_LAYER_KHRONOS_validation"

@@ -34,7 +34,8 @@ namespace vkb {
         }
     }
 
-    Device::Device(const Window& window, PhysicalDeviceType type): m_windowRef(window), m_deviceType(type) {
+    Device::Device(const Window &window, PhysicalDeviceType type)
+            : m_windowRef(window), m_deviceType(type) {
         createInstance();
         setupDebugMessenger();
         createSurface();
@@ -55,18 +56,16 @@ namespace vkb {
     }
 
     void Device::createCommandPools(){
-        QueueFamilyIndices queueFamilyIndices = findQueueFamilies(m_physicalDevice);
-
         VkCommandPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
         poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-        poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsAndComputeFamily.value();
+        poolInfo.queueFamilyIndex = m_queueFamilyIndices.graphicsAndComputeFamily.value();
 
         if (vkCreateCommandPool(m_device, &poolInfo, nullptr, &m_graphicsCommandPool) != VK_SUCCESS){
             throw std::runtime_error("failed to create graphics command pool!");
         }
 
-        poolInfo.queueFamilyIndex = queueFamilyIndices.transferFamily.value();
+        poolInfo.queueFamilyIndex = m_queueFamilyIndices.transferFamily.value();
 
         if (vkCreateCommandPool(m_device, &poolInfo, nullptr, &m_transferCommandPool) != VK_SUCCESS){
             throw std::runtime_error("failed to create compute/transfer command pool!");
@@ -74,10 +73,13 @@ namespace vkb {
     }
 
     void Device::createLogicalDevice() {
-        QueueFamilyIndices familyIndices = findQueueFamilies(m_physicalDevice);
 
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-        std::set<uint32_t> uniqueQueueFamilies = {familyIndices.graphicsAndComputeFamily.value(), familyIndices.presentFamily.value(), familyIndices.transferFamily.value()};
+        std::set<uint32_t> uniqueQueueFamilies = {
+                m_queueFamilyIndices.graphicsAndComputeFamily.value(),
+                m_queueFamilyIndices.presentFamily.value(),
+                m_queueFamilyIndices.transferFamily.value()
+        };
 
         float queuePriority = 1.0f;
         for (uint32_t uQueueFamily : uniqueQueueFamilies) {
@@ -113,10 +115,10 @@ namespace vkb {
         if (vkCreateDevice(m_physicalDevice, &createInfo, nullptr, &m_device) != VK_SUCCESS) {
             throw std::runtime_error("failed to create logical m_deviceRef!");
         }
-        vkGetDeviceQueue(m_device, familyIndices.graphicsAndComputeFamily.value(), 0, &m_graphicsQueue);
-        vkGetDeviceQueue(m_device, familyIndices.graphicsAndComputeFamily.value(), 0, &m_computeQueue);
-        vkGetDeviceQueue(m_device, familyIndices.presentFamily.value(), 0, &m_presentQueue);
-        vkGetDeviceQueue(m_device, familyIndices.transferFamily.value(), 0, &m_transferQueue);
+        vkGetDeviceQueue(m_device, m_queueFamilyIndices.graphicsAndComputeFamily.value(), 0, &m_graphicsQueue);
+        vkGetDeviceQueue(m_device, m_queueFamilyIndices.graphicsAndComputeFamily.value(), 0, &m_computeQueue);
+        vkGetDeviceQueue(m_device, m_queueFamilyIndices.presentFamily.value(), 0, &m_presentQueue);
+        vkGetDeviceQueue(m_device, m_queueFamilyIndices.transferFamily.value(), 0, &m_transferQueue);
     }
 
     void Device::pickPhysicalDevice() {
@@ -135,10 +137,10 @@ namespace vkb {
             vkGetPhysicalDeviceProperties(pDevice, &properties);
             std::cout << '\t' << properties.deviceName << " ID: " << properties.deviceID << '\n';
 
-
             if (isDeviceSuitable(pDevice) && !deviceChosen && properties.deviceID == m_deviceType) {
                 deviceChosen = true;
                 m_physicalDevice = pDevice;
+                m_queueFamilyIndices = findQueueFamilies(pDevice);
                 m_msaaSamples = getMaxUsableSampleCount();
             }
         }
@@ -359,6 +361,12 @@ namespace vkb {
             i++;
         }
 
+        if (!familyIndices.isComplete() && familyIndices.graphicsAndComputeFamily.has_value() && !familyIndices.transferFamily.has_value()) {
+            if (queueFamilies[familyIndices.graphicsAndComputeFamily.value()].queueFlags & VK_QUEUE_TRANSFER_BIT) {
+                familyIndices.transferFamily = familyIndices.graphicsAndComputeFamily.value();
+            }
+        }
+
         return familyIndices;
     }
 
@@ -447,16 +455,19 @@ namespace vkb {
 
     void Device::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
                               VkBuffer& buffer, VkDeviceMemory& bufferMemory) const {
-        auto familyIndices = findQueueFamilies(m_physicalDevice);
-        uint32_t queueFamilyIndices[] = {familyIndices.graphicsAndComputeFamily.value(), familyIndices.transferFamily.value()};
+        std::vector<uint32_t> queueFamilyIndices;
+        queueFamilyIndices.reserve(2);
+        queueFamilyIndices.push_back(m_queueFamilyIndices.graphicsAndComputeFamily.value());
+        if (m_queueFamilyIndices.graphicsAndComputeFamily.value() != m_queueFamilyIndices.transferFamily.value())
+            queueFamilyIndices.push_back(m_queueFamilyIndices.transferFamily.value());
 
         VkBufferCreateInfo bufferInfo{};
         bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         bufferInfo.size = size;
         bufferInfo.usage = usage;
-        bufferInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
-        bufferInfo.queueFamilyIndexCount = 2;
-        bufferInfo.pQueueFamilyIndices = queueFamilyIndices;
+        bufferInfo.sharingMode = (queueFamilyIndices.size() > 1) ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
+        bufferInfo.queueFamilyIndexCount = queueFamilyIndices.size();
+        bufferInfo.pQueueFamilyIndices = queueFamilyIndices.data();
 
         if (vkCreateBuffer(m_device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS){
             throw std::runtime_error("failed to create vertex m_buffer!");

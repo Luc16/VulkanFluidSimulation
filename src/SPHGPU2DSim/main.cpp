@@ -17,7 +17,7 @@ int main() {
     system("glslc ../src/SPHGPU2DSim/Shaders/calculate_density_pressure.comp -o ../src/SPHGPU2DSim/Shaders/calculate_density_pressure.comp.spv");
 
 
-    SPHGPU2DSim app{WIDTH, HEIGHT, APP_NAME, vkb::Device::NVIDIA};
+    SPHGPU2DSim app{WIDTH, HEIGHT, APP_NAME, vkb::Device::INTEL};
 
     try {
         app.run();

@@ -149,7 +149,7 @@ namespace vkb {
         createInfo.imageArrayLayers = 1;
         createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-        Device::QueueFamilyIndices familyIndices = m_deviceRef.findQueueFamilies(m_deviceRef.physicalDevice());
+        Device::QueueFamilyIndices familyIndices = m_deviceRef.getQueueFamilies();
         uint32_t queueFamilyIndices[] = {familyIndices.graphicsAndComputeFamily.value(), familyIndices.presentFamily.value()};
         m_queueFamily = familyIndices.graphicsAndComputeFamily.value();
 
