@@ -8,7 +8,7 @@
 const std::string APP_NAME = "Vulkan 2D Grid Fluid Simulation";
 
 int main() {
-    Grid2DSim app{Grid2DSim::WIDTH, Grid2DSim::HEIGHT, APP_NAME, vkb::Device::NVIDIA};
+    Grid2DSim app{Grid2DSim::WIDTH, Grid2DSim::HEIGHT, APP_NAME, vkb::Device::INTEL};
 
     try {
         app.run();

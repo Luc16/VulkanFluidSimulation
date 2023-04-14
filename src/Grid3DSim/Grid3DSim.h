@@ -13,6 +13,7 @@
 #include "../lib/Buffer.h"
 #include "../lib/Model.h"
 #include "../lib/utils.h"
+#include "../lib/Matrices.h"
 #include "../lib/Texture.h"
 #include "../lib/descriptors/DescriptorSetLayout.h"
 #include "../lib/Camera.h"
@@ -22,51 +23,6 @@
 #include "../lib/VulkanApp.h"
 #include "../lib/InstancedObjects.h"
 
-
-
-template<typename T>
-class Matrix3D{
-public:
-    Matrix3D(uint32_t row, uint32_t col, uint32_t depth): m_row(row), m_col(col), m_depth(depth), m_rowCol(row*col), m_data(row*col*depth) {}
-    Matrix3D() = default;
-    Matrix3D(const Matrix3D<T> &) = delete;
-    Matrix3D &operator=(const Matrix3D<T> &) = delete;
-
-    void resize(uint32_t row, uint32_t col, uint32_t depth) {
-        m_row = row;
-        m_col = col;
-        m_depth = depth;
-        m_rowCol = row*col;
-        m_data.resize(row*col*depth);
-    }
-
-    void swap(Matrix3D& other){
-        m_data.swap(other.m_data);
-    }
-
-    constexpr T& operator() (uint32_t i, uint32_t j, uint32_t k) {
-        return m_data[i + m_row*j + m_rowCol*k];
-    }
-    constexpr const T& operator()(uint32_t i, uint32_t j, uint32_t k) const{
-        return m_data[i + m_row*j + m_rowCol*k];
-    }
-    constexpr T& operator() (glm::ivec3& vec) {
-        return m_data[vec.x + m_row*vec.y + m_rowCol*vec.z];
-    }
-    constexpr const T& operator()(glm::ivec3& vec) const{
-        return m_data[vec.x + m_row*vec.y + m_rowCol*vec.z];
-    }
-    constexpr T& operator[] (uint32_t i) {
-        return m_data[i];
-    }
-    constexpr const T& operator[](uint32_t i) const{
-        return m_data[i];
-    }
-
-private:
-    std::vector<T> m_data{};
-    uint32_t m_row{}, m_col{}, m_depth{}, m_rowCol{};
-};
 
 class Grid3DSim: public vkb::VulkanApp {
 public:

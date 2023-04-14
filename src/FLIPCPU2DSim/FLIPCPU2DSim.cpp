@@ -2,7 +2,7 @@
 // Created by luc on 11/03/23.
 //
 
-#include "SPHCPU2DSim.h"
+#include "FLIPCPU2DSim.h"
 
 void FLIPCPU2DSim::onCreate() {
     initializeObjects();

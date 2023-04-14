@@ -37,9 +37,6 @@ void hashCombine(std::size_t& seed, const T& v, const Rest&... rest) {
     (hashCombine(seed, rest), ...);
 };
 
-
-
-
 inline double randomDouble(){
     static std::random_device rd;
     static std::mt19937 gen(rd());

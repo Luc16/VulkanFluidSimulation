@@ -37,7 +37,9 @@ add_library( VkFluidSim
         src/lib/ComputeSystem.cpp src/lib/ComputeSystem.h src/lib/ComputeShaderHandler.cpp src/lib/ComputeShaderHandler.h
         src/SPHCPU2DSim/SPHCPU2DSim.cpp src/SPHCPU2DSim/SPHCPU2DSim.h
         src/SPHGPU2DSim/SPHGPU2DSim.cpp src/SPHGPU2DSim/SPHGPU2DSim.h
-        src/ThreadedGridSpatialPartition/ThreadedGridSpatialPartition.cpp src/ThreadedGridSpatialPartition/ThreadedGridSpatialPartition.h)
+        src/ThreadedGridSpatialPartition/ThreadedGridSpatialPartition.cpp src/ThreadedGridSpatialPartition/ThreadedGridSpatialPartition.h
+        src/FLIPCPU2DSim/FLIPCPU2DSim.cpp src/FLIPCPU2DSim/FLIPCPU2DSim.h
+        src/lib/Matrices.h)
 
 set( APPS
         "Instancing"
@@ -47,6 +49,7 @@ set( APPS
         "SPHCPU2DSim"
         "SPHGPU2DSim"
         "ThreadedGridSpatialPartition"
+        "FLIPCPU2DSim"
         )
 
 foreach( testsourcefolder ${APPS} )

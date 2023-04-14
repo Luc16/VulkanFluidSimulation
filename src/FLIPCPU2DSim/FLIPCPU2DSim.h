@@ -53,8 +53,8 @@ private:
 
 
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../src/SPHCPU2DSim/Shaders/default.vert.spv",
-            "../src/SPHCPU2DSim/Shaders/default.frag.spv"
+            "../src/FLIPCPU2DSim/Shaders/default.vert.spv",
+            "../src/FLIPCPU2DSim/Shaders/default.frag.spv"
     };
 
 

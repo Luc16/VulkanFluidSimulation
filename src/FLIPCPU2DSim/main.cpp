@@ -3,11 +3,11 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_ENABLE_EXPERIMENTAL
 
-#include "SPHCPU2DSim.h"
+#include "FLIPCPU2DSim.h"
 
-const uint32_t WIDTH = 1000;
+const uint32_t WIDTH = 1400;
 const uint32_t HEIGHT = 1000;
-const std::string APP_NAME = "Vulkan CPU SPH 2D fluid simulation";
+const std::string APP_NAME = "Vulkan CPU PIC/FLIP 2D fluid simulation";
 
 int main() {
     FLIPCPU2DSim app{WIDTH, HEIGHT, APP_NAME, vkb::Device::INTEL};
