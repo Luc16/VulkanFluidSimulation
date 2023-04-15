@@ -26,6 +26,12 @@ public:
     constexpr const T& operator()(glm::ivec2& vec) const{
         return m_matrix[vec.x + row*vec.y];
     }
+    constexpr T& operator() (const glm::ivec2& vec) {
+        return m_matrix[vec.x + row*vec.y];
+    }
+    constexpr const T& operator()(const glm::ivec2& vec) const{
+        return m_matrix[vec.x + row*vec.y];
+    }
     constexpr T& operator[] (uint32_t i) {
         return m_matrix[i];
     }

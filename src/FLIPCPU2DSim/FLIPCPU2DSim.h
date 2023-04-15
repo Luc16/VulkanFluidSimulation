@@ -23,34 +23,30 @@
 #include "../lib/InstancedObjects.h"
 #include "../lib/ComputeSystem.h"
 #include "../lib/ComputeShaderHandler.h"
+#include "../lib/Matrices.h"
 
 
 class FLIPCPU2DSim: public vkb::VulkanApp {
 public:
-    FLIPCPU2DSim(int width, int height, const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
-            VulkanApp(width, height, appName, type) {}
+    constexpr static uint32_t WIDTH = 1500;
+    constexpr static uint32_t HEIGHT = 1000;
+
+    explicit FLIPCPU2DSim(const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
+            VulkanApp(WIDTH, HEIGHT, appName, type) {}
 
 private:
-    static constexpr uint32_t PARTICLE_COUNT = 512;
-    static constexpr glm::vec3 G{0.0f, -10.0f, 0.0f};   // external (gravitational) forces
-    static constexpr float REST_DENS = 300.f;  // rest density
-    static constexpr float GAS_CONST = 2000.f; // const for equation of state
-    static constexpr float H = 16.f;           // kernel radius
-    static constexpr float HSQ = H * H;        // radius^2 for optimization
-    static constexpr float MASS = 2.5f;        // assume all particles have the same mass
-    static constexpr float VISC = 200.f;       // viscosity constant
-    static constexpr float DT = 0.0007f;       // integration timestep
+    static constexpr uint32_t PARTICLE_COUNT = 800;
+    static constexpr glm::vec3 gravity{0.0f, -9.81f, 0.0f};
+    static constexpr float dt = 1/120.0f;
+    static constexpr float radius = 8.0f;
+    static constexpr uint32_t SIZE = 10;
+    constexpr static uint32_t numTilesX = WIDTH/SIZE + 1;
+    constexpr static uint32_t numTilesY = HEIGHT/SIZE + 1;
+    constexpr static uint32_t CELL_COUNT = numTilesX*numTilesY;
 
-    // smoothing kernels defined in Müller and their gradients
-    // adapted to 2D per "SPH Based Shallow Water Simulation" by Solenthaler et al.
-    static constexpr float POLY6 = 4.f / (glm::pi<float>() * H*H*H*H*H*H*H*H);
-    static constexpr float SPIKY_GRAD = -10.f / (glm::pi<float>() * H*H*H*H*H);
-    static constexpr float VISC_LAP = 40.f / (glm::pi<float>() * H*H*H*H*H);
-
-    // simulation parameters
-    static constexpr float EPS = H; // boundary epsilon
-    static constexpr float BOUND_DAMPING = -0.5f;
-
+    enum CellType {
+        AIR, SOLID, FLUID
+    };
 
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
             "../src/FLIPCPU2DSim/Shaders/default.vert.spv",
@@ -59,8 +55,7 @@ private:
 
 
     struct Particle {
-        alignas(16) glm::vec3 position, velocity, force;
-        float density, pressure;
+        alignas(16) glm::vec3 position, velocity;
         glm::vec4 color;
 
         static VkVertexInputBindingDescription getBindingDescription() {
@@ -87,6 +82,10 @@ private:
 
             return attributeDescriptions;
         }
+
+        [[nodiscard]] glm::ivec2 gridPos(uint32_t xShift = 0, uint32_t yShift = 0) const { return {
+            (uint32_t(std::clamp(position.x, radius, float(SIZE*(numTilesX - 1)))) - xShift) / SIZE,
+            (uint32_t(std::clamp(position.y, radius, float(SIZE*(numTilesY - 1)))) - yShift) / SIZE}; }
     };
 
     struct UniformBufferObject {
@@ -95,32 +94,55 @@ private:
         float radius;
     };
 
+    struct FluidData {
+        Matrix<float, CELL_COUNT, numTilesX> velX{}, velY{};
+    };
+
+    struct GridParticle {
+        glm::ivec2 gridPos;
+        std::array<float, 4> weights;
+    };
+
     std::vector<std::unique_ptr<vkb::Buffer>> uniformBuffers;
     UniformBufferObject ubo{};
 
-    std::vector<Particle> particles{PARTICLE_COUNT};
-    std::vector<std::unique_ptr<vkb::Buffer>> particleData;
 
     vkb::RenderSystem defaultSystem{device};
     std::vector<VkDescriptorSet> defaultDescriptorSets;
 
     vkb::Camera camera{};
 
+    FluidData current, previous;
+    Matrix<CellType, CELL_COUNT, numTilesX> cellTypes{};
+    Matrix<float, CELL_COUNT, numTilesX> weightVelX{}, weightVelY{};
+    Matrix<float, CELL_COUNT, numTilesX> solidCells{};
+    Matrix<float, CELL_COUNT, numTilesX> densities{};
+    float flipRatio = 0.9f, overRelaxation = 1.9f, restDensity = 0.0f, gasCoefficient = 1.0f;
+    uint32_t numIterations = 25;
+    std::vector<Particle> particles{PARTICLE_COUNT};
+    std::vector<std::unique_ptr<vkb::Buffer>> particleData;
+
     float gpuTime = 0, cpuTime = 0;
+
     bool activateTimer = false;
 
     void onCreate() override;
+    void resetGrid(bool hardReset = false);
     void initializeObjects();
     void createUniformBuffers();
     void mainLoop(float deltaTime) override;
     void updateBuffers(uint32_t frameIndex);
     void showImGui();
 
-    void updateParticles();
-
-    void computeDensityPressure();
-    void computeForces();
-    void integrate();
+    void updateSimulation();
+    void integrateParticles();
+    void particlesCollideParticles();
+    void particlesCollideObjects();
+    void updateDensities();
+    static std::tuple<float, float, float, float> particleGridWeights(const Particle& particle, glm::ivec2 gridPos, uint32_t xShift, uint32_t yShift);
+    void transferParticlesVelocitiesToGrid();
+    void transferGridVelocitiesToParticles();
+    void projectVelocities();
 
 };
 

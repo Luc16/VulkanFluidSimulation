@@ -4,7 +4,7 @@
 
 #include "SPHCPU2DSim.h"
 
-void FLIPCPU2DSim::onCreate() {
+void SPHCPU2DSim::onCreate() {
     initializeObjects();
     createUniformBuffers();
 
@@ -26,7 +26,7 @@ void FLIPCPU2DSim::onCreate() {
 }
 
 
-void FLIPCPU2DSim::initializeObjects() {
+void SPHCPU2DSim::initializeObjects() {
     camera.setViewTarget({0.0f, 0.0f, -1.0f}, {0.0f, 0.0f, 0.0f }, {0.0f, 1.0f, 0.0f});
     camera.updateView();
     auto extent = window.extent();
@@ -70,7 +70,7 @@ void FLIPCPU2DSim::initializeObjects() {
 
 }
 
-void FLIPCPU2DSim::createUniformBuffers() {
+void SPHCPU2DSim::createUniformBuffers() {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
     uniformBuffers.resize(vkb::SwapChain::MAX_FRAMES_IN_FLIGHT);
     for (size_t i = 0; i < vkb::SwapChain::MAX_FRAMES_IN_FLIGHT; ++i) {
@@ -80,7 +80,7 @@ void FLIPCPU2DSim::createUniformBuffers() {
     }
 }
 
-void FLIPCPU2DSim::mainLoop(float deltaTime) {
+void SPHCPU2DSim::mainLoop(float deltaTime) {
     auto currentTime = std::chrono::high_resolution_clock::now();
 
     updateParticles();
@@ -110,7 +110,7 @@ void FLIPCPU2DSim::mainLoop(float deltaTime) {
 }
 
 
-void FLIPCPU2DSim::updateBuffers(uint32_t frameIndex) {
+void SPHCPU2DSim::updateBuffers(uint32_t frameIndex) {
     uniformBuffers[frameIndex]->write(&ubo);
 
 
@@ -126,7 +126,7 @@ void FLIPCPU2DSim::updateBuffers(uint32_t frameIndex) {
     }
 }
 
-void FLIPCPU2DSim::showImGui(){
+void SPHCPU2DSim::showImGui(){
     ImGui::Begin("Control Panel");
 
     ImGui::Text("Rendering %d instances", PARTICLE_COUNT);
@@ -145,13 +145,13 @@ void FLIPCPU2DSim::showImGui(){
 
 }
 
-void FLIPCPU2DSim::updateParticles() {
+void SPHCPU2DSim::updateParticles() {
     computeDensityPressure();
     computeForces();
     integrate();
 }
 
-void FLIPCPU2DSim::computeDensityPressure() {
+void SPHCPU2DSim::computeDensityPressure() {
     for (auto &particle: particles) {
         for (auto& other : particles) {
             auto vec = particle.position - other.position;
@@ -167,7 +167,7 @@ void FLIPCPU2DSim::computeDensityPressure() {
 
 }
 
-void FLIPCPU2DSim::computeForces() {
+void SPHCPU2DSim::computeForces() {
     for (auto &particle: particles) {
 //        glm::vec3 fPress{0.0f}, fVisc{0.0f};
         for (auto& other : particles) {
@@ -186,7 +186,7 @@ void FLIPCPU2DSim::computeForces() {
     }
 }
 
-void FLIPCPU2DSim::integrate() {
+void SPHCPU2DSim::integrate() {
     for (auto &particle : particles) {
         particle.force += G*MASS/particle.density;
 

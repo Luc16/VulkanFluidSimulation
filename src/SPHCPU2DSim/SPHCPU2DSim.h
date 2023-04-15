@@ -25,9 +25,9 @@
 #include "../lib/ComputeShaderHandler.h"
 
 
-class FLIPCPU2DSim: public vkb::VulkanApp {
+class SPHCPU2DSim: public vkb::VulkanApp {
 public:
-    FLIPCPU2DSim(int width, int height, const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
+    SPHCPU2DSim(int width, int height, const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
             VulkanApp(width, height, appName, type) {}
 
 private:
