@@ -31,7 +31,7 @@ public:
             VulkanApp(width, height, appName, type) {}
 
 private:
-    static constexpr uint32_t PARTICLE_COUNT = 512;
+    static constexpr uint32_t PARTICLE_COUNT = 512*4;
     static constexpr glm::vec3 G{0.0f, -10.0f, 0.0f};   // external (gravitational) forces
     static constexpr float REST_DENS = 300.f;  // rest density
     static constexpr float GAS_CONST = 2000.f; // const for equation of state
@@ -97,16 +97,22 @@ private:
 
     std::vector<std::unique_ptr<vkb::Buffer>> uniformBuffers;
     UniformBufferObject ubo{};
-
     std::vector<Particle> particles{PARTICLE_COUNT};
     std::vector<std::unique_ptr<vkb::Buffer>> particleData;
-
     vkb::RenderSystem defaultSystem{device};
     std::vector<VkDescriptorSet> defaultDescriptorSets;
+
+    std::vector<std::unique_ptr<vkb::Buffer>> obstacleUniformBuffers;
+    UniformBufferObject obstacleUbo{};
+    Particle obstacle{};
+    std::vector<std::unique_ptr<vkb::Buffer>> obstacleData;
+    std::vector<VkDescriptorSet> obstacleDescriptorSets;
 
     vkb::Camera camera{};
 
     float gpuTime = 0, cpuTime = 0;
+    bool selectedObstacle = false;
+    float obstacleRadius{}, particleRadius{};
     bool activateTimer = false;
 
     void onCreate() override;
@@ -120,6 +126,7 @@ private:
 
     void computeDensityPressure();
     void computeForces();
+    void moveObstacle();
     void integrate();
 
 };

@@ -60,7 +60,7 @@ void FLIPCPU2DSim::initializeObjects() {
     vkDeviceWaitIdle(device.device());
 
     // initialize particles
-    auto accPos = glm::vec3(3*float(window.width())/8, 100, 0);
+    auto accPos = glm::vec3(9*float(window.width())/20, 100, 0);
 
     for (uint32_t i = 0; i < PARTICLE_COUNT; i++) {
         auto& particle = particles[i];
@@ -70,9 +70,9 @@ void FLIPCPU2DSim::initializeObjects() {
 
         accPos.x += radius*1.5f;
 
-        if (accPos.x > (float) 5*float(window.width())/8) {
+        if (accPos.x > (float) 11*float(window.width())/20) {
             accPos.y += radius*1.5f;
-            accPos.x = 3*float(window.width())/8;
+            accPos.x = 9*float(window.width())/20;
         }
 
     }

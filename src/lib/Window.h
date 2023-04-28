@@ -7,6 +7,7 @@
 
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
+#include <glm/vec2.hpp>
 #include <string>
 
 namespace vkb {
@@ -27,6 +28,7 @@ namespace vkb {
         [[nodiscard]] VkExtent2D extent() const {return {static_cast<uint32_t>(m_width), static_cast<uint32_t>(m_height)};}
         [[nodiscard]] int width() const {return m_width;}
         [[nodiscard]] int height() const {return m_height;}
+        [[nodiscard]] glm::vec2 getMousePos() const;
 
     private:
         static void framebufferResizeCallback(GLFWwindow* window, int width, int height);

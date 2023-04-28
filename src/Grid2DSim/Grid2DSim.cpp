@@ -186,10 +186,8 @@ void Grid2DSim::showImGui(){
                 ImGui::GetIO().Framerate);
 
     if (ImGui::CollapsingHeader("Mouse")) {
-        double x, y;
-        glfwGetCursorPos(window.window(), &x, &y);
-        y = window.height() - y;
-        ImGui::Text("Mouse: (%.3lf, %.3f)", x, y);
+        auto mousePos = window.getMousePos();
+        ImGui::Text("Mouse: (%.3lf, %.3f)", mousePos.x, mousePos.y);
     }
 
     ImGui::End();
@@ -221,12 +219,10 @@ void Grid2DSim::updateGrid(float deltaTime) {
 }
 
 void Grid2DSim::createWalls() {
-    double x, y;
-    glfwGetCursorPos(window.window(), &x, &y);
-    y = window.height() - y;
+    auto mouse = window.getMousePos();
 
-    uint32_t idx = (uint32_t) (x/SIZE) + window.width()*((uint32_t) (y/SIZE))/SIZE;
-    auto i = (uint32_t) (x/SIZE), j = (uint32_t) (y/SIZE);
+    uint32_t idx = (uint32_t) (mouse.x/SIZE) + window.width()*((uint32_t) (mouse.y/SIZE))/SIZE;
+    auto i = (uint32_t) (mouse.x/SIZE), j = (uint32_t) (mouse.y/SIZE);
     if (idx > 0 && idx < grid.size() && glfwGetMouseButton(window.window(), GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
         if (i > 0 && i < numTilesX - 1 && j > 0 && j < numTilesY - 1) {
             if (cellTypes(i, j) == IN_BOUNDARY) insideBoundaries.remove(glm::vec2(i, j));
@@ -244,15 +240,13 @@ void Grid2DSim::createWalls() {
 
 void Grid2DSim::addExternalForces(float deltaTime) {
     static glm::vec<2, double> prevPos{};
-    double x, y;
-    glfwGetCursorPos(window.window(), &x, &y);
-    y = window.height() - y;
+    auto mouse = window.getMousePos();
 
     if (middleFlow) {
         float centerX = (float) window.width() / 2;
         float centerY = (float) window.height() / 2;
 
-        auto vel = initialSpeed*deltaTime*glm::normalize(glm::vec2((float) x - centerX, (float) y - centerY));
+        auto vel = initialSpeed*deltaTime*glm::normalize(glm::vec2(mouse.x - centerX, mouse.y - centerY));
 
         curState.velX(numTilesX/2, numTilesY/2) = vel.x;
         curState.velY(numTilesX/2, numTilesY/2) = vel.y;
@@ -270,18 +264,17 @@ void Grid2DSim::addExternalForces(float deltaTime) {
         curState.density(numTilesX/2 + 1, numTilesY/2 + 1) += randomFloat(0.3f, 0.6f);
     } else {
 
-        auto i = (uint32_t) (x/SIZE), j = (uint32_t) (y/SIZE);
-        if (x > 0 && x < window.width() && y > 0 && y < window.height() && cellTypes(i, j) == EMPTY) {
+        auto i = (uint32_t) (mouse.x/SIZE), j = (uint32_t) (mouse.y/SIZE);
+        if (mouse.x > 0 && mouse.x < float(window.width()) && mouse.y > 0 && mouse.y < float(window.height()) && cellTypes(i, j) == EMPTY) {
             if (glfwGetMouseButton(window.window(), GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
                 curState.density(i, j) += 0.6;
             }
 
-            curState.velX(i, j) = initialSpeed*deltaTime*float(x - prevPos.x);
-            curState.velY(i, j) = initialSpeed*deltaTime*float(y - prevPos.y);
+            curState.velX(i, j) = initialSpeed*deltaTime*float(mouse.x - prevPos.x);
+            curState.velY(i, j) = initialSpeed*deltaTime*float(mouse.y - prevPos.y);
         }
 
-        prevPos.x = x;
-        prevPos.y = y;
+        prevPos = mouse;
     }
 
 }

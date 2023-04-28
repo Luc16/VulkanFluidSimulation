@@ -28,4 +28,10 @@ namespace vkb {
         app->m_width = width;
         app->m_height = height;
     }
+
+    glm::vec2 Window::getMousePos() const {
+        double mouseX, mouseY;
+        glfwGetCursorPos(m_window, &mouseX, &mouseY);
+        return {float(mouseX), float(m_height) - float(mouseY)};
+    }
 }

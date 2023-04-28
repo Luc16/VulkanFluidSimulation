@@ -13,6 +13,7 @@ void SPHCPU2DSim::onCreate() {
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
             .build();
     defaultDescriptorSets = createDescriptorSets(defaultDescriptorLayout,{uniformBuffers[0]->descriptorInfo()});
+    obstacleDescriptorSets = createDescriptorSets(defaultDescriptorLayout,{obstacleUniformBuffers[0]->descriptorInfo()});
     defaultSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
     defaultSystem.createPipeline(renderer.renderPass(), shaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& configInfo){
         configInfo.colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
@@ -25,7 +26,6 @@ void SPHCPU2DSim::onCreate() {
 
 }
 
-
 void SPHCPU2DSim::initializeObjects() {
     camera.setViewTarget({0.0f, 0.0f, -1.0f}, {0.0f, 0.0f, 0.0f }, {0.0f, 1.0f, 0.0f});
     camera.updateView();
@@ -34,6 +34,12 @@ void SPHCPU2DSim::initializeObjects() {
     ubo.view = camera.getView();
     ubo.proj = camera.getProjection();
     ubo.radius = H/1.0f;
+    particleRadius = ubo.radius/4;
+
+    obstacleUbo.view = camera.getView();
+    obstacleUbo.proj = camera.getProjection();
+    obstacleUbo.radius = 8*H;
+    obstacleRadius = obstacleUbo.radius/4;
 
     vkDeviceWaitIdle(device.device());
 
@@ -68,15 +74,36 @@ void SPHCPU2DSim::initializeObjects() {
         device.copyBuffer(stagingBuffer.getBuffer(), particleData[i]->getBuffer(), bufferSize);
     }
 
+    obstacle.color = {1.0f, 0.0f, 0.0f, 1.0f};
+    obstacle.position = {window.width()/2, 4*window.height()/5, 0};
+
+    bufferSize = sizeof(Particle);
+    vkb::Buffer stagingBufferObstacle(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    stagingBufferObstacle.singleWrite(&obstacle);
+
+
+    obstacleData.resize(vkb::SwapChain::MAX_FRAMES_IN_FLIGHT);
+    for (uint32_t i = 0; i < vkb::SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
+        obstacleData[i] = std::make_unique<vkb::Buffer>(device, bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                                                                            VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+        device.copyBuffer(stagingBufferObstacle.getBuffer(), obstacleData[i]->getBuffer(), bufferSize);
+    }
+
 }
 
 void SPHCPU2DSim::createUniformBuffers() {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
     uniformBuffers.resize(vkb::SwapChain::MAX_FRAMES_IN_FLIGHT);
+    obstacleUniformBuffers.resize(vkb::SwapChain::MAX_FRAMES_IN_FLIGHT);
     for (size_t i = 0; i < vkb::SwapChain::MAX_FRAMES_IN_FLIGHT; ++i) {
         uniformBuffers[i] = std::make_unique<vkb::Buffer>(device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
         uniformBuffers[i]->map();
+        obstacleUniformBuffers[i] = std::make_unique<vkb::Buffer>(device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        obstacleUniformBuffers[i]->map();
     }
 }
 
@@ -104,15 +131,19 @@ void SPHCPU2DSim::mainLoop(float deltaTime) {
             vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
             vkCmdDraw(commandBuffer, PARTICLE_COUNT, 1, 0, 0);
 
+            defaultSystem.bind(commandBuffer, &obstacleDescriptorSets[renderer.currentFrame()]);
+            VkBuffer vb2 = obstacleData[renderer.currentFrame()]->getBuffer();
+            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb2, offsets);
+            vkCmdDraw(commandBuffer, 1, 1, 0, 0);
+
+
         });
     });
     if (activateTimer) gpuTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
 }
 
-
 void SPHCPU2DSim::updateBuffers(uint32_t frameIndex) {
     uniformBuffers[frameIndex]->write(&ubo);
-
 
     VkDeviceSize bufferSize = PARTICLE_COUNT * sizeof(Particle);
     vkb::Buffer stagingBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -120,10 +151,16 @@ void SPHCPU2DSim::updateBuffers(uint32_t frameIndex) {
     stagingBuffer.singleWrite(particles.data());
 
 
-    particleData.resize(vkb::SwapChain::MAX_FRAMES_IN_FLIGHT);
-    for (uint32_t i = 0; i < vkb::SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
-        device.copyBuffer(stagingBuffer.getBuffer(), particleData[i]->getBuffer(), bufferSize);
-    }
+    device.copyBuffer(stagingBuffer.getBuffer(), particleData[frameIndex]->getBuffer(), bufferSize);
+
+
+    obstacleUniformBuffers[frameIndex]->write(&obstacleUbo);
+    bufferSize = sizeof(Particle);
+    vkb::Buffer stagingBufferObstacle(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    stagingBufferObstacle.singleWrite(&obstacle);
+
+    device.copyBuffer(stagingBufferObstacle.getBuffer(), obstacleData[frameIndex]->getBuffer(), bufferSize);
 }
 
 void SPHCPU2DSim::showImGui(){
@@ -148,6 +185,7 @@ void SPHCPU2DSim::showImGui(){
 void SPHCPU2DSim::updateParticles() {
     computeDensityPressure();
     computeForces();
+    moveObstacle();
     integrate();
 }
 
@@ -186,8 +224,35 @@ void SPHCPU2DSim::computeForces() {
     }
 }
 
+void SPHCPU2DSim::moveObstacle() {
+    static glm::vec2 prevMouse{};
+    auto mouse = window.getMousePos();
+    bool followMouse  = mouse.x > 0 && mouse.x < float(window.width()) && mouse.y > 0 && mouse.y < float(window.height());
+
+    float dist2ToMouse = (mouse.x - obstacle.position.x)*(mouse.x - obstacle.position.x) +
+                            (mouse.y - obstacle.position.y)*(mouse.y - obstacle.position.y);
+    if (followMouse && !selectedObstacle && dist2ToMouse < obstacleRadius*obstacleRadius &&
+        glfwGetMouseButton(window.window(), GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+        obstacle.color = {0.8f, 0.2f, 0.2f, 1.0f};
+        selectedObstacle = true;
+    } else if (!followMouse || glfwGetMouseButton(window.window(), GLFW_MOUSE_BUTTON_LEFT) != GLFW_PRESS) {
+        obstacle.color = {1.0f, 0.0f, 0.0f, 1.0f};
+        selectedObstacle = false;
+    }
+
+    if (selectedObstacle) {
+        obstacle.position.x = mouse.x;
+        obstacle.position.y = mouse.y;
+        obstacle.velocity.x = mouse.x - prevMouse.x;
+        obstacle.velocity.y = mouse.y - prevMouse.y;
+    }
+
+    prevMouse = mouse;
+}
+
 void SPHCPU2DSim::integrate() {
-    for (auto &particle : particles) {
+    float minDist2 = (particleRadius + obstacleRadius)*(particleRadius + obstacleRadius);
+    for (auto& particle : particles) {
         particle.force += G*MASS/particle.density;
 
         // forward Euler integration
@@ -212,12 +277,22 @@ void SPHCPU2DSim::integrate() {
             particle.position.y = float(window.height()) - EPS;
         }
 
+        auto nor = particle.position - obstacle.position;
+        float dist2ToObstacle = glm::dot(nor, nor);
+
+        if (dist2ToObstacle < minDist2) {
+            float dist = std::sqrt(dist2ToObstacle);
+            particle.position += nor*(particleRadius + obstacleRadius - dist)/dist;
+            particle.velocity = obstacle.velocity;
+        }
+
         particle.density = 0.0f;
         particle.pressure = -GAS_CONST*REST_DENS;
         particle.force = glm::vec3(0.0f);
 
     }
-}
 
+
+}
 
 
