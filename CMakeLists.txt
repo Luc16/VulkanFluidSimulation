@@ -39,7 +39,7 @@ add_library( VkFluidSim
         src/SPHGPU2DSim/SPHGPU2DSim.cpp src/SPHGPU2DSim/SPHGPU2DSim.h
         src/ThreadedGridSpatialPartition/ThreadedGridSpatialPartition.cpp src/ThreadedGridSpatialPartition/ThreadedGridSpatialPartition.h
         src/FLIPCPU2DSim/FLIPCPU2DSim.cpp src/FLIPCPU2DSim/FLIPCPU2DSim.h
-        src/lib/Matrices.h)
+        src/lib/graphicsDataStructures/Matrices.h src/lib/graphicsDataStructures/SpatialHash.h src/lib/graphicsDataStructures/SpatialHash.cpp)
 
 set( APPS
         "Instancing"

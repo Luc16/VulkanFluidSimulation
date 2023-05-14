@@ -4,7 +4,7 @@
 
 #ifndef VULKANFLUIDSIMULATION_MATRICES_H
 #define VULKANFLUIDSIMULATION_MATRICES_H
-#include "../lib/utils.h"
+#include "../utils.h"
 
 template<typename T, size_t size, uint32_t row>
 class Matrix{

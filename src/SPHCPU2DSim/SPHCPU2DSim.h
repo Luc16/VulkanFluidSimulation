@@ -23,6 +23,7 @@
 #include "../lib/InstancedObjects.h"
 #include "../lib/ComputeSystem.h"
 #include "../lib/ComputeShaderHandler.h"
+#include "../lib/graphicsDataStructures/SpatialHash.h"
 
 
 class SPHCPU2DSim: public vkb::VulkanApp {
@@ -31,7 +32,7 @@ public:
             VulkanApp(width, height, appName, type) {}
 
 private:
-    static constexpr uint32_t PARTICLE_COUNT = 512*4;
+    static constexpr uint32_t PARTICLE_COUNT = 2048*4;
     static constexpr glm::vec3 G{0.0f, -10.0f, 0.0f};   // external (gravitational) forces
     static constexpr float REST_DENS = 300.f;  // rest density
     static constexpr float GAS_CONST = 2000.f; // const for equation of state
@@ -59,9 +60,9 @@ private:
 
 
     struct Particle {
-        alignas(16) glm::vec3 position, velocity, force;
-        float density, pressure;
-        glm::vec4 color;
+        alignas(16) glm::vec3 position{}, velocity{}, force{};
+        float density{}, pressure{};
+        glm::vec4 color{};
 
         static VkVertexInputBindingDescription getBindingDescription() {
             VkVertexInputBindingDescription bindingDescription{};
@@ -100,15 +101,17 @@ private:
     std::vector<Particle> particles{PARTICLE_COUNT};
     std::vector<std::unique_ptr<vkb::Buffer>> particleData;
     vkb::RenderSystem defaultSystem{device};
-    std::vector<VkDescriptorSet> defaultDescriptorSets;
+    std::vector<VkDescriptorSet> defaultDescriptorSets{};
 
     std::vector<std::unique_ptr<vkb::Buffer>> obstacleUniformBuffers;
     UniformBufferObject obstacleUbo{};
     Particle obstacle{};
     std::vector<std::unique_ptr<vkb::Buffer>> obstacleData;
-    std::vector<VkDescriptorSet> obstacleDescriptorSets;
+    std::vector<VkDescriptorSet> obstacleDescriptorSets{};
 
     vkb::Camera camera{};
+
+    vkb::SpatialHash particleHash{H, PARTICLE_COUNT};
 
     float gpuTime = 0, cpuTime = 0;
     bool selectedObstacle = false;
@@ -126,6 +129,7 @@ private:
 
     void computeDensityPressure();
     void computeForces();
+    void pushParticlesApart();
     void moveObstacle();
     void integrate();
 

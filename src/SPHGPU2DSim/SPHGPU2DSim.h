@@ -27,7 +27,7 @@
 
 class SPHGPU2DSim: public vkb::VulkanApp {
 public:
-    SPHGPU2DSim(int width, int height, const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
+    SPHGPU2DSim(int width, int height, const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::NVIDIA):
             VulkanApp(width, height, appName, type) {}
 
 private:

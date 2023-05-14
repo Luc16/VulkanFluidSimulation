@@ -183,6 +183,7 @@ void SPHCPU2DSim::showImGui(){
 }
 
 void SPHCPU2DSim::updateParticles() {
+    particleHash.create(particles);
     computeDensityPressure();
     computeForces();
     moveObstacle();
@@ -190,37 +191,60 @@ void SPHCPU2DSim::updateParticles() {
 }
 
 void SPHCPU2DSim::computeDensityPressure() {
-    for (auto &particle: particles) {
-        for (auto& other : particles) {
-            auto vec = particle.position - other.position;
+    for (auto& particle : particles) {
+        particle.density = 0.0f;
+//        for (uint32_t otherIdx = 0; otherIdx < particles.size(); otherIdx++) {
+        particleHash.query(particle.position, H, [this, &particle](uint32_t otherIdx) {
+            auto vec = particle.position - particles[otherIdx].position;
             auto dist2 = glm::dot(vec, vec);
 
             if (dist2 < HSQ) {
                 float partialDensity = MASS * POLY6 * std::pow(HSQ - dist2, 3.f);
                 particle.density += partialDensity;
-                particle.pressure += GAS_CONST * partialDensity;
             }
-        }
+//        }
+        });
+        particle.pressure = GAS_CONST * (particle.density - REST_DENS);
+
     }
 
 }
 
 void SPHCPU2DSim::computeForces() {
-    for (auto &particle: particles) {
-//        glm::vec3 fPress{0.0f}, fVisc{0.0f};
-        for (auto& other : particles) {
-               if (&other == &particle) continue;
+    for (auto& particle: particles) {
+        glm::vec3 fPress{0.0f}, fVisc{0.0f};
+//        for (uint32_t otherIdx = 0; otherIdx < particles.size(); otherIdx++) {
+        particleHash.query(particle.position, H, [this, &particle, &fVisc, &fPress](uint32_t otherIdx) {
+            if (&particles[otherIdx] == &particle) return;
 
-               auto vec = other.position - particle.position;
+               auto vec = particles[otherIdx].position - particle.position;
                auto dist = glm::length(vec);
 
                if (dist < H) {
-                   particle.force += -glm::normalize(vec) * MASS * (particle.pressure + other.pressure ) / (2.f * other.density) * SPIKY_GRAD * std::pow(H - dist, 3.f)
-                   + VISC * MASS * (other.velocity - particle.velocity) / other.density * VISC_LAP * (H - dist);
+                   fPress += -glm::normalize(vec) * MASS * (particle.pressure + particles[otherIdx].pressure) / (2.f * particles[otherIdx].density) * SPIKY_GRAD * std::pow(H - dist, 3.f);
+                   fVisc += VISC * MASS * (particles[otherIdx].velocity - particle.velocity) / particles[otherIdx].density * VISC_LAP * (H - dist);
                }
 
+        });
+        particle.force = fPress + fVisc + G*MASS/particle.density;
+    }
+}
+
+void SPHCPU2DSim::pushParticlesApart() {
+    for (int _ = 0; _ < 10; _++) {
+        for (auto & particle : particles) {
+        particleHash.query(particle.position, H, [this, &particle](uint32_t otherIdx) {
+                auto vec = particle.position - particles[otherIdx].position;
+                auto dist2 = glm::dot(vec, vec);
+
+                if (dist2 != 0 && dist2 < 4*particleRadius*particleRadius){
+                    auto dist = std::sqrt(dist2);
+                    vec = vec*(0.5f*(2*particleRadius - dist)/dist);
+                    particle.position += vec;
+                    particles[otherIdx].position -= vec;
+                }
+            });
         }
-//        particle.force = fPress + fVisc + G*MASS/particle.density;
     }
 }
 
@@ -253,12 +277,14 @@ void SPHCPU2DSim::moveObstacle() {
 void SPHCPU2DSim::integrate() {
     float minDist2 = (particleRadius + obstacleRadius)*(particleRadius + obstacleRadius);
     for (auto& particle : particles) {
-        particle.force += G*MASS/particle.density;
-
         // forward Euler integration
         particle.velocity += DT * particle.force / particle.density;
         particle.position += DT * particle.velocity;
-
+//    }
+//
+//    pushParticlesApart();
+//
+//    for (auto& particle : particles) {
         // enforce boundary conditions
         if (particle.position.x - EPS < 0.f) {
             particle.velocity.x *= BOUND_DAMPING;
@@ -272,10 +298,10 @@ void SPHCPU2DSim::integrate() {
             particle.velocity.y *= BOUND_DAMPING;
             particle.position.y = EPS;
         }
-        if (particle.position.y + EPS > float(window.height())) {
-            particle.velocity.y *= BOUND_DAMPING;
-            particle.position.y = float(window.height()) - EPS;
-        }
+//        if (particle.position.y + EPS > float(window.height())) {
+//            particle.velocity.y *= BOUND_DAMPING;
+//            particle.position.y = float(window.height()) - EPS;
+//        }
 
         auto nor = particle.position - obstacle.position;
         float dist2ToObstacle = glm::dot(nor, nor);
@@ -285,10 +311,6 @@ void SPHCPU2DSim::integrate() {
             particle.position += nor*(particleRadius + obstacleRadius - dist)/dist;
             particle.velocity = obstacle.velocity;
         }
-
-        particle.density = 0.0f;
-        particle.pressure = -GAS_CONST*REST_DENS;
-        particle.force = glm::vec3(0.0f);
 
     }
 

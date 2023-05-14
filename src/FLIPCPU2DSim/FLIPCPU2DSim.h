@@ -23,7 +23,7 @@
 #include "../lib/InstancedObjects.h"
 #include "../lib/ComputeSystem.h"
 #include "../lib/ComputeShaderHandler.h"
-#include "../lib/Matrices.h"
+#include "../lib/graphicsDataStructures/Matrices.h"
 
 
 class FLIPCPU2DSim: public vkb::VulkanApp {

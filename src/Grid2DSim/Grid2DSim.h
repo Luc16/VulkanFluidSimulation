@@ -14,7 +14,7 @@
 #include "../lib/Buffer.h"
 #include "../lib/Model.h"
 #include "../lib/utils.h"
-#include "../lib/Matrices.h"
+#include "../lib/graphicsDataStructures/Matrices.h"
 #include "../lib/Texture.h"
 #include "../lib/descriptors/DescriptorSetLayout.h"
 #include "../lib/Camera.h"
