@@ -7,22 +7,22 @@
 
 #define GLM_GTX_norm
 #include <sstream>
-#include "../../external/imgui/imgui.h"
-#include "../../external/objloader/tiny_obj_loader.h"
-#include "../lib/SwapChain.h"
-#include "../lib/Buffer.h"
-#include "../lib/Model.h"
-#include "../lib/utils.h"
-#include "../lib/Texture.h"
-#include "../lib/descriptors/DescriptorSetLayout.h"
-#include "../lib/Camera.h"
-#include "../lib/CameraMovementController.h"
-#include "../lib/RenderSystem.h"
-#include "../lib/DrawableObject.h"
-#include "../lib/VulkanApp.h"
-#include "../lib/InstancedObjects.h"
-#include "../lib/ComputeSystem.h"
-#include "../lib/ComputeShaderHandler.h"
+#include "../../../external/imgui/imgui.h"
+#include "../../../external/objloader/tiny_obj_loader.h"
+#include "../../lib/SwapChain.h"
+#include "../../lib/Buffer.h"
+#include "../../lib/Model.h"
+#include "../../lib/utils.h"
+#include "../../lib/Texture.h"
+#include "../../lib/descriptors/DescriptorSetLayout.h"
+#include "../../lib/Camera.h"
+#include "../../lib/CameraMovementController.h"
+#include "../../lib/RenderSystem.h"
+#include "../../lib/DrawableObject.h"
+#include "../../lib/VulkanApp.h"
+#include "../../lib/InstancedObjects.h"
+#include "../../lib/ComputeSystem.h"
+#include "../../lib/ComputeShaderHandler.h"
 
 
 class SPHGPU2DSim: public vkb::VulkanApp {
@@ -34,13 +34,13 @@ private:
     static constexpr uint32_t PARTICLE_COUNT = 2048;
 
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../src/SPHGPU2DSim/Shaders/default.vert.spv",
-            "../src/SPHGPU2DSim/Shaders/default.frag.spv"
+            "../src/SPH/SPHGPU2DSim/Shaders/default.vert.spv",
+            "../src/SPH/SPHGPU2DSim/Shaders/default.frag.spv"
     };
 
-    const std::string calculateForcesShaderPath = "../src/SPHGPU2DSim/Shaders/calculate_forces.comp.spv";
-    const std::string integrateShaderPath = "../src/SPHGPU2DSim/Shaders/integrate.comp.spv";
-    const std::string calculateDensityPressureShaderPath = "../src/SPHGPU2DSim/Shaders/calculate_density_pressure.comp.spv";
+    const std::string calculateForcesShaderPath = "../src/SPH/SPHGPU2DSim/Shaders/calculate_forces.comp.spv";
+    const std::string integrateShaderPath = "../src/SPH/SPHGPU2DSim/Shaders/integrate.comp.spv";
+    const std::string calculateDensityPressureShaderPath = "../src/SPH/SPHGPU2DSim/Shaders/calculate_density_pressure.comp.spv";
 
     struct Particle {
         alignas(16) glm::vec3 position{};

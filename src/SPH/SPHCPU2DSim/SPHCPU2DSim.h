@@ -7,23 +7,23 @@
 
 #define GLM_GTX_norm
 #include <sstream>
-#include "../../external/imgui/imgui.h"
-#include "../../external/objloader/tiny_obj_loader.h"
-#include "../lib/SwapChain.h"
-#include "../lib/Buffer.h"
-#include "../lib/Model.h"
-#include "../lib/utils.h"
-#include "../lib/Texture.h"
-#include "../lib/descriptors/DescriptorSetLayout.h"
-#include "../lib/Camera.h"
-#include "../lib/CameraMovementController.h"
-#include "../lib/RenderSystem.h"
-#include "../lib/DrawableObject.h"
-#include "../lib/VulkanApp.h"
-#include "../lib/InstancedObjects.h"
-#include "../lib/ComputeSystem.h"
-#include "../lib/ComputeShaderHandler.h"
-#include "../lib/graphicsDataStructures/SpatialHash.h"
+#include "../../../external/imgui/imgui.h"
+#include "../../../external/objloader/tiny_obj_loader.h"
+#include "../../lib/SwapChain.h"
+#include "../../lib/Buffer.h"
+#include "../../lib/Model.h"
+#include "../../lib/utils.h"
+#include "../../lib/Texture.h"
+#include "../../lib/descriptors/DescriptorSetLayout.h"
+#include "../../lib/Camera.h"
+#include "../../lib/CameraMovementController.h"
+#include "../../lib/RenderSystem.h"
+#include "../../lib/DrawableObject.h"
+#include "../../lib/VulkanApp.h"
+#include "../../lib/InstancedObjects.h"
+#include "../../lib/ComputeSystem.h"
+#include "../../lib/ComputeShaderHandler.h"
+#include "../../lib/graphicsDataStructures/SpatialHash.h"
 
 
 class SPHCPU2DSim: public vkb::VulkanApp {
@@ -36,7 +36,7 @@ private:
     static constexpr glm::vec3 G{0.0f, -10.0f, 0.0f};   // external (gravitational) forces
     static constexpr float REST_DENS = 300.f;  // rest density
     static constexpr float GAS_CONST = 2000.f; // const for equation of state
-    static constexpr float H = 16.f;           // kernel radius
+    static constexpr float H = 8.f;           // kernel radius
     static constexpr float HSQ = H * H;        // radius^2 for optimization
     static constexpr float MASS = 2.5f;        // assume all particles have the same mass
     static constexpr float VISC = 200.f;       // viscosity constant
@@ -51,11 +51,12 @@ private:
     // simulation parameters
     static constexpr float EPS = H; // boundary epsilon
     static constexpr float BOUND_DAMPING = -0.5f;
+    static constexpr float MIN_DENS = MASS * POLY6 * HSQ * HSQ * HSQ;
 
 
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../src/SPHCPU2DSim/Shaders/default.vert.spv",
-            "../src/SPHCPU2DSim/Shaders/default.frag.spv"
+            "../src/SPH/SPHCPU2DSim/Shaders/default.vert.spv",
+            "../src/SPH/SPHCPU2DSim/Shaders/default.frag.spv"
     };
 
 
@@ -111,8 +112,9 @@ private:
 
     vkb::Camera camera{};
 
-    vkb::SpatialHash particleHash{H, PARTICLE_COUNT};
+    vkb::SpatialHash particleHash{H, PARTICLE_COUNT, false};
 
+    float colorUpdate = 0.008, densColorThreshold = 1.05;
     float gpuTime = 0, cpuTime = 0;
     bool selectedObstacle = false;
     float obstacleRadius{}, particleRadius{};

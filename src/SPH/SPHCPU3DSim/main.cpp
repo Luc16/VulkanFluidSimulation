@@ -3,14 +3,14 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_ENABLE_EXPERIMENTAL
 
-#include "ThreadedGridSpatialPartition.h"
+#include "SPHCPU3DSim.h"
 
 const uint32_t WIDTH = 1000;
 const uint32_t HEIGHT = 1000;
 const std::string APP_NAME = "Vulkan Fluid Example";
 
 int main() {
-    ThreadedGridSpatialPartition app{WIDTH, HEIGHT, APP_NAME, vkb::Device::NVIDIA};
+    SPHCPU3DSim app{WIDTH, HEIGHT, APP_NAME, vkb::Device::INTEL};
 
     try {
         app.run();

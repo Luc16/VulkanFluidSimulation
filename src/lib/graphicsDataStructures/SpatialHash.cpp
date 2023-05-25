@@ -5,7 +5,7 @@
 #include "SpatialHash.h"
 
 namespace vkb {
-    SpatialHash::SpatialHash(float spacing, uint32_t maxNumObjects): m_spacing(spacing) {
+    SpatialHash::SpatialHash(float spacing, uint32_t maxNumObjects, bool is3D) : m_spacing(spacing), m_is3D(is3D) {
         m_tableSize = 2*maxNumObjects;
         m_table.resize(m_tableSize + 1);
         m_cellEntries.resize(maxNumObjects);
@@ -21,12 +21,12 @@ namespace vkb {
 
         for (uint32_t i = pos0.x; i <= pos1.x; i++){
             for (uint32_t j = pos0.y; j <= pos1.y; j++) {
-//                for (uint32_t k = pos0.z; k <= pos1.z; k++) {
+                for (uint32_t k = pos0.z*m_is3D; k <= pos1.z*m_is3D; k++) {
                     auto h = hash(i, j, 0);
                     for (uint32_t l = m_table[h]; l < m_table[h+1]; l++){
                         func(m_cellEntries[l]);
                     }
-//                }
+                }
             }
         }
     }

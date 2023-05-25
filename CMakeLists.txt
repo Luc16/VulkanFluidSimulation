@@ -35,27 +35,33 @@ add_library( VkFluidSim
         src/Grid3DSim/Grid3DSim.cpp src/Grid3DSim/Grid3DSim.h
         src/ComputeShaderTest/ComputeShaderTest.cpp src/ComputeShaderTest/ComputeShaderTest.h
         src/lib/ComputeSystem.cpp src/lib/ComputeSystem.h src/lib/ComputeShaderHandler.cpp src/lib/ComputeShaderHandler.h
-        src/SPHCPU2DSim/SPHCPU2DSim.cpp src/SPHCPU2DSim/SPHCPU2DSim.h
-        src/SPHGPU2DSim/SPHGPU2DSim.cpp src/SPHGPU2DSim/SPHGPU2DSim.h
-        src/ThreadedGridSpatialPartition/ThreadedGridSpatialPartition.cpp src/ThreadedGridSpatialPartition/ThreadedGridSpatialPartition.h
+        src/SPH/SPHCPU2DSim/SPHCPU2DSim.cpp src/SPH/SPHCPU2DSim/SPHCPU2DSim.h
+        src/SPH/SPHGPU2DSim/SPHGPU2DSim.cpp src/SPH/SPHGPU2DSim/SPHGPU2DSim.h
+        src/SPH/SPHCPU3DSim/SPHCPU3DSim.cpp src/SPH/SPHCPU3DSim/SPHCPU3DSim.h
         src/FLIPCPU2DSim/FLIPCPU2DSim.cpp src/FLIPCPU2DSim/FLIPCPU2DSim.h
         src/lib/graphicsDataStructures/Matrices.h src/lib/graphicsDataStructures/SpatialHash.h src/lib/graphicsDataStructures/SpatialHash.cpp)
 
-set( APPS
+set( GENERAL_APPS
         "Instancing"
         "Grid2DSim"
         "Grid3DSim"
         "ComputeShaderTest"
-        "SPHCPU2DSim"
-        "SPHGPU2DSim"
-        "ThreadedGridSpatialPartition"
         "FLIPCPU2DSim"
         )
 
-foreach( testsourcefolder ${APPS} )
+foreach( testsourcefolder ${GENERAL_APPS} )
     add_executable( ${testsourcefolder} src/${testsourcefolder}/main.cpp)
     target_link_libraries( ${testsourcefolder} VkFluidSim GL glfw Vulkan::Vulkan)
+endforeach( testsourcefolder ${GENERAL_APPS} )
 
-    # Make sure YourLib is linked to each app
-endforeach( testsourcefolder ${APPS} )
+set( SPH_APPS
+        "SPHCPU2DSim"
+        "SPHGPU2DSim"
+        "SPHCPU3DSim"
+        )
+
+foreach( testsourcefolder ${SPH_APPS} )
+    add_executable( ${testsourcefolder} src/SPH/${testsourcefolder}/main.cpp)
+    target_link_libraries( ${testsourcefolder} VkFluidSim GL glfw Vulkan::Vulkan)
+endforeach( testsourcefolder ${SPH_APPS} )
 

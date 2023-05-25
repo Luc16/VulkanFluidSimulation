@@ -173,6 +173,8 @@ void SPHCPU2DSim::showImGui(){
         ImGui::Text("Cpu time: %f ms", cpuTime);
     }
 
+    ImGui::DragFloat("Color upate", &colorUpdate, 0.0005f, 0.0f, 1.0f);
+    ImGui::DragFloat("Color thresh", &densColorThreshold, 0.02f, 0.5f, 10.0f);
 
     if (ImGui::Button("Reset")) onCreate();
 
@@ -205,7 +207,6 @@ void SPHCPU2DSim::computeDensityPressure() {
 //        }
         });
         particle.pressure = GAS_CONST * (particle.density - REST_DENS);
-
     }
 
 }
@@ -277,6 +278,17 @@ void SPHCPU2DSim::moveObstacle() {
 void SPHCPU2DSim::integrate() {
     float minDist2 = (particleRadius + obstacleRadius)*(particleRadius + obstacleRadius);
     for (auto& particle : particles) {
+        particle.color = glm::vec4(
+                std::clamp(particle.color.r - colorUpdate, 0.2f, 1.0f),
+                std::clamp(particle.color.g - colorUpdate, 0.4f, 1.0f),
+                std::clamp(particle.color.b + colorUpdate, 0.0f, 1.0f),
+                particle.color.a
+                );
+
+        if (particle.density/MIN_DENS < densColorThreshold){
+            particle.color = glm::vec4(0.8f, 0.8f, 1.0f, 1.0f);
+        }
+
         // forward Euler integration
         particle.velocity += DT * particle.force / particle.density;
         particle.position += DT * particle.velocity;
@@ -313,7 +325,6 @@ void SPHCPU2DSim::integrate() {
         }
 
     }
-
 
 }
 

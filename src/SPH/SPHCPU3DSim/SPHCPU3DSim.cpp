@@ -2,10 +2,10 @@
 // Created by luc on 13/12/22.
 //
 
-#include "ThreadedGridSpatialPartition.h"
+#include "SPHCPU3DSim.h"
 #include <execution>
 
-void ThreadedGridSpatialPartition::onCreate() {
+void SPHCPU3DSim::onCreate() {
     initializeObjects();
     createUniformBuffers();
 
@@ -30,14 +30,14 @@ void ThreadedGridSpatialPartition::onCreate() {
     }
 }
 
-void ThreadedGridSpatialPartition::initializeObjects() {
+void SPHCPU3DSim::initializeObjects() {
     camera.setViewTarget({0.0f, 10.0f, 10.0f}, {12.0f, -1.0f, -12.0f }, {0.0f, 1.0f, 0.0f});
     camera.m_rotation = {0, glm::radians(180.0f), glm::radians(180.0f)};
 
     createInstances();
 }
 
-void ThreadedGridSpatialPartition::createInstances() {
+void SPHCPU3DSim::createInstances() {
     vkDeviceWaitIdle(device.device());
 
     instancedSpheres.resizeBuffer(INSTANCE_COUNT);
@@ -71,7 +71,7 @@ void ThreadedGridSpatialPartition::createInstances() {
     instancedSpheres.updateBuffer();
 }
 
-void ThreadedGridSpatialPartition::createUniformBuffers() {
+void SPHCPU3DSim::createUniformBuffers() {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
     uniformBuffers.resize(vkb::SwapChain::MAX_FRAMES_IN_FLIGHT);
     for (size_t i = 0; i < vkb::SwapChain::MAX_FRAMES_IN_FLIGHT; ++i) {
@@ -80,7 +80,7 @@ void ThreadedGridSpatialPartition::createUniformBuffers() {
     }
 }
 
-void ThreadedGridSpatialPartition::mainLoop(float deltaTime) {
+void SPHCPU3DSim::mainLoop(float deltaTime) {
     auto currentTime = std::chrono::high_resolution_clock::now();
 
     cameraController.moveCamera(window.window(), deltaTime, camera);
@@ -109,7 +109,7 @@ void ThreadedGridSpatialPartition::mainLoop(float deltaTime) {
     if (activateTimer) gpuTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
 }
 
-void ThreadedGridSpatialPartition::updateUniformBuffer(uint32_t frameIndex) {
+void SPHCPU3DSim::updateUniformBuffer(uint32_t frameIndex) {
 
     UniformBufferObject ubo{};
     camera.setPerspectiveProjection(glm::radians(50.f), renderer.getSwapChainAspectRatio(), 0.1f, 1000.f);
@@ -119,7 +119,7 @@ void ThreadedGridSpatialPartition::updateUniformBuffer(uint32_t frameIndex) {
 
 }
 
-void ThreadedGridSpatialPartition::showImGui(){
+void SPHCPU3DSim::showImGui(){
 
     ImGui::Begin("Control Panel");
 
@@ -153,13 +153,13 @@ void ThreadedGridSpatialPartition::showImGui(){
     ImGui::End();
 }
 
-void ThreadedGridSpatialPartition::updateSpheres(float deltaTime){
+void SPHCPU3DSim::updateSpheres(float deltaTime){
     computeDensityPressure();
     computeForces();
     integrate();
 }
 
-void ThreadedGridSpatialPartition::computeDensityPressure() {
+void SPHCPU3DSim::computeDensityPressure() {
     for (auto &particle: instancedSpheres) {
         for (auto& other : instancedSpheres) {
             auto vec = particle.position - other.position;
@@ -175,7 +175,7 @@ void ThreadedGridSpatialPartition::computeDensityPressure() {
 
 }
 
-void ThreadedGridSpatialPartition::computeForces() {
+void SPHCPU3DSim::computeForces() {
     for (auto &particle: instancedSpheres) {
 //        glm::vec3 fPress{0.0f}, fVisc{0.0f};
         for (auto& other : instancedSpheres) {
@@ -194,7 +194,7 @@ void ThreadedGridSpatialPartition::computeForces() {
     }
 }
 
-void ThreadedGridSpatialPartition::integrate() {
+void SPHCPU3DSim::integrate() {
     for (auto &particle : instancedSpheres) {
         particle.force += gravityFactor*G*MASS/particle.density;
 

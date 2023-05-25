@@ -12,7 +12,7 @@ namespace vkb {
 
     class SpatialHash {
     public:
-        SpatialHash(float spacing, uint32_t maxNumObjects);
+        SpatialHash(float spacing, uint32_t maxNumObjects, bool is3D = true);
         SpatialHash(const SpatialHash &) = delete;
         SpatialHash &operator=(const SpatialHash &) = delete;
         ~SpatialHash();
@@ -27,6 +27,7 @@ namespace vkb {
 
         std::vector<uint32_t> m_table, m_cellEntries;
         float m_spacing;
+        bool m_is3D;
         uint32_t m_tableSize;
 
         [[nodiscard]] uint32_t hash(uint32_t xi , uint32_t yi, uint32_t zi) const;
