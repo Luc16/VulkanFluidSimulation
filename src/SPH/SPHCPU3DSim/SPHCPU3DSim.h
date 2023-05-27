@@ -20,6 +20,7 @@
 #include "../../lib/DrawableObject.h"
 #include "../../lib/VulkanApp.h"
 #include "../../lib/InstancedObjects.h"
+#include "../../lib/graphicsDataStructures/SpatialHash.h"
 
 class SPHCPU3DSim: public vkb::VulkanApp {
 public:
@@ -27,7 +28,7 @@ public:
     VulkanApp(width, height, appName, type) {}
 
 private:
-    uint32_t INSTANCE_COUNT = 1024;
+    uint32_t INSTANCE_COUNT = 13824;
     static constexpr glm::vec3 G{0.0f, -10.0f, 0.0f};   // external (gravitational) forces
     static constexpr float REST_DENS = 300.f;  // rest density
     static constexpr float GAS_CONST = 2000.f; // const for equation of state
@@ -42,10 +43,12 @@ private:
     static constexpr float POLY6 = 4.f / (glm::pi<float>() * H*H*H*H*H*H*H*H);
     static constexpr float SPIKY_GRAD = -10.f / (glm::pi<float>() * H*H*H*H*H);
     static constexpr float VISC_LAP = 40.f / (glm::pi<float>() * H*H*H*H*H);
+    static constexpr float MIN_DENS = MASS * POLY6 * HSQ * HSQ * HSQ;
 
     // simulation parameters
     static constexpr float EPS = H; // boundary epsilon
     static constexpr float BOUND_DAMPING = -0.5f;
+    static constexpr float BOUNDARY_SIZE = 60.0f;
 
     const std::string planeModelPath = "../Models/quadXZ1.obj";
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
@@ -53,7 +56,7 @@ private:
             "../src/SPH/SPHCPU3DSim/Shaders/default.frag.spv"
     };
 
-    const std::string sphereModelPath = "../Models/sphere.obj";
+    const std::string sphereModelPath = "../Models/lowsphere.obj";
     const vkb::RenderSystem::ShaderPaths instanceShaderPaths = vkb::RenderSystem::ShaderPaths {
             "../src/SPH/SPHCPU3DSim/Shaders/instancing.vert.spv",
             "../src/SPH/SPHCPU3DSim/Shaders/instancing.frag.spv",
@@ -83,9 +86,11 @@ private:
     vkb::Camera camera{};
     vkb::CameraMovementController cameraController{};
 
+    vkb::SpatialHash particleHash{H, INSTANCE_COUNT};
     vkb::InstancedObjects<InstanceData> instancedSpheres{device, INSTANCE_COUNT, vkb::Model::createModelFromFile(device, sphereModelPath)};
 
-    float gravityFactor = 10.f, sphereRadius = 0.641f;
+    float gravityFactor = 40.f, sphereRadius = 0.641f;
+    float colorUpdate = 0.008, densColorThreshold = 1.05;
     std::vector<float> sphereSpeeds;
     std::vector<uint32_t> iter;
     float gpuTime = 0, cpuTime = 0;

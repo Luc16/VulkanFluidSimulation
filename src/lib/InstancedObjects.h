@@ -9,7 +9,7 @@
 
 namespace vkb {
     template<typename InstanceData>
-    class InstancedObjects : public DrawableObject, private std::vector<InstanceData> {
+    class InstancedObjects : public DrawableObject, public std::vector<InstanceData> {
     public:
         InstancedObjects(const Device &device, size_t initialSize, std::shared_ptr<vkb::Model> model,
                          std::shared_ptr<vkb::Texture> texture = nullptr);
@@ -19,13 +19,6 @@ namespace vkb {
         void resizeBuffer(size_t new_size);
 
         VkVertexInputBindingDescription getBindingDescription();
-
-        using std::vector<InstanceData>::size;
-        using std::vector<InstanceData>::operator[];
-        using std::vector<InstanceData>::resize;
-        using std::vector<InstanceData>::begin;
-        using std::vector<InstanceData>::end;
-        using std::vector<InstanceData>::swap;
 
     private:
         void createInstanceBuffer();

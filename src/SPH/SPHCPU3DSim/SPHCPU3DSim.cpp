@@ -44,21 +44,16 @@ void SPHCPU3DSim::createInstances() {
     sphereSpeeds.resize(INSTANCE_COUNT);
     iter.resize(INSTANCE_COUNT);
 
-    float cubeSide = 25.f;
-    plane.setScale(cubeSide);
+    plane.setScale(BOUNDARY_SIZE);
 
     auto accPos = glm::vec3(0.0f, 0.0f, 0.0f);
-    auto spherePerLine = (int) cubeSide;
+    auto spherePerLine = 25;
 
     for (uint32_t i = 0; i < instancedSpheres.size(); i++) {
         auto& sphere = instancedSpheres[i];
-        sphere.color = glm::vec3(
-                0.2f + randomDouble(0.0f, 0.8f),
-                0.2f + randomDouble(0.0f, 0.8f),
-                0.2f + randomDouble(0.0f, 0.8f)
-                );
-        sphere.scale = 0.01f;
-        sphere.position = glm::vec3(randomFloat(1.f, 24.f), randomFloat(1.0f, 20.0f),randomFloat(1.f, 24.f));
+        sphere.color = glm::vec3(0.2f, 0.6f, 1.0f);
+        sphere.scale = 0.5f*H;
+        sphere.position = glm::vec3(randomFloat(1.f, 24.f), randomFloat(1.0f, 60.0f),randomFloat(1.f, 24.f));
         accPos.x += 1.5f;
 
         sphereSpeeds[i] = 0.0f;
@@ -130,20 +125,13 @@ void SPHCPU3DSim::showImGui(){
         ImGui::Text("Cpu time: %f ms", cpuTime);
     }
 
-    if (ImGui::Button("Double instance count")){
-        if (INSTANCE_COUNT < 8388608) INSTANCE_COUNT *= 2;
-        createInstances();
-    }
-    if (ImGui::Button("Half instance count")){
-        if (INSTANCE_COUNT > 1) INSTANCE_COUNT /= 2;
-        createInstances();
-    }
-
     ImGui::SliderFloat("Gravity", &gravityFactor, 1.f, 1000.f);
+    ImGui::DragFloat("Color upate", &colorUpdate, 0.0005f, 0.0f, 1.0f);
+    ImGui::DragFloat("Color thresh", &densColorThreshold, 0.02f, 0.5f, 10.0f);
 
     if (ImGui::CollapsingHeader("Plane", ImGuiTreeNodeFlags_DefaultOpen)) {
 
-        ImGui::SliderFloat("y", &plane.m_translation.y, -100.0f, 10.0f);
+        ImGui::SliderFloat("y", &plane.m_translation.y, -100.0f, 100.0f);
         if (ImGui::Button("Reset")) createInstances();
 
     }
@@ -151,52 +139,73 @@ void SPHCPU3DSim::showImGui(){
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                 ImGui::GetIO().Framerate);
     ImGui::End();
+
 }
 
 void SPHCPU3DSim::updateSpheres(float deltaTime){
+    particleHash.create(instancedSpheres);
     computeDensityPressure();
     computeForces();
     integrate();
 }
 
 void SPHCPU3DSim::computeDensityPressure() {
-    for (auto &particle: instancedSpheres) {
-        for (auto& other : instancedSpheres) {
+    for (auto & particle : instancedSpheres) {
+        particle.density = 0.0f;
+//        particleHash.query(particle.position, H, [this, &particle](uint32_t otherIdx) {
+        particleHash.query2(particle.position, H);
+        for (uint32_t i = 0; i < particleHash.queryCount; i++) {
+            const auto& other = instancedSpheres[particleHash.queryRes[i]];
             auto vec = particle.position - other.position;
             auto dist2 = glm::dot(vec, vec);
-
             if (dist2 < HSQ) {
                 float partialDensity = MASS * POLY6 * std::pow(HSQ - dist2, 3.f);
                 particle.density += partialDensity;
-                particle.pressure += GAS_CONST * partialDensity;
             }
-        }
-    }
 
+        }
+//        });
+        particle.pressure = GAS_CONST * (particle.density - REST_DENS);
+    }
 }
 
 void SPHCPU3DSim::computeForces() {
-    for (auto &particle: instancedSpheres) {
-//        glm::vec3 fPress{0.0f}, fVisc{0.0f};
-        for (auto& other : instancedSpheres) {
+    for (auto& particle: instancedSpheres) {
+        glm::vec3 fPress{0.0f}, fVisc{0.0f};
+        particleHash.query2(particle.position, H);
+        for (uint32_t i = 0; i < particleHash.queryCount; i++) {
+//        particleHash.query(particle.position, H, [this, &particle, &fVisc, &fPress](uint32_t otherIdx) {
+            const auto& other = instancedSpheres[particleHash.queryRes[i]];
             if (&other == &particle) continue;
 
             auto vec = other.position - particle.position;
             auto dist = glm::length(vec);
 
             if (dist < H) {
-                particle.force += -glm::normalize(vec) * MASS * (particle.pressure + other.pressure ) / (2.f * other.density) * SPIKY_GRAD * std::pow(H - dist, 3.f)
-                                  + VISC * MASS * (other.velocity - particle.velocity) / other.density * VISC_LAP * (H - dist);
+                fPress += -(vec / dist) * MASS * (particle.pressure + other.pressure) /
+                          (2.f * other.density) * SPIKY_GRAD * std::pow(H - dist, 3.f);
+                fVisc += VISC * MASS * (other.velocity - particle.velocity) /
+                         other.density * VISC_LAP * (H - dist);
             }
 
+//        });
         }
-//        particle.force = fPress + fVisc + G*MASS/particle.density;
+        particle.force = fPress + fVisc + gravityFactor*G*MASS/particle.density;
     }
 }
 
 void SPHCPU3DSim::integrate() {
     for (auto &particle : instancedSpheres) {
-        particle.force += gravityFactor*G*MASS/particle.density;
+
+        particle.color = glm::vec3(
+                std::clamp(particle.color.r - colorUpdate, 0.2f, 1.0f),
+                std::clamp(particle.color.g - colorUpdate, 0.4f, 1.0f),
+                std::clamp(particle.color.b + colorUpdate, 0.0f, 1.0f)
+        );
+
+        if (particle.density/MIN_DENS < densColorThreshold){
+            particle.color = glm::vec3(0.8f, 0.8f, 1.0f);
+        }
 
         // forward Euler integration
         particle.velocity += DT * particle.force / particle.density;
@@ -206,28 +215,25 @@ void SPHCPU3DSim::integrate() {
         if (particle.position.x - EPS < 0.f) {
             particle.velocity.x *= BOUND_DAMPING;
             particle.position.x = EPS;
-        } else if (particle.position.x + EPS > 25.f) {
+        } else if (particle.position.x + EPS > BOUNDARY_SIZE) {
             particle.velocity.x *= BOUND_DAMPING;
-            particle.position.x = 25.f - EPS;
+            particle.position.x = BOUNDARY_SIZE - EPS;
         }
         if (particle.position.z - EPS < 0.f) {
             particle.velocity.z *= BOUND_DAMPING;
             particle.position.z = EPS;
-        } else if (particle.position.z + EPS > 25.f) {
+        } else if (particle.position.z + EPS > BOUNDARY_SIZE) {
             particle.velocity.z *= BOUND_DAMPING;
-            particle.position.z = 25.f - EPS;
+            particle.position.z = BOUNDARY_SIZE - EPS;
         }
-        if (particle.position.y - EPS < 0.f) {
+        if (particle.position.y - EPS < plane.m_translation.y) {
             particle.velocity.y *= BOUND_DAMPING;
-            particle.position.y = EPS;
-        } else if (particle.position.y + EPS > 25.f) {
-            particle.velocity.y *= BOUND_DAMPING;
-            particle.position.y = 25.f - EPS;
+            particle.position.y = plane.m_translation.y + EPS;
         }
-
-        particle.density = 0.0f;
-        particle.pressure = -GAS_CONST*REST_DENS;
-        particle.force = glm::vec3(0.0f);
+//        else if (particle.position.y + EPS > 25.f) {
+//            particle.velocity.y *= BOUND_DAMPING;
+//            particle.position.y = 25.f - EPS;
+//        }
 
     }
 }

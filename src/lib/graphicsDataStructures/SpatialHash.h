@@ -7,6 +7,7 @@
 
 #include <vector>
 #include "../utils.h"
+#include <forward_list>
 
 namespace vkb {
 
@@ -18,27 +19,30 @@ namespace vkb {
         ~SpatialHash();
 
         template<typename Entity>
-        void create(std::vector<Entity> entities);
+        void create(const std::vector<Entity>& entities);
 
         void query(const glm::vec3& pos, float maxDist, const std::function<void(uint32_t)>& func);
+        void query2(const glm::vec3& pos, float maxDist);
+
+        std::vector<uint32_t> queryRes;
+        uint32_t queryCount;
 
     private:
-        using uivec3 = glm::vec<3, uint32_t>;
 
         std::vector<uint32_t> m_table, m_cellEntries;
         float m_spacing;
         bool m_is3D;
         uint32_t m_tableSize;
 
-        [[nodiscard]] uint32_t hash(uint32_t xi , uint32_t yi, uint32_t zi) const;
-        [[nodiscard]] uint32_t hash(const uivec3& vec) const;
+        [[nodiscard]] uint32_t hash(int xi , int yi, int zi) const;
+        [[nodiscard]] uint32_t hash(const glm::ivec3& vec) const;
         [[nodiscard]] uint32_t hashVec(const glm::vec3& pos) const;
-        [[nodiscard]] uivec3 vecToGrid(const glm::vec3& pos) const;
+        [[nodiscard]] glm::ivec3 vecToGrid(const glm::vec3& pos) const;
 
     };
 
     template<typename Entity>
-    void SpatialHash::create(std::vector<Entity> entities) {
+    void SpatialHash::create(const std::vector<Entity>& entities) {
         uint32_t numElements = std::min(entities.size(), m_cellEntries.size());
         std::fill(m_table.begin(), m_table.end(), 0);
         std::fill(m_cellEntries.begin(), m_cellEntries.end(), 0);
