@@ -53,7 +53,7 @@ void SPHCPU3DSim::createInstances() {
         auto& sphere = instancedSpheres[i];
         sphere.color = glm::vec3(0.2f, 0.6f, 1.0f);
         sphere.scale = 0.5f*H;
-        sphere.position = glm::vec3(randomFloat(1.f, 24.f), randomFloat(1.0f, 60.0f),randomFloat(1.f, 24.f));
+        sphere.position = glm::vec3(randomFloat(1.f, 24.f), randomFloat(1.0f, 100.0f),randomFloat(1.f, 24.f));
         accPos.x += 1.5f;
 
         sphereSpeeds[i] = 0.0f;
