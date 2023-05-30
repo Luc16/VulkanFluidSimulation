@@ -6,6 +6,8 @@
 #define VULKANBASE_SPHCPU3DSIM_H
 
 #include <sstream>
+#include <thread>
+#include <barrier>
 #include "../../../external/imgui/imgui.h"
 #include "../../../external/objloader/tiny_obj_loader.h"
 #include "../../lib/SwapChain.h"
@@ -21,7 +23,6 @@
 #include "../../lib/VulkanApp.h"
 #include "../../lib/InstancedObjects.h"
 #include "../../lib/graphicsDataStructures/SpatialHash.h"
-#include <thread>
 
 class SPHCPU3DSim: public vkb::VulkanApp {
 public:

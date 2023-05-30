@@ -235,6 +235,98 @@ void SPHCPU3DSim::updateSpheres(float deltaTime){
 
     particleHash.create(instancedSpheres);
 
+    {
+//        std::barrier barrier{numThreads};
+//
+//        auto updateParticles = [this, &barrier](uint32_t start, uint32_t end) {
+//            for (uint32_t idx = start; idx < end; idx++) {
+//                auto &particle = instancedSpheres[idx];
+//                particle.density = 0.0f;
+//                particleHash.query(particle.position, H, [this, &particle](uint32_t otherIdx) {
+//                    const auto &other = instancedSpheres[otherIdx];
+//                    auto vec = particle.position - other.position;
+//                    auto dist2 = glm::dot(vec, vec);
+//                    if (dist2 < HSQ) {
+//                        float partialDensity = MASS * POLY6 * std::pow(HSQ - dist2, 3.f);
+//                        particle.density += partialDensity;
+//                    }
+//                });
+//                particle.pressure = GAS_CONST * (particle.density - REST_DENS);
+//            }
+//
+//            barrier.arrive_and_wait();
+//
+//            for (uint32_t idx = start; idx < end; idx++) {
+//                auto &particle = instancedSpheres[idx];
+//                glm::vec3 fPress{0.0f}, fVisc{0.0f};
+//                particleHash.query(particle.position, H, [this, &particle, &fVisc, &fPress](uint32_t otherIdx) {
+//                    const auto &other = instancedSpheres[otherIdx];
+//                    if (&other == &particle) return;
+//
+//                    auto vec = other.position - particle.position;
+//                    auto dist = glm::length(vec);
+//
+//                    if (dist < H) {
+//                        fPress += -(vec / dist) * MASS * (particle.pressure + other.pressure) /
+//                                  (2.f * other.density) * SPIKY_GRAD * std::pow(H - dist, 3.f);
+//                        fVisc += VISC * MASS * (other.velocity - particle.velocity) /
+//                                 other.density * VISC_LAP * (H - dist);
+//                    }
+//
+//                });
+//                particle.force = fPress + fVisc + gravityFactor * G * MASS / particle.density;
+//            }
+//
+//            barrier.arrive_and_wait();
+//
+//            for (uint32_t idx = start; idx < end; idx++) {
+//                auto &particle = instancedSpheres[idx];
+//
+//                particle.color = glm::vec3(
+//                        std::clamp(particle.color.r - colorUpdate, 0.2f, 1.0f),
+//                        std::clamp(particle.color.g - colorUpdate, 0.4f, 1.0f),
+//                        std::clamp(particle.color.b + colorUpdate, 0.0f, 1.0f)
+//                );
+//
+//                if (particle.density / MIN_DENS < densColorThreshold) {
+//                    particle.color = glm::vec3(0.8f, 0.8f, 1.0f);
+//                }
+//
+//                // forward Euler integration
+//                particle.velocity += DT * particle.force / particle.density;
+//                particle.position += DT * particle.velocity;
+//
+//                // enforce boundary conditions
+//                if (particle.position.x - EPS < 0.f) {
+//                    particle.velocity.x *= BOUND_DAMPING;
+//                    particle.position.x = EPS;
+//                } else if (particle.position.x + EPS > BOUNDARY_SIZE) {
+//                    particle.velocity.x *= BOUND_DAMPING;
+//                    particle.position.x = BOUNDARY_SIZE - EPS;
+//                }
+//                if (particle.position.z - EPS < 0.f) {
+//                    particle.velocity.z *= BOUND_DAMPING;
+//                    particle.position.z = EPS;
+//                } else if (particle.position.z + EPS > BOUNDARY_SIZE) {
+//                    particle.velocity.z *= BOUND_DAMPING;
+//                    particle.position.z = BOUNDARY_SIZE - EPS;
+//                }
+//                if (particle.position.y - EPS < plane.m_translation.y) {
+//                    particle.velocity.y *= BOUND_DAMPING;
+//                    particle.position.y = plane.m_translation.y + EPS;
+//                }
+//
+//            }
+//
+//        };
+//
+//        for (uint32_t i = 0; i < numThreads - 1; i++) {
+//            threads[i] = std::jthread(updateParticles, i * particlesPerThread, (i + 1) * particlesPerThread);
+//        }
+//        threads[numThreads - 1] = std::jthread(updateParticles, (numThreads - 1) * particlesPerThread, INSTANCE_COUNT);
+//        for (auto &thread: threads) thread.join();
+    } // Using barrier (slower)
+
     auto computeDensityPressureThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
             auto& particle = instancedSpheres[idx];
@@ -316,24 +408,19 @@ void SPHCPU3DSim::updateSpheres(float deltaTime){
         }
     };
 
-    for (uint32_t i = 0; i < numThreads - 1; i++){
-        threads[i] = std::jthread(computeDensityPressureThreaded, i * particlesPerThread, (i+1) * particlesPerThread);
-    }
-    threads[numThreads - 1] = std::jthread(computeDensityPressureThreaded, (numThreads - 1)*particlesPerThread, INSTANCE_COUNT);
-    for (auto& thread : threads) thread.join();
+    std::array<std::function<void(uint32_t, uint32_t)>, 3> threadFunctions = {
+            computeDensityPressureThreaded,
+            computeForcesThreaded,
+            integrateThreaded
+    };
 
-    for (uint32_t i = 0; i < numThreads - 1; i++){
-        threads[i] = std::jthread(computeForcesThreaded, i * particlesPerThread, (i+1) * particlesPerThread);
+    for (const auto& function : threadFunctions) {
+        for (uint32_t i = 0; i < numThreads - 1; i++){
+            threads[i] = std::jthread(function, i * particlesPerThread, (i+1) * particlesPerThread);
+        }
+        threads[numThreads - 1] = std::jthread(function, (numThreads - 1)*particlesPerThread, INSTANCE_COUNT);
+        for (auto& thread : threads) thread.join();
     }
-    threads[numThreads - 1] = std::jthread(computeForcesThreaded, (numThreads - 1)*particlesPerThread, INSTANCE_COUNT);
-    for (auto& thread : threads) thread.join();
-
-    for (uint32_t i = 0; i < numThreads - 1; i++){
-        threads[i] = std::jthread(integrateThreaded, i * particlesPerThread, (i+1) * particlesPerThread);
-    }
-    threads[numThreads - 1] = std::jthread(integrateThreaded, (numThreads - 1)*particlesPerThread, INSTANCE_COUNT);
-
-    for (auto& thread : threads) thread.join();
 }
 
 
