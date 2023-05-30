@@ -41,26 +41,27 @@ void SPHCPU3DSim::createInstances() {
     vkDeviceWaitIdle(device.device());
 
     instancedSpheres.resizeBuffer(INSTANCE_COUNT);
-    sphereSpeeds.resize(INSTANCE_COUNT);
-    iter.resize(INSTANCE_COUNT);
 
     plane.setScale(BOUNDARY_SIZE);
 
-    auto accPos = glm::vec3(0.0f, 0.0f, 0.0f);
-    auto spherePerLine = 25;
+    auto accPos = glm::vec3(EPS, EPS, EPS);
+    auto spherePerSide = (uint32_t) std::cbrt(INSTANCE_COUNT);
+    float step = H + 0.01f;
 
     for (uint32_t i = 0; i < instancedSpheres.size(); i++) {
         auto& sphere = instancedSpheres[i];
         sphere.color = glm::vec3(0.2f, 0.6f, 1.0f);
-        sphere.scale = 0.5f*H;
-        sphere.position = glm::vec3(randomFloat(1.f, 24.f), randomFloat(1.0f, 100.0f),randomFloat(1.f, 24.f));
-        accPos.x += 1.5f;
+        sphere.scale = 0.8f*H;
+        sphere.position = accPos + glm::vec3(randomFloat(-H/5, H/5), randomFloat(-H/5, H/5), randomFloat(-H/5, H/5));
+        accPos.x += step;
 
-        sphereSpeeds[i] = 0.0f;
-        iter[i] = i;
-        if (i % spherePerLine == spherePerLine - 1) {
-            accPos.z -= 1.5f;
-            accPos.x = 0.0f;
+        if (i % spherePerSide == spherePerSide - 1) {
+            accPos.z += step;
+            accPos.x = EPS;
+            if (i % (spherePerSide * spherePerSide) == (spherePerSide * spherePerSide) - 1) {
+                accPos.y += step;
+                accPos.z = EPS;
+            }
         }
     }
     instancedSpheres.updateBuffer();
@@ -127,7 +128,7 @@ void SPHCPU3DSim::showImGui(){
 
     ImGui::SliderFloat("Gravity", &gravityFactor, 1.f, 1000.f);
     ImGui::DragFloat("Color upate", &colorUpdate, 0.0005f, 0.0f, 1.0f);
-    ImGui::DragFloat("Color thresh", &densColorThreshold, 0.02f, 0.5f, 10.0f);
+    ImGui::DragFloat("Color thresh", &densColorThreshold, 0.005f, 0.5f, 10.0f);
 
     if (ImGui::CollapsingHeader("Plane", ImGuiTreeNodeFlags_DefaultOpen)) {
 

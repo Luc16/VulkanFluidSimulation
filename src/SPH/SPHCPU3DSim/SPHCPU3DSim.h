@@ -28,7 +28,7 @@ public:
     VulkanApp(width, height, appName, type) {}
 
 private:
-    uint32_t INSTANCE_COUNT = 16000;
+    uint32_t INSTANCE_COUNT = 22000;
     static constexpr glm::vec3 G{0.0f, -10.0f, 0.0f};   // external (gravitational) forces
     static constexpr float REST_DENS = 300.f;  // rest density
     static constexpr float GAS_CONST = 2000.f; // const for equation of state
@@ -48,7 +48,7 @@ private:
     // simulation parameters
     static constexpr float EPS = H; // boundary epsilon
     static constexpr float BOUND_DAMPING = -0.5f;
-    static constexpr float BOUNDARY_SIZE = 60.0f;
+    static constexpr float BOUNDARY_SIZE = 70.0f;
 
     const std::string planeModelPath = "../Models/quadXZ1.obj";
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
@@ -90,9 +90,7 @@ private:
     vkb::InstancedObjects<InstanceData> instancedSpheres{device, INSTANCE_COUNT, vkb::Model::createModelFromFile(device, sphereModelPath)};
 
     float gravityFactor = 40.f, sphereRadius = 0.641f;
-    float colorUpdate = 0.008, densColorThreshold = 1.05;
-    std::vector<float> sphereSpeeds;
-    std::vector<uint32_t> iter;
+    float colorUpdate = 0.008f, densColorThreshold = 1.01f;
     float gpuTime = 0, cpuTime = 0;
     bool activateTimer = false;
 
