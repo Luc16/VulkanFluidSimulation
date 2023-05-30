@@ -21,14 +21,15 @@
 #include "../../lib/VulkanApp.h"
 #include "../../lib/InstancedObjects.h"
 #include "../../lib/graphicsDataStructures/SpatialHash.h"
+#include <thread>
 
 class SPHCPU3DSim: public vkb::VulkanApp {
 public:
     SPHCPU3DSim(int width, int height, const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
     VulkanApp(width, height, appName, type) {}
 
-private:
-    uint32_t INSTANCE_COUNT = 22000;
+public:
+    static constexpr uint32_t INSTANCE_COUNT = 27000;
     static constexpr glm::vec3 G{0.0f, -10.0f, 0.0f};   // external (gravitational) forces
     static constexpr float REST_DENS = 300.f;  // rest density
     static constexpr float GAS_CONST = 2000.f; // const for equation of state
@@ -36,7 +37,7 @@ private:
     static constexpr float HSQ = H * H;        // radius^2 for optimization
     static constexpr float MASS = 2.5f;        // assume all particles have the same mass
     static constexpr float VISC = 200.f;       // viscosity constant
-    static constexpr float DT = 0.0007f;       // integration timestep
+    static constexpr float DT = 0.001f;       // integration timestep
 
     // smoothing kernels defined in Müller and their gradients
     // adapted to 2D per "SPH Based Shallow Water Simulation" by Solenthaler et al.
@@ -49,6 +50,9 @@ private:
     static constexpr float EPS = H; // boundary epsilon
     static constexpr float BOUND_DAMPING = -0.5f;
     static constexpr float BOUNDARY_SIZE = 70.0f;
+    static constexpr uint32_t numThreads = 10;
+    static constexpr uint32_t particlesPerThread = INSTANCE_COUNT/numThreads;
+
 
     const std::string planeModelPath = "../Models/quadXZ1.obj";
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
@@ -88,6 +92,8 @@ private:
 
     vkb::SpatialHash particleHash{H, INSTANCE_COUNT};
     vkb::InstancedObjects<InstanceData> instancedSpheres{device, INSTANCE_COUNT, vkb::Model::createModelFromFile(device, sphereModelPath)};
+    std::array<std::jthread, numThreads> threads;
+
 
     float gravityFactor = 40.f, sphereRadius = 0.641f;
     float colorUpdate = 0.008f, densColorThreshold = 1.01f;
