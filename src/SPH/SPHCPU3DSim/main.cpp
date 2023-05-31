@@ -10,7 +10,7 @@ const uint32_t HEIGHT = 1000;
 const std::string APP_NAME = "Vulkan Fluid Example";
 
 int main() {
-    SPHCPU3DSim app{WIDTH, HEIGHT, APP_NAME, vkb::Device::INTEL};
+    SPHCPU3DSim app{WIDTH, HEIGHT, APP_NAME, vkb::Device::NVIDIA};
 
     try {
         app.run();
