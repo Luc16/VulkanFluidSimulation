@@ -30,9 +30,9 @@ add_library( VkFluidSim
         src/lib/VulkanApp.cpp src/lib/VulkanApp.h
         src/lib/InstancedObjects.cpp src/lib/InstancedObjects.h
         src/Instancing/InstancingApp.cpp src/Instancing/InstancingApp.h
-        src/Grid2DSim/Grid2DSim.cpp src/Grid2DSim/Grid2DSim.h
-        src/Grid2DSim/Grid2D.cpp src/Grid2DSim/Grid2D.h
-        src/Grid3DSim/Grid3DSim.cpp src/Grid3DSim/Grid3DSim.h
+        src/grid/Grid2DSim/Grid2DSim.cpp src/grid/Grid2DSim/Grid2DSim.h
+        src/grid/Grid2DSim/Grid2D.cpp src/grid/Grid2DSim/Grid2D.h
+        src/grid/Grid3DSim/Grid3DSim.cpp src/grid/Grid3DSim/Grid3DSim.h
         src/ComputeShaderTest/ComputeShaderTest.cpp src/ComputeShaderTest/ComputeShaderTest.h
         src/lib/ComputeSystem.cpp src/lib/ComputeSystem.h src/lib/ComputeShaderHandler.cpp src/lib/ComputeShaderHandler.h
         src/SPH/SPHCPU2DSim/SPHCPU2DSim.cpp src/SPH/SPHCPU2DSim/SPHCPU2DSim.h
@@ -43,8 +43,6 @@ add_library( VkFluidSim
 
 set( GENERAL_APPS
         "Instancing"
-        "Grid2DSim"
-        "Grid3DSim"
         "ComputeShaderTest"
         "FLIPCPU2DSim"
         )
@@ -65,3 +63,12 @@ foreach( testsourcefolder ${SPH_APPS} )
     target_link_libraries( ${testsourcefolder} VkFluidSim GL glfw Vulkan::Vulkan)
 endforeach( testsourcefolder ${SPH_APPS} )
 
+set( GRID_APPS
+        "Grid2DSim"
+        "Grid3DSim"
+        )
+
+foreach( testsourcefolder ${GRID_APPS} )
+    add_executable( ${testsourcefolder} src/grid/${testsourcefolder}/main.cpp)
+    target_link_libraries( ${testsourcefolder} VkFluidSim GL glfw Vulkan::Vulkan)
+endforeach( testsourcefolder ${GRID_APPS} )

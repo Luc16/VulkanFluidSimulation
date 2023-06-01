@@ -7,21 +7,21 @@
 
 #include <sstream>
 #include <forward_list>
-#include "../../external/imgui/imgui.h"
-#include "../../external/objloader/tiny_obj_loader.h"
-#include "../lib/SwapChain.h"
-#include "../lib/Buffer.h"
-#include "../lib/Model.h"
-#include "../lib/utils.h"
-#include "../lib/graphicsDataStructures/Matrices.h"
-#include "../lib/Texture.h"
-#include "../lib/descriptors/DescriptorSetLayout.h"
-#include "../lib/Camera.h"
-#include "../lib/CameraMovementController.h"
-#include "../lib/RenderSystem.h"
-#include "../lib/DrawableObject.h"
-#include "../lib/VulkanApp.h"
-#include "../lib/InstancedObjects.h"
+#include "../../../external/imgui/imgui.h"
+#include "../../../external/objloader/tiny_obj_loader.h"
+#include "../../lib/SwapChain.h"
+#include "../../lib/Buffer.h"
+#include "../../lib/Model.h"
+#include "../../lib/utils.h"
+#include "../../lib/graphicsDataStructures/Matrices.h"
+#include "../../lib/Texture.h"
+#include "../../lib/descriptors/DescriptorSetLayout.h"
+#include "../../lib/Camera.h"
+#include "../../lib/CameraMovementController.h"
+#include "../../lib/RenderSystem.h"
+#include "../../lib/DrawableObject.h"
+#include "../../lib/VulkanApp.h"
+#include "../../lib/InstancedObjects.h"
 
 
 class Grid3DSim: public vkb::VulkanApp {
@@ -40,14 +40,14 @@ private:
 
     const std::string planeModelPath = "../Models/quadXZ.obj";
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../src/Grid3DSim/Shaders/default.vert.spv",
-            "../src/Grid3DSim/Shaders/default.frag.spv"
+            "../src/grid/Grid3DSim/Shaders/default.vert.spv",
+            "../src/grid/Grid3DSim/Shaders/default.frag.spv"
     };
 
     const std::string cubeModelPath = "../Models/cube.obj";
     const vkb::RenderSystem::ShaderPaths instanceShaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../src/Grid3DSim/Shaders/instancing.vert.spv",
-            "../src/Grid3DSim/Shaders/instancing.frag.spv",
+            "../src/grid/Grid3DSim/Shaders/instancing.vert.spv",
+            "../src/grid/Grid3DSim/Shaders/instancing.frag.spv",
     };
 
     struct UniformBufferObject {
@@ -81,7 +81,7 @@ private:
     float gpuTime = 0, cpuTime = 0;
     bool activateTimer = false;
 
-    float viscosity = 0.005f, diffusionFactor = 0.001f, dissolveFactor = 0.006f, initialSpeed = 200.0f, gravity = 0.5f, cubeLen;
+    float viscosity = 0.005f, diffusionFactor = 0.001f, dissolveFactor = 0.006f, initialSpeed = 200.0f, gravity = 0.5f, cubeLen{};
 
     FluidData curState, prevState;
     std::vector<InstanceData> sortedData;

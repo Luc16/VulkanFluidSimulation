@@ -7,7 +7,7 @@
 
 #include <string>
 #include <vector>
-#include "../lib/Model.h"
+#include "../../lib/Model.h"
 
 namespace vkb {
     class Grid2D {
