@@ -29,16 +29,8 @@ add_library( VkFluidSim
         src/lib/RenderSystem.cpp src/lib/RenderSystem.h
         src/lib/VulkanApp.cpp src/lib/VulkanApp.h
         src/lib/InstancedObjects.cpp src/lib/InstancedObjects.h
-        src/Instancing/InstancingApp.cpp src/Instancing/InstancingApp.h
-        src/grid/Grid2DSim/Grid2DSim.cpp src/grid/Grid2DSim/Grid2DSim.h
         src/grid/Grid2DSim/Grid2D.cpp src/grid/Grid2DSim/Grid2D.h
-        src/grid/Grid3DSim/Grid3DSim.cpp src/grid/Grid3DSim/Grid3DSim.h
-        src/ComputeShaderTest/ComputeShaderTest.cpp src/ComputeShaderTest/ComputeShaderTest.h
         src/lib/ComputeSystem.cpp src/lib/ComputeSystem.h src/lib/ComputeShaderHandler.cpp src/lib/ComputeShaderHandler.h
-        src/SPH/SPHCPU2DSim/SPHCPU2DSim.cpp src/SPH/SPHCPU2DSim/SPHCPU2DSim.h
-        src/SPH/SPHGPU2DSim/SPHGPU2DSim.cpp src/SPH/SPHGPU2DSim/SPHGPU2DSim.h
-        src/SPH/SPHCPU3DSim/SPHCPU3DSim.cpp src/SPH/SPHCPU3DSim/SPHCPU3DSim.h
-        src/FLIPCPU2DSim/FLIPCPU2DSim.cpp src/FLIPCPU2DSim/FLIPCPU2DSim.h
         src/lib/graphicsDataStructures/Matrices.h src/lib/graphicsDataStructures/SpatialHash.h src/lib/graphicsDataStructures/SpatialHash.cpp)
 
 set( GENERAL_APPS
@@ -48,20 +40,9 @@ set( GENERAL_APPS
         )
 
 foreach( testsourcefolder ${GENERAL_APPS} )
-    add_executable( ${testsourcefolder} src/${testsourcefolder}/main.cpp)
+    add_executable( ${testsourcefolder} src/${testsourcefolder}/main.cpp src/${testsourcefolder}/${testsourcefolder}.h src/${testsourcefolder}/${testsourcefolder}.cpp)
     target_link_libraries( ${testsourcefolder} VkFluidSim GL glfw Vulkan::Vulkan)
 endforeach( testsourcefolder ${GENERAL_APPS} )
-
-set( SPH_APPS
-        "SPHCPU2DSim"
-        "SPHGPU2DSim"
-        "SPHCPU3DSim"
-        )
-
-foreach( testsourcefolder ${SPH_APPS} )
-    add_executable( ${testsourcefolder} src/SPH/${testsourcefolder}/main.cpp)
-    target_link_libraries( ${testsourcefolder} VkFluidSim GL glfw Vulkan::Vulkan)
-endforeach( testsourcefolder ${SPH_APPS} )
 
 set( GRID_APPS
         "Grid2DSim"
@@ -69,6 +50,20 @@ set( GRID_APPS
         )
 
 foreach( testsourcefolder ${GRID_APPS} )
-    add_executable( ${testsourcefolder} src/grid/${testsourcefolder}/main.cpp)
+    add_executable( ${testsourcefolder} src/grid/${testsourcefolder}/main.cpp src/grid/${testsourcefolder}/${testsourcefolder}.h src/grid/${testsourcefolder}/${testsourcefolder}.cpp)
     target_link_libraries( ${testsourcefolder} VkFluidSim GL glfw Vulkan::Vulkan)
 endforeach( testsourcefolder ${GRID_APPS} )
+
+set( SPH_APPS
+        "SPHCPU2DSim"
+        "SPHGPU2DSim"
+        "SPHCPU3DSim"
+        "SPHGPU3DSim"
+        )
+
+foreach( testsourcefolder ${SPH_APPS} )
+    add_executable( ${testsourcefolder} src/SPH/${testsourcefolder}/main.cpp src/SPH/${testsourcefolder}/${testsourcefolder}.h src/SPH/${testsourcefolder}/${testsourcefolder}.cpp)
+    target_link_libraries( ${testsourcefolder} VkFluidSim GL glfw Vulkan::Vulkan)
+endforeach( testsourcefolder ${SPH_APPS} )
+
+

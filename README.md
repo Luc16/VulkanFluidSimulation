@@ -16,7 +16,7 @@ These are simulations based on the Smoothed Particle Hydrodynamics technique, wh
 particles to approximate the behavior of fluids.
 
 ## Dependencies:
-
+[//]: # (TODO: Explain how to setup each of the dependencies or link where they can be aquired  )
 To build the project and all the executables, there are a few dependencies which are required. These dependencies are:
 
 - Vulkan

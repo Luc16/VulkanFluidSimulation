@@ -2,10 +2,10 @@
 // Created by luc on 13/12/22.
 //
 
-#include "InstancingApp.h"
+#include "Instancing.h"
 #include <execution>
 
-void InstancingApp::onCreate() {
+void Instancing::onCreate() {
     initializeObjects();
     createUniformBuffers();
 
@@ -30,14 +30,14 @@ void InstancingApp::onCreate() {
     }
 }
 
-void InstancingApp::initializeObjects() {
+void Instancing::initializeObjects() {
     camera.setViewTarget({0.0f, 10.0f, 10.0f}, {12.0f, -1.0f, -12.0f }, {0.0f, 1.0f, 0.0f});
     camera.m_rotation = {0, glm::radians(180.0f), glm::radians(180.0f)};
 
     createInstances();
 }
 
-void InstancingApp::createInstances() {
+void Instancing::createInstances() {
     vkDeviceWaitIdle(device.device());
 
     instancedSpheres.resizeBuffer(INSTANCE_COUNT);
@@ -73,7 +73,7 @@ void InstancingApp::createInstances() {
     instancedSpheres.updateBuffer();
 }
 
-void InstancingApp::createUniformBuffers() {
+void Instancing::createUniformBuffers() {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
     uniformBuffers.resize(vkb::SwapChain::MAX_FRAMES_IN_FLIGHT);
     for (size_t i = 0; i < vkb::SwapChain::MAX_FRAMES_IN_FLIGHT; ++i) {
@@ -82,7 +82,7 @@ void InstancingApp::createUniformBuffers() {
     }
 }
 
-void InstancingApp::mainLoop(float deltaTime) {
+void Instancing::mainLoop(float deltaTime) {
     auto currentTime = std::chrono::high_resolution_clock::now();
 
     cameraController.moveCamera(window.window(), deltaTime, camera);
@@ -111,7 +111,7 @@ void InstancingApp::mainLoop(float deltaTime) {
     if (activateTimer) gpuTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
 }
 
-void InstancingApp::updateSpheres(float deltaTime){
+void Instancing::updateSpheres(float deltaTime){
     float a = 5;
     for (size_t i = 0; i < instancedSpheres.size(); i++) {
         auto& sphere = instancedSpheres[i];
@@ -126,7 +126,7 @@ void InstancingApp::updateSpheres(float deltaTime){
 
 }
 
-void InstancingApp::updateUniformBuffer(uint32_t frameIndex, float deltaTime){
+void Instancing::updateUniformBuffer(uint32_t frameIndex, float deltaTime){
 
     UniformBufferObject ubo{};
     camera.setPerspectiveProjection(glm::radians(50.f), renderer.getSwapChainAspectRatio(), 0.1f, 1000.f);
@@ -136,7 +136,7 @@ void InstancingApp::updateUniformBuffer(uint32_t frameIndex, float deltaTime){
 
 }
 
-void InstancingApp::showImGui(){
+void Instancing::showImGui(){
 
     {
 

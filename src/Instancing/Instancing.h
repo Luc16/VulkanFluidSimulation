@@ -21,9 +21,9 @@
 #include "../lib/VulkanApp.h"
 #include "../lib/InstancedObjects.h"
 
-class InstancingApp: public vkb::VulkanApp {
+class Instancing: public vkb::VulkanApp {
 public:
-    InstancingApp(int width, int height, const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
+    Instancing(int width, int height, const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
     VulkanApp(width, height, appName, type) {}
 
 private:
