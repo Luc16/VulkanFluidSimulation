@@ -10,11 +10,13 @@ const uint32_t HEIGHT = 1000;
 const std::string APP_NAME = "Vulkan GPU SPH 2D fluid simulation";
 
 int main() {
-    system("glslc ../src/SPHGPU3DSim/Shaders/default.vert -o ../src/SPHGPU3DSim/Shaders/default.vert.spv");
-    system("glslc ../src/SPHGPU3DSim/Shaders/default.frag -o ../src/SPHGPU3DSim/Shaders/default.frag.spv");
-    system("glslc ../src/SPHGPU3DSim/Shaders/integrate.comp -o ../src/SPHGPU3DSim/Shaders/integrate.comp.spv");
-    system("glslc ../src/SPHGPU3DSim/Shaders/calculate_forces.comp -o ../src/SPHGPU3DSim/Shaders/calculate_forces.comp.spv");
-    system("glslc ../src/SPHGPU3DSim/Shaders/calculate_density_pressure.comp -o ../src/SPHGPU3DSim/Shaders/calculate_density_pressure.comp.spv");
+    system("glslc ../src/SPH/SPHGPU3DSim/Shaders/default.vert -o ../src/SPH/SPHGPU3DSim/Shaders/default.vert.spv");
+    system("glslc ../src/SPH/SPHGPU3DSim/Shaders/default.frag -o ../src/SPH/SPHGPU3DSim/Shaders/default.frag.spv");
+    system("glslc ../src/SPH/SPHGPU3DSim/Shaders/instancing.vert -o ../src/SPH/SPHGPU3DSim/Shaders/instancing.vert.spv");
+    system("glslc ../src/SPH/SPHGPU3DSim/Shaders/instancing.frag -o ../src/SPH/SPHGPU3DSim/Shaders/instancing.frag.spv");
+    system("glslc ../src/SPH/SPHGPU3DSim/Shaders/integrate.comp -o ../src/SPH/SPHGPU3DSim/Shaders/integrate.comp.spv");
+    system("glslc ../src/SPH/SPHGPU3DSim/Shaders/calculate_forces.comp -o ../src/SPH/SPHGPU3DSim/Shaders/calculate_forces.comp.spv");
+    system("glslc ../src/SPH/SPHGPU3DSim/Shaders/calculate_density_pressure.comp -o ../src/SPH/SPHGPU3DSim/Shaders/calculate_density_pressure.comp.spv");
 
 
     SPHGPU3DSim app{WIDTH, HEIGHT, APP_NAME, vkb::Device::INTEL};

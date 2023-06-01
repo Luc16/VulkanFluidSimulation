@@ -1,5 +1,5 @@
 //
-// Created by luc on 11/03/23.
+// Created by luc on 01/06/23.
 //
 
 #include "SPHGPU3DSim.h"
@@ -8,22 +8,24 @@ void SPHGPU3DSim::onCreate() {
     initializeObjects();
     createUniformBuffers();
 
-    // Default render system
     auto defaultDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
             .build();
     defaultDescriptorSets = createDescriptorSets(defaultDescriptorLayout,{graphicsUniformBuffers[0]->descriptorInfo()});
-    defaultSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
-    defaultSystem.createPipeline(renderer.renderPass(), shaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& configInfo){
-        configInfo.colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-        configInfo.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+    {
+        defaultSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), sizeof(vkb::DrawableObject::PushConstantData));
+        defaultSystem.createPipeline(renderer.renderPass(), shaderPaths);
+    }
 
-        configInfo.attributeDescription = Particle::getAttributeDescriptions();
-        configInfo.bindingDescription = {Particle::getBindingDescription()};
-        configInfo.enableAlphaBlending();
-    });
-
-
+    {
+        instanceSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
+        instanceSystem.createPipeline(renderer.renderPass(), instanceShaderPaths, [this](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
+            info.bindingDescription.push_back(instancedSpheres.getBindingDescription());
+            info.attributeDescription.push_back({4, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Particle, position)});
+            info.attributeDescription.push_back({5, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Particle, color)});
+            info.attributeDescription.push_back({6, 1, VK_FORMAT_R32_SFLOAT, offsetof(Particle, scale)});
+        });
+    }
 
     auto computeDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
@@ -59,7 +61,7 @@ void SPHGPU3DSim::createComputeDescriptorSets(vkb::DescriptorSetLayout &layout) 
     auto uniformBufferInfo = computeUniformBuffer->descriptorInfo();
     writer.writeBuffer(0, &uniformBufferInfo);
 
-    auto storageBufferInfo = particleBuffer->descriptorInfo();
+    auto storageBufferInfo = instancedSpheres.descriptorInfo();
     writer.writeBuffer(1, &storageBufferInfo);
 
     writer.build(computeDescriptorSet, false);
@@ -68,46 +70,40 @@ void SPHGPU3DSim::createComputeDescriptorSets(vkb::DescriptorSetLayout &layout) 
 }
 
 void SPHGPU3DSim::initializeObjects() {
-    camera.setViewTarget({0.0f, 0.0f, -1.0f}, {0.0f, 0.0f, 0.0f }, {0.0f, 1.0f, 0.0f});
-    camera.updateView();
+    camera.setViewTarget({0.0f, 10.0f, 10.0f}, {12.0f, -1.0f, -12.0f }, {0.0f, 1.0f, 0.0f});
+    camera.m_rotation = {0, glm::radians(180.0f), glm::radians(180.0f)};    camera.updateView();
     auto extent = window.extent();
     camera.setOrthographicProjection(0.0f, (float) extent.width, (float) extent.height, 0.0f, 0.1f, 1000.f);
     gUbo.view = camera.getView();
     gUbo.proj = camera.getProjection();
-    gUbo.radius = cUbo.H/1.0f;
 
     vkDeviceWaitIdle(device.device());
 
-    auto accPos = glm::vec3(3*float(window.width())/8, 100, 0);
-    std::vector<Particle> particles{PARTICLE_COUNT};
+    instancedSpheres.resizeBuffer(INSTANCE_COUNT);
 
-    for (uint32_t i = 0; i < PARTICLE_COUNT; i++) {
-        auto& particle = particles[i];
-        particle.position = accPos;
-        particle.velocity = glm::vec3(0.0f);
-        particle.color = glm::vec4(0.2f, 0.6f, 1.0f, 1.0f);
-        particle.pressure = -cUbo.GAS_CONST * cUbo.REST_DENS;
+    plane.setScale(BOUNDARY_SIZE);
 
-        accPos.x += cUbo.H*0.95f;
+    auto accPos = glm::vec3(cUbo.EPS, cUbo.EPS, cUbo.EPS);
+    auto spherePerSide = (uint32_t) std::cbrt(INSTANCE_COUNT);
+    float step = cUbo.H + 0.01f;
 
-        if (accPos.x > (float) 5*float(window.width())/8) {
-            accPos.y += cUbo.H*0.95f;
-            accPos.x = 3*float(window.width())/8;
+    for (uint32_t i = 0; i < instancedSpheres.size(); i++) {
+        auto& sphere = instancedSpheres[i];
+        sphere.color = glm::vec3(0.2f, 0.6f, 1.0f);
+        sphere.scale = 0.8f*cUbo.H;
+        sphere.position = accPos + glm::vec3(randomFloat(-cUbo.H/5, cUbo.H/5), randomFloat(-cUbo.H/5, cUbo.H/5), randomFloat(-cUbo.H/5, cUbo.H/5));
+        accPos.x += step;
+
+        if (i % spherePerSide == spherePerSide - 1) {
+            accPos.z += step;
+            accPos.x = cUbo.EPS;
+            if (i % (spherePerSide * spherePerSide) == (spherePerSide * spherePerSide) - 1) {
+                accPos.y += step;
+                accPos.z = cUbo.EPS;
+            }
         }
-
     }
-
-    VkDeviceSize bufferSize = PARTICLE_COUNT * sizeof(Particle);
-    vkb::Buffer stagingBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    stagingBuffer.singleWrite(particles.data());
-
-
-    particleBuffer = std::make_unique<vkb::Buffer>(device, bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-                                                                       VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-    device.copyBuffer(stagingBuffer.getBuffer(), particleBuffer->getBuffer(), bufferSize);
-
+    instancedSpheres.updateBuffer();
 
 }
 
@@ -135,6 +131,7 @@ void SPHGPU3DSim::createUniformBuffers() {
 void SPHGPU3DSim::mainLoop(float deltaTime) {
     auto currentTime = std::chrono::high_resolution_clock::now();
 
+    cameraController.moveCamera(window.window(), deltaTime, camera);
     updateBuffers(renderer.currentFrame(), deltaTime);
 
     if (activateTimer) {
@@ -146,22 +143,22 @@ void SPHGPU3DSim::mainLoop(float deltaTime) {
     computeHandler.runCompute(renderer.currentFrame(), [this](VkCommandBuffer computeCommandBuffer){
         calculateDensityPressureComputeSystem.bindAndDispatch(computeCommandBuffer,
                                                      &computeDescriptorSet,
-                                                     PARTICLE_COUNT/256, 1, 1);
+                                                     INSTANCE_COUNT/256, 1, 1);
 
-        vkb::ComputeShaderHandler::computeBarrier(computeCommandBuffer, particleBuffer);
+        vkb::ComputeShaderHandler::computeBarrier(computeCommandBuffer, instancedSpheres.getBuffer());
 
         calculateForcesComputeSystem.bindAndDispatch(computeCommandBuffer,
                                                      &computeDescriptorSet,
-                                                     PARTICLE_COUNT/256, 1, 1);
+                                                     INSTANCE_COUNT/256, 1, 1);
 
 
         // Add memory barrier to ensure that the computer shader has finished writing to the buffer
-        vkb::ComputeShaderHandler::computeBarrier(computeCommandBuffer, particleBuffer);
+        vkb::ComputeShaderHandler::computeBarrier(computeCommandBuffer, instancedSpheres.getBuffer());
 
 
         integrateComputeSystem.bindAndDispatch(computeCommandBuffer,
                                                    &computeDescriptorSet,
-                                                   PARTICLE_COUNT/256, 1, 1);
+                                                   INSTANCE_COUNT/256, 1, 1);
 
     });
 
@@ -177,28 +174,32 @@ void SPHGPU3DSim::mainLoop(float deltaTime) {
         renderer.runRenderPass([this](VkCommandBuffer& commandBuffer){
 
             defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
+            plane.render(defaultSystem, commandBuffer);
 
-            VkBuffer vb = particleBuffer->getBuffer();
-            VkDeviceSize offsets[] = {0};
-            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
-            vkCmdDraw(commandBuffer, PARTICLE_COUNT, 1, 0, 0);
+            instanceSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
+            instancedSpheres.render(instanceSystem, commandBuffer);
 
         });
     }, computeHandler.currentSemaphore(renderer.currentFrame()), vkb::ComputeShaderHandler::waitStages());
+//    });
     if (activateTimer) drawTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
 }
 
 
 void SPHGPU3DSim::updateBuffers(uint32_t frameIndex, float deltaTime){
+    camera.setPerspectiveProjection(glm::radians(50.f), renderer.getSwapChainAspectRatio(), 0.1f, 1000.f);
+    gUbo.view = camera.getView();
+    gUbo.proj = camera.getProjection();
+    graphicsUniformBuffers[frameIndex]->write(&gUbo);
+
     cUbo.deltaTime = deltaTime;
     computeUniformBuffer->write(&cUbo);
-    graphicsUniformBuffers[frameIndex]->write(&gUbo);
 }
 
 void SPHGPU3DSim::showImGui(){
     ImGui::Begin("Control Panel");
 
-    ImGui::Text("Rendering %d instances", PARTICLE_COUNT);
+    ImGui::Text("Rendering %d instances", INSTANCE_COUNT);
     ImGui::Checkbox("Display time", &activateTimer);
     if(activateTimer){
         ImGui::Text("Cpu time: %f ms", cpuTime);

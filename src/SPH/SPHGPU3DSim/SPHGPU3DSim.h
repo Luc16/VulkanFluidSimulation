@@ -1,5 +1,5 @@
 //
-// Created by luc on 11/03/23.
+// Created by luc on 01/06/23.
 //
 
 #ifndef VULKANFLUIDSIMULATION_SPHGPU3DSIM_H
@@ -31,11 +31,18 @@ public:
             VulkanApp(width, height, appName, type) {}
 
 private:
-    static constexpr uint32_t PARTICLE_COUNT = 2048;
+    static constexpr uint32_t INSTANCE_COUNT = 1000;
 
+    const std::string planeModelPath = "../Models/quadXZ1.obj";
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
             "../src/SPH/SPHGPU3DSim/Shaders/default.vert.spv",
             "../src/SPH/SPHGPU3DSim/Shaders/default.frag.spv"
+    };
+
+    const std::string sphereModelPath = "../Models/lowsphere.obj";
+    const vkb::RenderSystem::ShaderPaths instanceShaderPaths = vkb::RenderSystem::ShaderPaths {
+            "../src/SPH/SPHGPU3DSim/Shaders/instancing.vert.spv",
+            "../src/SPH/SPHGPU3DSim/Shaders/instancing.frag.spv",
     };
 
     const std::string calculateForcesShaderPath = "../src/SPH/SPHGPU3DSim/Shaders/calculate_forces.comp.spv";
@@ -46,40 +53,17 @@ private:
         alignas(16) glm::vec3 position{};
         alignas(16) glm::vec3 velocity{};
         alignas(16) glm::vec3 force{};
-        float density{}, pressure{};
-        glm::vec4 color{};
-
-        static VkVertexInputBindingDescription getBindingDescription() {
-            VkVertexInputBindingDescription bindingDescription{};
-            bindingDescription.binding = 0;
-            bindingDescription.stride = sizeof(Particle);
-            bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-            return bindingDescription;
-        }
-
-        static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions() {
-            std::vector<VkVertexInputAttributeDescription> attributeDescriptions{2};
-
-            attributeDescriptions[0].binding = 0;
-            attributeDescriptions[0].location = 0;
-            attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-            attributeDescriptions[0].offset = offsetof(Particle, position);
-
-            attributeDescriptions[1].binding = 0;
-            attributeDescriptions[1].location = 1;
-            attributeDescriptions[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-            attributeDescriptions[1].offset = offsetof(Particle, color);
-
-            return attributeDescriptions;
-        }
+        alignas(16) glm::vec3 color{};
+        float density{}, pressure{}, scale{};
     };
 
     struct UniformBufferObject {
         glm::mat4 view;
         glm::mat4 proj;
-        float radius;
+        alignas(16) glm::vec3 lightDirection = glm::normalize(glm::vec3(1.0f, 1.0f, 0.0f));
     };
+
+    static constexpr float BOUNDARY_SIZE = 70.0f;
 
     struct ComputeUniformBufferObject {
         float deltaTime = 1/60.0f;
@@ -89,7 +73,7 @@ private:
         alignas(16) glm::vec3 G{0.0f, -10.0f, 0.0f};   // external (gravitational) forces
         float REST_DENS = 300.f;  // rest density
         float GAS_CONST = 2000.f; // const for equation of state
-        float H = 8.f;           // kernel radius
+        float H = 1.5f;           // kernel radius
         float HSQ = H * H;        // radius^2 for optimization
         float MASS = 2.5f;        // assume all particles have the same mass
         float VISC = 200.f;       // viscosity constant
@@ -104,16 +88,23 @@ private:
         float EPS = H; // boundary epsilon
 
         float BOUND_DAMPING = -0.5f;
-        uint numParticles = PARTICLE_COUNT;
+        uint numParticles = INSTANCE_COUNT;
     };
+
+    vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, planeModelPath)};
 
     std::vector<std::unique_ptr<vkb::Buffer>> graphicsUniformBuffers;
     UniformBufferObject gUbo{};
     vkb::RenderSystem defaultSystem{device};
     std::vector<VkDescriptorSet> defaultDescriptorSets;
+    vkb::RenderSystem instanceSystem{device};
 
 
-    std::unique_ptr<vkb::Buffer> particleBuffer;
+    vkb::InstancedObjects<Particle> instancedSpheres {
+        device,0,
+        vkb::Model::createModelFromFile(device, sphereModelPath),
+        nullptr, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+    };
     std::unique_ptr<vkb::Buffer> computeUniformBuffer;
     ComputeUniformBufferObject cUbo{};
     vkb::ComputeShaderHandler computeHandler{device};
@@ -123,6 +114,7 @@ private:
     VkDescriptorSet computeDescriptorSet{};
 
     vkb::Camera camera{};
+    vkb::CameraMovementController cameraController{};
 
     float drawTime = 0, cpuTime = 0, computeTime = 0;
     bool activateTimer = false;

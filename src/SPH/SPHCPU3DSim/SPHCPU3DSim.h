@@ -92,7 +92,7 @@ public:
     vkb::CameraMovementController cameraController{};
 
     vkb::SpatialHash particleHash{H, INSTANCE_COUNT};
-    vkb::InstancedObjects<InstanceData> instancedSpheres{device, INSTANCE_COUNT, vkb::Model::createModelFromFile(device, sphereModelPath)};
+    vkb::InstancedObjects<InstanceData> instancedSpheres{device, 0, vkb::Model::createModelFromFile(device, sphereModelPath)};
     std::array<std::jthread, numThreads> threads;
 
 
