@@ -35,7 +35,7 @@ namespace vkb {
         [[nodiscard]] VkDescriptorPool descriptorPool() const { return m_descriptorPool; }
 
         void allocateDescriptor(VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet &descriptor) const;
-        void freeDescriptors(std::vector<VkDescriptorSet> &descriptors) const;
+        void freeDescriptors(const std::vector<VkDescriptorSet> &descriptors) const;
         void resetPool();
     private:
         const Device& m_deviceRef;

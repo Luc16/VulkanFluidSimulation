@@ -38,7 +38,7 @@ namespace vkb {
         }
     }
 
-    void DescriptorPool::freeDescriptors(std::vector<VkDescriptorSet> &descriptors) const {
+    void DescriptorPool::freeDescriptors(const std::vector<VkDescriptorSet> &descriptors) const {
         vkFreeDescriptorSets(
                 m_deviceRef.device(),
                 m_descriptorPool,

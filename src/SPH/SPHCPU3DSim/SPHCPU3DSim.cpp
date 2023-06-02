@@ -30,8 +30,8 @@ void SPHCPU3DSim::onCreate() {
 }
 
 void SPHCPU3DSim::initializeObjects() {
-    camera.setViewTarget({0.0f, 10.0f, 10.0f}, {12.0f, -1.0f, -12.0f }, {0.0f, 1.0f, 0.0f});
-    camera.m_rotation = {0, glm::radians(180.0f), glm::radians(180.0f)};
+    camera.m_translation = {-56.9685f, 51.9174f, 65.334};
+    camera.m_rotation = {0.416948f, 1.95856f, 3.14159};
 
     createInstances();
 }

@@ -5,8 +5,13 @@
 #include "SPHGPU3DSim.h"
 
 void SPHGPU3DSim::onCreate() {
-    initializeObjects();
+    camera.m_translation = {-56.9685f, 51.9174f, 65.334};
+    camera.m_rotation = {0.416948f, 1.95856f, 3.14159};
+    camera.updateView();
+    auto extent = window.extent();
+    camera.setOrthographicProjection(0.0f, (float) extent.width, (float) extent.height, 0.0f, 0.1f, 1000.f);
     createUniformBuffers();
+    initializeObjects(true);
 
     auto defaultDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
@@ -69,21 +74,18 @@ void SPHGPU3DSim::createComputeDescriptorSets(vkb::DescriptorSetLayout &layout) 
 
 }
 
-void SPHGPU3DSim::initializeObjects() {
-    camera.setViewTarget({0.0f, 10.0f, 10.0f}, {12.0f, -1.0f, -12.0f }, {0.0f, 1.0f, 0.0f});
-    camera.m_rotation = {0, glm::radians(180.0f), glm::radians(180.0f)};    camera.updateView();
-    auto extent = window.extent();
-    camera.setOrthographicProjection(0.0f, (float) extent.width, (float) extent.height, 0.0f, 0.1f, 1000.f);
+void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     gUbo.view = camera.getView();
     gUbo.proj = camera.getProjection();
+    cUbo.numParticles = INSTANCE_COUNT;
 
     vkDeviceWaitIdle(device.device());
 
     instancedSpheres.resizeBuffer(INSTANCE_COUNT);
 
-    plane.setScale(BOUNDARY_SIZE);
+    plane.setScale(cUbo.BOUNDARY_SIZE);
 
-    auto accPos = glm::vec3(cUbo.EPS, cUbo.EPS, cUbo.EPS);
+    auto accPos = initialPos;
     auto spherePerSide = (uint32_t) std::cbrt(INSTANCE_COUNT);
     float step = cUbo.H + 0.01f;
 
@@ -91,19 +93,28 @@ void SPHGPU3DSim::initializeObjects() {
         auto& sphere = instancedSpheres[i];
         sphere.color = glm::vec3(0.2f, 0.6f, 1.0f);
         sphere.scale = 0.8f*cUbo.H;
-        sphere.position = accPos + glm::vec3(randomFloat(-cUbo.H/5, cUbo.H/5), randomFloat(-cUbo.H/5, cUbo.H/5), randomFloat(-cUbo.H/5, cUbo.H/5));
+        sphere.position = accPos + float(activateRandomOffsets)*glm::vec3(randomFloat(-cUbo.H/5, cUbo.H/5), randomFloat(-cUbo.H/5, cUbo.H/5), randomFloat(-cUbo.H/5, cUbo.H/5));
         accPos.x += step;
 
         if (i % spherePerSide == spherePerSide - 1) {
             accPos.z += step;
-            accPos.x = cUbo.EPS;
+            accPos.x = initialPos.x;
             if (i % (spherePerSide * spherePerSide) == (spherePerSide * spherePerSide) - 1) {
                 accPos.y += step;
-                accPos.z = cUbo.EPS;
+                accPos.z = initialPos.z;
             }
         }
     }
     instancedSpheres.updateBuffer();
+
+    auto computeDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
+            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .build();
+
+    if (computeDescriptorSet) globalDescriptorPool->freeDescriptors({computeDescriptorSet});
+    createComputeDescriptorSets(computeDescriptorLayout);
 
 }
 
@@ -123,16 +134,13 @@ void SPHGPU3DSim::createUniformBuffers() {
                                                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
         graphicsUniformBuffers[i]->map();
     }
-
-    cUbo.width = float(window.width());
-    cUbo.height = float(window.height());
 }
 
 void SPHGPU3DSim::mainLoop(float deltaTime) {
     auto currentTime = std::chrono::high_resolution_clock::now();
 
     cameraController.moveCamera(window.window(), deltaTime, camera);
-    updateBuffers(renderer.currentFrame(), deltaTime);
+    updateUniformBuffers(renderer.currentFrame(), deltaTime);
 
     if (activateTimer) {
         auto time = std::chrono::high_resolution_clock::now();
@@ -140,16 +148,54 @@ void SPHGPU3DSim::mainLoop(float deltaTime) {
         currentTime = time;
     }
 
+    if (!controlMode) {
+        updateSimulation();
+        if (activateTimer) {
+            auto time = std::chrono::high_resolution_clock::now();
+            computeTime = std::chrono::duration<float, std::chrono::milliseconds::period>(time - currentTime).count();
+            currentTime = time;
+        }
+
+        renderer.runFrame([this](VkCommandBuffer commandBuffer){
+            renderObjects();
+        }, computeHandler.currentSemaphore(renderer.currentFrame()), vkb::ComputeShaderHandler::waitStages());
+    } else {
+        initializeObjects(false);
+        renderer.runFrame([this](VkCommandBuffer commandBuffer){
+            renderObjects();
+        });
+    }
+
+    if (activateTimer) drawTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
+}
+
+void SPHGPU3DSim::renderObjects() {
+    showImGui();
+
+    renderer.runRenderPass([this](VkCommandBuffer& commandBuffer){
+
+        defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
+        plane.render(defaultSystem, commandBuffer);
+
+        instanceSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
+        instancedSpheres.render(instanceSystem, commandBuffer);
+
+    });
+}
+
+void SPHGPU3DSim::updateSimulation() {
     computeHandler.runCompute(renderer.currentFrame(), [this](VkCommandBuffer computeCommandBuffer){
+        uint32_t blockSize = INSTANCE_COUNT/256 + (1 - (INSTANCE_COUNT%256 == 0));
+
         calculateDensityPressureComputeSystem.bindAndDispatch(computeCommandBuffer,
-                                                     &computeDescriptorSet,
-                                                     INSTANCE_COUNT/256, 1, 1);
+                                                              &computeDescriptorSet,
+                                                              blockSize, 1, 1);
 
         vkb::ComputeShaderHandler::computeBarrier(computeCommandBuffer, instancedSpheres.getBuffer());
 
         calculateForcesComputeSystem.bindAndDispatch(computeCommandBuffer,
                                                      &computeDescriptorSet,
-                                                     INSTANCE_COUNT/256, 1, 1);
+                                                     blockSize, 1, 1);
 
 
         // Add memory barrier to ensure that the computer shader has finished writing to the buffer
@@ -157,42 +203,21 @@ void SPHGPU3DSim::mainLoop(float deltaTime) {
 
 
         integrateComputeSystem.bindAndDispatch(computeCommandBuffer,
-                                                   &computeDescriptorSet,
-                                                   INSTANCE_COUNT/256, 1, 1);
+                                               &computeDescriptorSet,
+                                               blockSize, 1, 1);
 
     });
-
-    if (activateTimer) {
-        auto time = std::chrono::high_resolution_clock::now();
-        computeTime = std::chrono::duration<float, std::chrono::milliseconds::period>(time - currentTime).count();
-        currentTime = time;
-    }
-
-    renderer.runFrame([this](VkCommandBuffer commandBuffer){
-        showImGui();
-
-        renderer.runRenderPass([this](VkCommandBuffer& commandBuffer){
-
-            defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
-            plane.render(defaultSystem, commandBuffer);
-
-            instanceSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
-            instancedSpheres.render(instanceSystem, commandBuffer);
-
-        });
-    }, computeHandler.currentSemaphore(renderer.currentFrame()), vkb::ComputeShaderHandler::waitStages());
-//    });
-    if (activateTimer) drawTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
 }
 
-
-void SPHGPU3DSim::updateBuffers(uint32_t frameIndex, float deltaTime){
+void SPHGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){
     camera.setPerspectiveProjection(glm::radians(50.f), renderer.getSwapChainAspectRatio(), 0.1f, 1000.f);
     gUbo.view = camera.getView();
     gUbo.proj = camera.getProjection();
     graphicsUniformBuffers[frameIndex]->write(&gUbo);
 
     cUbo.deltaTime = deltaTime;
+    cUbo.planeY = plane.m_translation.y;
+    cUbo.G = gravityFactor*glm::vec3(0.0f, -10.0f, 0.0f);
     computeUniformBuffer->write(&cUbo);
 }
 
@@ -207,12 +232,53 @@ void SPHGPU3DSim::showImGui(){
         ImGui::Text("Draw time: %f ms", drawTime);
     }
 
+    if (ImGui::Button("Reset and enter control mode")) controlMode = true;
 
-    if (ImGui::Button("Reset")) onCreate();
+    ImGui::DragFloat("Gravity", &gravityFactor, 1.f, 1.f, 1000.f);
+
+    if (ImGui::CollapsingHeader("Plane", ImGuiTreeNodeFlags_DefaultOpen)) {
+
+        ImGui::SliderFloat("y", &plane.m_translation.y, -100.0f, 100.0f);
+
+    }
+    if (ImGui::Button("Reset")) initializeObjects(true);
+
 
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                 ImGui::GetIO().Framerate);
     ImGui::End();
+
+
+    if (controlMode) {
+        ImGui::Begin("Control Mode");
+
+        float particleCubeSize = std::cbrt(float(INSTANCE_COUNT))*cUbo.H + cUbo.EPS;
+
+        int temp = (int) INSTANCE_COUNT;
+        ImGui::DragInt("Num Particles", &temp, 10, 16, 100000);
+        if (temp != INSTANCE_COUNT) {
+            if (cUbo.BOUNDARY_SIZE < particleCubeSize) cUbo.BOUNDARY_SIZE = particleCubeSize;
+        }
+        INSTANCE_COUNT = (uint32_t) temp;
+
+
+        float prevBound = cUbo.BOUNDARY_SIZE;
+        ImGui::DragFloat("Boundary Size", &cUbo.BOUNDARY_SIZE, 1, particleCubeSize, 100000);
+        if (prevBound != cUbo.BOUNDARY_SIZE) {
+            if (initialPos.x > cUbo.BOUNDARY_SIZE - particleCubeSize + cUbo.EPS) initialPos.x = cUbo.BOUNDARY_SIZE - particleCubeSize  + cUbo.EPS;
+            if (initialPos.z > cUbo.BOUNDARY_SIZE - particleCubeSize  + cUbo.EPS) initialPos.z = cUbo.BOUNDARY_SIZE - particleCubeSize  + cUbo.EPS;
+        }
+
+        ImGui::SliderFloat("Initial Pos X", &initialPos.x, cUbo.EPS, cUbo.BOUNDARY_SIZE - particleCubeSize);
+        ImGui::SliderFloat("Initial Pos Y", &initialPos.y, cUbo.EPS, cUbo.BOUNDARY_SIZE - particleCubeSize);
+        ImGui::SliderFloat("Initial Pos Z", &initialPos.z, cUbo.EPS, cUbo.BOUNDARY_SIZE - particleCubeSize);
+
+        if (ImGui::Button("Launch and close")){
+            initializeObjects(true);
+            controlMode = false;
+        }
+        ImGui::End();
+    }
 
 }
 

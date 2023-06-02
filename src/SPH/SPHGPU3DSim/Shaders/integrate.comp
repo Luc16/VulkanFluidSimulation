@@ -8,8 +8,8 @@ struct Particle {
 
 layout (binding = 0) uniform ParameterUBO {
     float deltaTime;
-    float width;
-    float height;
+    float BOUNDARY_SIZE;
+    float planeY;
 
     vec3 G;   // external (gravitational) forces
     float REST_DENS;  // rest density
@@ -35,23 +35,30 @@ layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 void main()
 {
-    uint index = gl_GlobalInvocationID.x;
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= ubo.numParticles) return;
 
-    particles[index].velocity += ubo.DT * particles[index].force / particles[index].density;
-    particles[index].position += ubo.DT * particles[index].velocity;
+    particles[i].velocity += ubo.DT * particles[i].force / particles[i].density;
+    particles[i].position += ubo.DT * particles[i].velocity;
 
     // enforce boundary conditions
-    if (particles[index].position.x - ubo.EPS < 0.f) {
-        particles[index].velocity.x *= ubo.BOUND_DAMPING;
-        particles[index].position.x = ubo.EPS;
+    if (particles[i].position.x - ubo.EPS < 0.f) {
+        particles[i].velocity.x *= ubo.BOUND_DAMPING;
+        particles[i].position.x = ubo.EPS;
+    } else if (particles[i].position.x + ubo.EPS > ubo.BOUNDARY_SIZE) {
+        particles[i].velocity.x *= ubo.BOUND_DAMPING;
+        particles[i].position.x = ubo.BOUNDARY_SIZE - ubo.EPS;
     }
-    if (particles[index].position.x + ubo.EPS > ubo.width) {
-        particles[index].velocity.x *= ubo.BOUND_DAMPING;
-        particles[index].position.x = ubo.width - ubo.EPS;
+    if (particles[i].position.z - ubo.EPS < 0.f) {
+        particles[i].velocity.z *= ubo.BOUND_DAMPING;
+        particles[i].position.z = ubo.EPS;
+    } else if (particles[i].position.z + ubo.EPS > ubo.BOUNDARY_SIZE) {
+        particles[i].velocity.z *= ubo.BOUND_DAMPING;
+        particles[i].position.z = ubo.BOUNDARY_SIZE - ubo.EPS;
     }
-    if (particles[index].position.y - ubo.EPS < 0.f) {
-        particles[index].velocity.y *= ubo.BOUND_DAMPING;
-        particles[index].position.y = ubo.EPS;
+    if (particles[i].position.y - ubo.EPS < ubo.planeY) {
+        particles[i].velocity.y *= ubo.BOUND_DAMPING;
+        particles[i].position.y = ubo.planeY + ubo.EPS;
     }
 
 }

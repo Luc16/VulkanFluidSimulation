@@ -31,7 +31,7 @@ public:
             VulkanApp(width, height, appName, type) {}
 
 private:
-    static constexpr uint32_t INSTANCE_COUNT = 1000;
+    uint32_t INSTANCE_COUNT = 1024;
 
     const std::string planeModelPath = "../Models/quadXZ1.obj";
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
@@ -63,12 +63,10 @@ private:
         alignas(16) glm::vec3 lightDirection = glm::normalize(glm::vec3(1.0f, 1.0f, 0.0f));
     };
 
-    static constexpr float BOUNDARY_SIZE = 70.0f;
-
     struct ComputeUniformBufferObject {
         float deltaTime = 1/60.0f;
-        float width = 0.0f;
-        float height = 0.0f;
+        float BOUNDARY_SIZE = 70.0f;
+        float planeY = 0.0f;
 
         alignas(16) glm::vec3 G{0.0f, -10.0f, 0.0f};   // external (gravitational) forces
         float REST_DENS = 300.f;  // rest density
@@ -88,7 +86,7 @@ private:
         float EPS = H; // boundary epsilon
 
         float BOUND_DAMPING = -0.5f;
-        uint numParticles = INSTANCE_COUNT;
+        uint numParticles = 0;
     };
 
     vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, planeModelPath)};
@@ -111,20 +109,23 @@ private:
     vkb::ComputeSystem calculateDensityPressureComputeSystem{device};
     vkb::ComputeSystem calculateForcesComputeSystem{device};
     vkb::ComputeSystem integrateComputeSystem{device};
-    VkDescriptorSet computeDescriptorSet{};
+    VkDescriptorSet computeDescriptorSet = nullptr;
 
     vkb::Camera camera{};
     vkb::CameraMovementController cameraController{};
 
-    float drawTime = 0, cpuTime = 0, computeTime = 0;
-    bool activateTimer = false;
+    glm::vec3 initialPos = {cUbo.EPS, cUbo.EPS, cUbo.EPS};
+    float drawTime = 0, cpuTime = 0, computeTime = 0, gravityFactor = 1.0f;
+    bool activateTimer = false, controlMode = false;
 
     void onCreate() override;
-    void initializeObjects();
+    void initializeObjects(bool activateRandomOffsets);
     void createComputeDescriptorSets(vkb::DescriptorSetLayout &layout);
     void createUniformBuffers();
     void mainLoop(float deltaTime) override;
-    void updateBuffers(uint32_t frameIndex, float deltaTime);
+    void renderObjects();
+    void updateSimulation();
+    void updateUniformBuffers(uint32_t frameIndex, float deltaTime);
     void showImGui();
 
 };
