@@ -30,6 +30,8 @@ public:
     VulkanApp(width, height, appName, type) {}
 
 public:
+    std::string DIR = std::string("../src/SPH/SPHCPU3DSim/");
+
     uint32_t INSTANCE_COUNT = 27000;
     static constexpr glm::vec3 G{0.0f, -10.0f, 0.0f};   // external (gravitational) forces
     static constexpr float REST_DENS = 300.f;  // rest density
@@ -57,14 +59,14 @@ public:
 
     const std::string planeModelPath = "../Models/quadXZ1.obj";
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../src/SPH/SPHCPU3DSim/Shaders/default.vert.spv",
-            "../src/SPH/SPHCPU3DSim/Shaders/default.frag.spv"
+            DIR + "Shaders/default.vert.spv",
+            DIR + "Shaders/default.frag.spv"
     };
 
     const std::string sphereModelPath = "../Models/lowsphere.obj";
     const vkb::RenderSystem::ShaderPaths instanceShaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../src/SPH/SPHCPU3DSim/Shaders/instancing.vert.spv",
-            "../src/SPH/SPHCPU3DSim/Shaders/instancing.frag.spv",
+            DIR + "Shaders/instancing.vert.spv",
+            DIR + "Shaders/instancing.frag.spv",
     };
 
     struct UniformBufferObject {

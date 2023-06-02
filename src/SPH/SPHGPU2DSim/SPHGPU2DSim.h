@@ -30,17 +30,29 @@ public:
     SPHGPU2DSim(int width, int height, const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::NVIDIA):
             VulkanApp(width, height, appName, type) {}
 
+    void compileShaders();
+
 private:
+    const std::string SHADER_DIR = std::string("../src/SPH/SPHGPU2DSim/Shaders/");
+
     static constexpr uint32_t PARTICLE_COUNT = 2048;
 
-    const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../src/SPH/SPHGPU2DSim/Shaders/default.vert.spv",
-            "../src/SPH/SPHGPU2DSim/Shaders/default.frag.spv"
+    const std::vector<std::string> shaders = {
+            SHADER_DIR + "default.vert",
+            SHADER_DIR + "default.frag",
+            SHADER_DIR + "calculate_forces.comp",
+            SHADER_DIR + "integrate.comp",
+            SHADER_DIR + "calculate_density_pressure.comp",
     };
 
-    const std::string calculateForcesShaderPath = "../src/SPH/SPHGPU2DSim/Shaders/calculate_forces.comp.spv";
-    const std::string integrateShaderPath = "../src/SPH/SPHGPU2DSim/Shaders/integrate.comp.spv";
-    const std::string calculateDensityPressureShaderPath = "../src/SPH/SPHGPU2DSim/Shaders/calculate_density_pressure.comp.spv";
+    const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
+            shaders[0] + ".spv",
+            shaders[1] + ".spv"
+    };
+
+    const std::string calculateForcesShaderPath = shaders[2] + ".spv";
+    const std::string integrateShaderPath = shaders[3] + ".spv";
+    const std::string calculateDensityPressureShaderPath = shaders[4] + ".spv";
 
     struct Particle {
         alignas(16) glm::vec3 position{};
@@ -134,7 +146,6 @@ private:
     void mainLoop(float deltaTime) override;
     void updateBuffers(uint32_t frameIndex, float deltaTime);
     void showImGui();
-
 };
 
 #endif //VULKANFLUIDSIMULATION_SPHGPU2DSIM_H

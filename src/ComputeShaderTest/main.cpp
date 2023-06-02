@@ -11,11 +11,8 @@ const std::string APP_NAME = "Vulkan N-body simulation";
 
 int main() {
     ComputeShaderTest app{WIDTH, HEIGHT, APP_NAME, vkb::Device::INTEL};
+    app.compileShaders();
 
-    system("glslc ../src/ComputeShaderTest/Shaders/default.vert -o ../src/ComputeShaderTest/Shaders/default.vert.spv");
-    system("glslc ../src/ComputeShaderTest/Shaders/default.frag -o ../src/ComputeShaderTest/Shaders/default.frag.spv");
-    system("glslc ../src/ComputeShaderTest/Shaders/move_particles.comp -o ../src/ComputeShaderTest/Shaders/move_particles.comp.spv");
-    system("glslc ../src/ComputeShaderTest/Shaders/calculate_forces.comp -o ../src/ComputeShaderTest/Shaders/calculate_forces.comp.spv");
     try {
         app.run();
     } catch (const std::exception& e) {

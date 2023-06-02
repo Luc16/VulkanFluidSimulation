@@ -10,14 +10,9 @@ const uint32_t HEIGHT = 1000;
 const std::string APP_NAME = "Vulkan GPU SPH 2D fluid simulation";
 
 int main() {
-    system("glslc ../src/SPHGPU2DSim/Shaders/default.vert -o ../src/SPHGPU2DSim/Shaders/default.vert.spv");
-    system("glslc ../src/SPHGPU2DSim/Shaders/default.frag -o ../src/SPHGPU2DSim/Shaders/default.frag.spv");
-    system("glslc ../src/SPHGPU2DSim/Shaders/integrate.comp -o ../src/SPHGPU2DSim/Shaders/integrate.comp.spv");
-    system("glslc ../src/SPHGPU2DSim/Shaders/calculate_forces.comp -o ../src/SPHGPU2DSim/Shaders/calculate_forces.comp.spv");
-    system("glslc ../src/SPHGPU2DSim/Shaders/calculate_density_pressure.comp -o ../src/SPHGPU2DSim/Shaders/calculate_density_pressure.comp.spv");
-
-
     SPHGPU2DSim app{WIDTH, HEIGHT, APP_NAME, vkb::Device::INTEL};
+
+    app.compileShaders();
 
     try {
         app.run();

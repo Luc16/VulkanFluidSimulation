@@ -215,4 +215,14 @@ void SPHGPU2DSim::showImGui(){
 
 }
 
+void SPHGPU2DSim::compileShaders() {
+    for (auto& shaderPath : shaders) {
+        std::string command{"glslc "};
+        command += shaderPath;
+        command += " -o ";
+        command += shaderPath;
+        command += ".spv";
+        int status = system(command.c_str());
+    }
+}
 

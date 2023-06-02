@@ -30,25 +30,39 @@ public:
     SPHGPU3DSim(int width, int height, const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::NVIDIA):
             VulkanApp(width, height, appName, type) {}
 
+    void compileShaders();
+
 private:
+    const std::string SHADER_DIR = std::string("../src/SPH/SPHGPU3DSim/Shaders/");
+
+
     uint32_t INSTANCE_COUNT = 1024;
+
+    const std::vector<std::string> shaders = {
+            SHADER_DIR + "default.vert",
+            SHADER_DIR + "default.frag",
+            SHADER_DIR + "instancing.vert",
+            SHADER_DIR + "instancing.frag",
+            SHADER_DIR + "calculate_forces.comp",
+            SHADER_DIR + "integrate.comp",
+            SHADER_DIR + "calculate_density_pressure.comp",
+    };
 
     const std::string planeModelPath = "../Models/quadXZ1.obj";
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../src/SPH/SPHGPU3DSim/Shaders/default.vert.spv",
-            "../src/SPH/SPHGPU3DSim/Shaders/default.frag.spv"
+            shaders[0] + ".spv",
+            shaders[1] + ".spv"
     };
 
     const std::string sphereModelPath = "../Models/lowsphere.obj";
     const vkb::RenderSystem::ShaderPaths instanceShaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../src/SPH/SPHGPU3DSim/Shaders/instancing.vert.spv",
-            "../src/SPH/SPHGPU3DSim/Shaders/instancing.frag.spv",
+            shaders[2] + ".spv",
+            shaders[3] + ".spv"
     };
 
-    const std::string calculateForcesShaderPath = "../src/SPH/SPHGPU3DSim/Shaders/calculate_forces.comp.spv";
-    const std::string integrateShaderPath = "../src/SPH/SPHGPU3DSim/Shaders/integrate.comp.spv";
-    const std::string calculateDensityPressureShaderPath = "../src/SPH/SPHGPU3DSim/Shaders/calculate_density_pressure.comp.spv";
-
+    const std::string calculateForcesShaderPath = shaders[4] + ".spv";
+    const std::string integrateShaderPath = shaders[5] + ".spv";
+    const std::string calculateDensityPressureShaderPath = shaders[6] + ".spv";
     struct Particle {
         alignas(16) glm::vec3 position{};
         alignas(16) glm::vec3 velocity{};

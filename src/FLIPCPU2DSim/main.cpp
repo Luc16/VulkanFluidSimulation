@@ -10,8 +10,6 @@ const std::string APP_NAME = "Vulkan CPU PIC/FLIP 2D fluid simulation";
 int main() {
     FLIPCPU2DSim app{APP_NAME, vkb::Device::INTEL};
 
-    system("glslc ../src/FLIPCPU2DSim/Shaders/default.vert -o ../src/FLIPCPU2DSim/Shaders/default.vert.spv");
-    system("glslc ../src/FLIPCPU2DSim/Shaders/default.frag -o ../src/FLIPCPU2DSim/Shaders/default.frag.spv");
     try {
         app.run();
     } catch (const std::exception& e) {

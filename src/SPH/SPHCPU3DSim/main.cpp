@@ -7,7 +7,7 @@
 
 const uint32_t WIDTH = 1000;
 const uint32_t HEIGHT = 1000;
-const std::string APP_NAME = "Vulkan Fluid Example";
+const std::string APP_NAME = "Vulkan CPU SPH 3D fluid simulation";
 
 int main() {
     SPHCPU3DSim app{WIDTH, HEIGHT, APP_NAME, vkb::Device::NVIDIA};

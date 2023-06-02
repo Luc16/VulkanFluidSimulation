@@ -32,6 +32,8 @@ public:
             VulkanApp(width, height, appName, type) {}
 
 private:
+    std::string DIR = std::string("../src/SPH/SPHCPU2DSim/");
+
     static constexpr uint32_t PARTICLE_COUNT = 2048*8;
     static constexpr glm::vec3 G{0.0f, -10.0f, 0.0f};   // external (gravitational) forces
     static constexpr float REST_DENS = 300.f;  // rest density
@@ -55,8 +57,8 @@ private:
 
 
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../src/SPH/SPHCPU2DSim/Shaders/default.vert.spv",
-            "../src/SPH/SPHCPU2DSim/Shaders/default.frag.spv"
+            DIR + "Shaders/default.vert.spv",
+            DIR + "Shaders/default.frag.spv"
     };
 
 

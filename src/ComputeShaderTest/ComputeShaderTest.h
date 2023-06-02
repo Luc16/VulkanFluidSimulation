@@ -30,15 +30,27 @@ public:
     ComputeShaderTest(int width, int height, const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
             VulkanApp(width, height, appName, type) {}
 
-private:
-    static constexpr uint32_t PARTICLE_COUNT = 8192;
-    const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../src/ComputeShaderTest/Shaders/default.vert.spv",
-            "../src/ComputeShaderTest/Shaders/default.frag.spv"
-    };
-    const std::string calculateForcesShaderPath = "../src/ComputeShaderTest/Shaders/calculate_forces.comp.spv";
-    const std::string moveParticlesShaderPath = "../src/ComputeShaderTest/Shaders/move_particles.comp.spv";
+    void compileShaders();
 
+private:
+    const std::string SHADER_DIR = std::string("../src/ComputeShaderTest/Shaders/");
+
+    static constexpr uint32_t PARTICLE_COUNT = 8192;
+
+    const std::vector<std::string> shaders = {
+            SHADER_DIR + "default.vert",
+            SHADER_DIR + "default.frag",
+            SHADER_DIR + "calculate_forces.comp",
+            SHADER_DIR + "move_particles.comp",
+    };
+
+    const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
+            shaders[0] + ".spv",
+            shaders[1] + ".spv"
+    };
+
+    const std::string calculateForcesShaderPath = shaders[2] + ".spv";
+    const std::string moveParticlesShaderPath = shaders[3] + ".spv";
 
     struct Particle {
         glm::vec2 position, velocity;
