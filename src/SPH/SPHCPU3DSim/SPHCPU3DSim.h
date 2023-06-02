@@ -30,7 +30,7 @@ public:
     VulkanApp(width, height, appName, type) {}
 
 public:
-    static constexpr uint32_t INSTANCE_COUNT = 27000;
+    uint32_t INSTANCE_COUNT = 27000;
     static constexpr glm::vec3 G{0.0f, -10.0f, 0.0f};   // external (gravitational) forces
     static constexpr float REST_DENS = 300.f;  // rest density
     static constexpr float GAS_CONST = 2000.f; // const for equation of state
@@ -50,9 +50,9 @@ public:
     // simulation parameters
     static constexpr float EPS = H; // boundary epsilon
     static constexpr float BOUND_DAMPING = -0.5f;
-    static constexpr float BOUNDARY_SIZE = 70.0f;
+    float BOUNDARY_SIZE = 70.0f;
     static constexpr uint32_t numThreads = 10;
-    static constexpr uint32_t particlesPerThread = INSTANCE_COUNT/numThreads;
+    uint32_t particlesPerThread = INSTANCE_COUNT/numThreads;
 
 
     const std::string planeModelPath = "../Models/quadXZ1.obj";
@@ -91,19 +91,19 @@ public:
     vkb::Camera camera{};
     vkb::CameraMovementController cameraController{};
 
-    vkb::SpatialHash particleHash{H, INSTANCE_COUNT};
+    vkb::SpatialHash particleHash{H, 100000};
     vkb::InstancedObjects<InstanceData> instancedSpheres{device, 0, vkb::Model::createModelFromFile(device, sphereModelPath)};
     std::array<std::jthread, numThreads> threads;
 
-
+    glm::vec3 initialPos = {EPS, EPS, EPS};
     float gravityFactor = 40.f, sphereRadius = 0.641f;
     float colorUpdate = 0.008f, densColorThreshold = 1.01f;
     float gpuTime = 0, cpuTime = 0;
-    bool activateTimer = false;
+    bool activateTimer = false, controlMode = false;
 
     void onCreate() override;
     void initializeObjects();
-    void createInstances();
+    void createInstances(bool activateRandomOffsets);
     void createUniformBuffers();
     void mainLoop(float deltaTime) override;
     void updateUniformBuffer(uint32_t frameIndex);

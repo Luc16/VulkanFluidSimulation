@@ -94,6 +94,8 @@ void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
         sphere.color = glm::vec3(0.2f, 0.6f, 1.0f);
         sphere.scale = 0.8f*cUbo.H;
         sphere.position = accPos + float(activateRandomOffsets)*glm::vec3(randomFloat(-cUbo.H/5, cUbo.H/5), randomFloat(-cUbo.H/5, cUbo.H/5), randomFloat(-cUbo.H/5, cUbo.H/5));
+        sphere.velocity = glm::vec3(0.0f);
+        sphere.force = glm::vec3(0.0f);
         accPos.x += step;
 
         if (i % spherePerSide == spherePerSide - 1) {
@@ -236,11 +238,8 @@ void SPHGPU3DSim::showImGui(){
 
     ImGui::DragFloat("Gravity", &gravityFactor, 1.f, 1.f, 1000.f);
 
-    if (ImGui::CollapsingHeader("Plane", ImGuiTreeNodeFlags_DefaultOpen)) {
+    ImGui::SliderFloat("Plane Y", &plane.m_translation.y, -100.0f, 100.0f);
 
-        ImGui::SliderFloat("y", &plane.m_translation.y, -100.0f, 100.0f);
-
-    }
     if (ImGui::Button("Reset")) initializeObjects(true);
 
 
@@ -255,16 +254,17 @@ void SPHGPU3DSim::showImGui(){
         float particleCubeSize = std::cbrt(float(INSTANCE_COUNT))*cUbo.H + cUbo.EPS;
 
         int temp = (int) INSTANCE_COUNT;
-        ImGui::DragInt("Num Particles", &temp, 10, 16, 100000);
+        ImGui::SliderInt("Num Particles", &temp, 16, 100000);
         if (temp != INSTANCE_COUNT) {
             if (cUbo.BOUNDARY_SIZE < particleCubeSize) cUbo.BOUNDARY_SIZE = particleCubeSize;
         }
         INSTANCE_COUNT = (uint32_t) temp;
 
 
-        float prevBound = cUbo.BOUNDARY_SIZE;
-        ImGui::DragFloat("Boundary Size", &cUbo.BOUNDARY_SIZE, 1, particleCubeSize, 100000);
-        if (prevBound != cUbo.BOUNDARY_SIZE) {
+        float newBoundSize = cUbo.BOUNDARY_SIZE;
+        ImGui::DragFloat("Boundary Size", &newBoundSize, 1, particleCubeSize, 1000);
+        if (newBoundSize != cUbo.BOUNDARY_SIZE) {
+            if (newBoundSize >= particleCubeSize) cUbo.BOUNDARY_SIZE = newBoundSize;
             if (initialPos.x > cUbo.BOUNDARY_SIZE - particleCubeSize + cUbo.EPS) initialPos.x = cUbo.BOUNDARY_SIZE - particleCubeSize  + cUbo.EPS;
             if (initialPos.z > cUbo.BOUNDARY_SIZE - particleCubeSize  + cUbo.EPS) initialPos.z = cUbo.BOUNDARY_SIZE - particleCubeSize  + cUbo.EPS;
         }
