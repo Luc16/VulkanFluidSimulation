@@ -1,15 +1,25 @@
 # Simple Grid Fluid Simulation
 
-This is a simple grid fluid simulation implementation. There are two simulations in this 
-folder one being 2D and the other 3D. The 2D version is more polished, to test it a 
-release build is recommended.
+This is a simple grid fluid simulation implementation. The main idea is to use a grid to simulate the
+particle attributes, such as density and velocity. Then the fluid can be updated using 
+algorithms based on the Navier-Stokes equations.
 
-
-Things to write:
- - controls
- - Basic idea?
+There are two simulations in this folder one being 2D and the other 3D. The 2D version is more polished,
+to test it a release build is recommended.
 
 ## Controls
+
+For the 2D simulation you can press to create fluid and move to change the velocities. 
+In wall mode you can press and move the mouse to create walls.
+
+For the 3D simulations:
+- W: forward
+- S: back
+- A: left
+- D: right
+- Q: up
+- E: down
+- Arrow Keys: move the camera
 
 ## References
 
