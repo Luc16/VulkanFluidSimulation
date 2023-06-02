@@ -17,7 +17,7 @@ These are fluid simulations where a grid is used to store fluid attributes, such
 These are simulations based on the Smoothed Particle Hydrodynamics technique, which uses
 particles to approximate the behavior of fluids.
 
-## Dependencies:
+## Dependencies
 [//]: # (TODO: Explain how to setup each of the dependencies or link where they can be aquired  )
 To build the project and all the executables, these dependencies are required:
 
@@ -25,7 +25,7 @@ To build the project and all the executables, these dependencies are required:
 - glfw3
 - CMake >= 3.24.0
 
-## Building:
+## Building
 
 The project can be built using CMake. On linux, these commands can be run from the
 project folder to create the build files:

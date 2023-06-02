@@ -36,7 +36,7 @@ As ideias e conceitos explorados nessa simulação são baseadas nos artigos (em
 - **Real-Time Fluid Dynamics for Games** por Jos Stam
   <br> http://graphics.cs.cmu.edu/nsp/course/15-464/Fall09/papers/StamFluidforGames.pdf
 
-## Rodando:
+## Rodando o projeto
 
 Para rodar essa simulação leia o [README do projeto](../../README.md)
 

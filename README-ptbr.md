@@ -17,7 +17,7 @@ como densidade e pressão.
 Essas são simulações baseadas na técnica da Hidrodinâmica de Partículas Suavizadas, a qual
 utiliza partículas para aproximar o comportamento de fluidos.
 
-## Dependências:
+## Dependências
 
 Para rodar o projeto, é necessário ter instalado algumas dependências, sendo elas: 
 
@@ -25,7 +25,7 @@ Para rodar o projeto, é necessário ter instalado algumas dependências, sendo 
 - glfw3
 - CMake >= 3.24.0
 
-## Rodando:
+## Rodando o projeto
 
 Os executáveis podem ser gerados utilizando CMake. Em Linux pode-se utilizar esses comandos
 a partir da pasta do projeto.

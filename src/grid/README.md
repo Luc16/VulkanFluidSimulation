@@ -35,7 +35,7 @@ The ideas and algorithm used in this simulation were based on these papers:
 - **Real-Time Fluid Dynamics for Games** by Jos Stam 
 <br> http://graphics.cs.cmu.edu/nsp/course/15-464/Fall09/papers/StamFluidforGames.pdf
 
-## Building:
+## Building
 
 For building the project checkout the [project README](../../README.md)
 
