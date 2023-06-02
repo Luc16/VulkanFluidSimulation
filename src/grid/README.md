@@ -1,7 +1,7 @@
 # Simple Grid Fluid Simulation
 
-This is a simple grid fluid simulation implementation. The main idea is to use a grid to simulate the
-particle attributes, such as density and velocity. Then the fluid can be updated using 
+This is a simple grid fluid simulation implementation. The main idea is to use a grid to simulate
+fluid attributes, such as density and velocity. Then the fluid can be updated using 
 algorithms based on the Navier-Stokes equations.
 
 There are two simulations in this folder one being 2D and the other 3D. The 2D version is more polished,
