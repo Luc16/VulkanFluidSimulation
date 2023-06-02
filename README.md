@@ -1,4 +1,6 @@
 # Fluid simulations in Vulkan
+[![pt-br](https://img.shields.io/badge/LEIAME-PT--BR-A3BE8C.svg?style=for-the-badge)](README-ptbr.md)
+
 
 This repository has many different fluid simulations algorithms implemented using the vulkan API. 
 The most relevant simulations have separate READMEs explaining its particularities. The core of the
@@ -8,7 +10,7 @@ vulkan code can be found in the [lib](src/lib) folder.
 
 ### [Grid Simulations](src/grid)
 
-These are grid simulations based on Jos Stam's 1999 and 2003 paper on stable fluids.
+These are fluid simulations where a grid is used to store fluid attributes, such as density and velocity. 
 
 ### [SPH Simulations](src/SPH)
 
@@ -17,7 +19,7 @@ particles to approximate the behavior of fluids.
 
 ## Dependencies:
 [//]: # (TODO: Explain how to setup each of the dependencies or link where they can be aquired  )
-To build the project and all the executables, there are a few dependencies which are required. These dependencies are:
+To build the project and all the executables, these dependencies are required:
 
 - Vulkan
 - glfw3
@@ -35,7 +37,7 @@ make
 ```
 
 Sometimes is useful to create a build in release mode as well. This makes the 
-code faster and is better for most projects, although it takes longer to compile.
+code faster and is better for most simulations, although it takes longer to compile.
 An example of this:
 
 ```

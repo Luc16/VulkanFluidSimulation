@@ -1,4 +1,5 @@
 # Simple Grid Fluid Simulation
+[![pt-br](https://img.shields.io/badge/LEIAME-PT--BR-A3BE8C.svg?style=for-the-badge)](README-ptbr.md)
 
 This is a simple grid fluid simulation implementation. The main idea is to use a grid to simulate
 fluid attributes, such as density and velocity. Then the fluid can be updated using 
@@ -9,17 +10,21 @@ to test it a release build is recommended.
 
 ## Controls
 
-For the 2D simulation you can press to create fluid and move to change the velocities. 
-In wall mode you can press and move the mouse to create walls.
+For the 2D simulation the mouse can be pressed to create fluid and it can be moved to change the velocities. 
+In wall mode pressing and moving the mouse creates walls.
 
 For the 3D simulations:
-- W: forward
-- S: back
-- A: left
-- D: right
-- Q: up
-- E: down
-- Arrow Keys: move the camera
+
+| Key          | Action            |
+|--------------|-------------------|
+| `w`          | move forwards     |
+| `s`          | move backwards    |
+| `a`          | move left         |
+| `d`          | move right        |
+| `q`          | move up           |
+| `e`          | move down         |
+| `Arrow Keys` | rotate the camera |
+
 
 ## References
 
