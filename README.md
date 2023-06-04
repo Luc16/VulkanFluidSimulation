@@ -41,7 +41,7 @@ code faster and is better for most simulations, although it takes longer to comp
 An example of this:
 
 ```
-cmake -Bbuild-release
+cmake -Bbuild-release -DCMAKE_BUILD_TYPE=Release
 cd build-release
 make
 ```

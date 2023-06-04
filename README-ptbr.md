@@ -41,7 +41,7 @@ rápido e acaba sendo melhor para a maioria das simulações. No entanto demora 
 compilar. Isso pode ser feito com:
 
 ```
-cmake -Bbuild-release
+cmake -Bbuild-release -DCMAKE_BUILD_TYPE=Release
 cd build-release
 make
 ```
