@@ -1,4 +1,4 @@
-# Simple Grid Fluid Simulation
+# Simulação de fluido com grades
 [![pt-br](https://img.shields.io/badge/LEIAME-PT--BR-A3BE8C.svg?style=for-the-badge)](README-ptbr.md)
 
 Essa é uma simulação de fluidos utilizando grades. A ideia principal é utilizar uma
@@ -9,14 +9,14 @@ Existem duas simulações nesse diretório uma sendo 2D e outra sendo 3D. A vers
 mais polida e para rodá-la é recomendado utilizar o modo `release` 
 
 
-## Controls
+## Controles
 
 Para simulação 2D pode-se clickar o mouse para criar fluido e move-lo para mudar as velocidades.
 Em `wallmode` pode-se utilizar o mouse para criar as paredes.
 
 Para a simulação 3D:
 
-| Key     | Action              |
+| Tecla   | Ação                |
 |---------|---------------------|
 | `w`     | move para frente    |
 | `s`     | move para trás      |
@@ -27,7 +27,7 @@ Para a simulação 3D:
 | `Setas` | rotacionam a câmera |
 
 
-## References
+## Referencias
 
 As ideias e conceitos explorados nessa simulação são baseadas nos artigos (em inglês):
 

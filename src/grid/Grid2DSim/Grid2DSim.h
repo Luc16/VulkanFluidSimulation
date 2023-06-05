@@ -30,8 +30,8 @@ public:
     Grid2DSim(int width, int height, const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
             VulkanApp(width, height, appName, type, false) {}
 
-    constexpr static uint32_t WIDTH = 1500;
-    constexpr static uint32_t HEIGHT = 1000;
+    constexpr static uint32_t WIDTH = 1600;
+    constexpr static uint32_t HEIGHT = 860;
 
 private:
     enum BoundConfig {
