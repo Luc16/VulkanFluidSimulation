@@ -204,7 +204,7 @@ void Grid3DSim::updateGrid(float deltaTime){
         indices[i].second = i;
     }
 
-    instancedCubes.swap(sortedData);
+    instancedCubes.swapVector(sortedData);
 
     instancedCubes.updateBuffer();
 }

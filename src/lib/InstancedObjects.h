@@ -9,7 +9,7 @@
 
 namespace vkb {
     template<typename InstanceData>
-    class InstancedObjects : public DrawableObject, public std::vector<InstanceData> {
+    class InstancedObjects : public DrawableObject {
     public:
         InstancedObjects(const Device &device, size_t initialSize, std::shared_ptr<vkb::Model> model,
                          std::shared_ptr<vkb::Texture> texture = nullptr, VkBufferUsageFlags customUsage = 0);
@@ -21,18 +21,26 @@ namespace vkb {
         VkVertexInputBindingDescription getBindingDescription();
         [[nodiscard]] VkDescriptorBufferInfo descriptorInfo(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0) const;
         [[nodiscard]] const std::unique_ptr<vkb::Buffer>& getBuffer() { return m_instanceBuffer; };
+        [[nodiscard]] std::vector<InstanceData> getVector() { return m_instanceVector; };
+        [[nodiscard]] size_t size() { return m_instanceVector.size(); };
+        [[nodiscard]] constexpr const InstanceData& operator[](uint32_t i) const{ return m_instanceVector[i];}
+        [[nodiscard]] constexpr InstanceData& operator[](uint32_t i) { return m_instanceVector[i];}
+        [[nodiscard]] constexpr auto begin() { return m_instanceVector.begin();}
+        [[nodiscard]] constexpr auto end() { return m_instanceVector.end();}
+        void swapVector(std::vector<InstanceData>& other) { m_instanceVector.swap(other); }
 
     private:
         void createInstanceBuffer();
 
         std::unique_ptr<vkb::Buffer> m_instanceBuffer;
+        std::vector<InstanceData> m_instanceVector;
         const Device& m_deviceRef;
         VkBufferUsageFlags m_customUsage = 0;
     };
 
     template<typename InstanceData>
     void InstancedObjects<InstanceData>::resizeBuffer(size_t new_size) {
-        this->resize(new_size);
+        m_instanceVector.resize(new_size);
         createInstanceBuffer();
     }
 
@@ -44,7 +52,7 @@ namespace vkb {
                                                      VkBufferUsageFlags customUsage):
                                                  m_deviceRef(device),
                                                  DrawableObject(model, texture),
-                                                 std::vector<InstanceData>(initialSize),
+                                                 m_instanceVector(initialSize),
                                                  m_customUsage(customUsage){
                 if (initialSize > 0) createInstanceBuffer();
     }
@@ -54,7 +62,7 @@ namespace vkb {
 
         vkb::Buffer stagingBuffer(m_deviceRef, m_instanceBuffer->getSize(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        stagingBuffer.singleWrite(this->data());
+        stagingBuffer.singleWrite(m_instanceVector.data());
 
         m_deviceRef.copyBuffer(stagingBuffer.getBuffer(), m_instanceBuffer->getBuffer(), m_instanceBuffer->getSize());
     }
@@ -79,16 +87,16 @@ namespace vkb {
 
         vkCmdBindVertexBuffers(commandBuffer, 1, 1, &instanceBuffer, offsets);
 
-        m_model->draw(commandBuffer, this->size());
+        m_model->draw(commandBuffer, m_instanceVector.size());
     }
 
     template<typename InstanceData>
     void InstancedObjects<InstanceData>::createInstanceBuffer() {
-        VkDeviceSize bufferSize = sizeof(InstanceData) * this->size();
+        VkDeviceSize bufferSize = sizeof(InstanceData) * m_instanceVector.size();
 
         vkb::Buffer stagingBuffer(m_deviceRef, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        stagingBuffer.singleWrite(this->data());
+        stagingBuffer.singleWrite(m_instanceVector.data());
 
         m_instanceBuffer = std::make_unique<vkb::Buffer>(m_deviceRef, bufferSize,
                                                          VK_BUFFER_USAGE_TRANSFER_DST_BIT |

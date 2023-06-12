@@ -183,7 +183,7 @@ void SPHCPU3DSim::showImGui(){
 
 void SPHCPU3DSim::updateSpheres(float deltaTime){
 
-    particleHash.create(instancedSpheres);
+    particleHash.create(instancedSpheres.getVector());
 
     auto computeDensityPressureThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
