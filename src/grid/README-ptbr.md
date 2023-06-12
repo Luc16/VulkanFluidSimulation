@@ -8,6 +8,9 @@ atualizar o fluido são baseados nas equações de Navier-Stokes.
 Existem duas simulações nesse diretório uma sendo 2D e outra sendo 3D. A versão 2D está
 mais polida e para rodá-la é recomendado utilizar o modo `release` 
 
+## Vídeo demo
+
+[![SPH Demo](https://i9.ytimg.com/vi_webp/Bzj_LLRlu3w/mq2.webp?sqp=CMyHnqQG-oaymwEmCMACELQB8quKqQMa8AEB-AH-CYAC0AWKAgwIABABGEYgWChlMA8=&rs=AOn4CLCP_AY2ZgvYkWMZBBteyKkHLUIeSA)](https://www.youtube.com/watch?v=Bzj_LLRlu3w)
 
 ## Controles
 

@@ -8,6 +8,10 @@ algorithms based on the Navier-Stokes equations.
 There are two simulations in this folder one being 2D and the other 3D. The 2D version is more polished,
 to test it a release build is recommended.
 
+## Video demo
+
+[![SPH Demo](https://i9.ytimg.com/vi_webp/Bzj_LLRlu3w/mq2.webp?sqp=CMyHnqQG-oaymwEmCMACELQB8quKqQMa8AEB-AH-CYAC0AWKAgwIABABGEYgWChlMA8=&rs=AOn4CLCP_AY2ZgvYkWMZBBteyKkHLUIeSA)](https://www.youtube.com/watch?v=Bzj_LLRlu3w)
+
 ## Controls
 
 For the 2D simulation the mouse can be pressed to create fluid and it can be moved to change the velocities. 
