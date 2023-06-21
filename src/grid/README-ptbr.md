@@ -8,9 +8,9 @@ atualizar o fluido são baseados nas equações de Navier-Stokes.
 Existem duas simulações nesse diretório uma sendo 2D e outra sendo 3D. A versão 2D está
 mais polida e para rodá-la é recomendado utilizar o modo `release` 
 
-## Vídeo demo
+## Vídeo demo ([youtube](https://www.youtube.com/watch?v=Bzj_LLRlu3w))
 
-[![SPH Demo](https://i9.ytimg.com/vi_webp/Bzj_LLRlu3w/mq2.webp?sqp=CMyHnqQG-oaymwEmCMACELQB8quKqQMa8AEB-AH-CYAC0AWKAgwIABABGEYgWChlMA8=&rs=AOn4CLCP_AY2ZgvYkWMZBBteyKkHLUIeSA)](https://www.youtube.com/watch?v=Bzj_LLRlu3w)
+![video demo](https://github.com/Luc16/VulkanFluidSimulation/assets/33912482/d2a46d67-23d1-4e15-a922-cae68596c805)
 
 ## Controles
 
