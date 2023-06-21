@@ -12,6 +12,10 @@ A maior parte do códio base de Vulkan pode ser encontrado no diretório [lib](s
 Essas são simulações de fluidos utilizando grades para representar os atributos do fluido, 
 como densidade e pressão.
 
+<div style="text-align:center">
+    <img src="https://github.com/Luc16/VulkanFluidSimulation/assets/33912482/d2a46d67-23d1-4e15-a922-cae68596c805" width="50%" height="50%"/>
+</div>
+
 ### [Simulações com SPH](src/SPH)
 
 Essas são simulações baseadas na técnica da Hidrodinâmica de Partículas Suavizadas, a qual

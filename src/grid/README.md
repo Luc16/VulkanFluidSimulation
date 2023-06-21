@@ -10,7 +10,11 @@ to test it a release build is recommended.
 
 ## Video demo ([youtube](https://www.youtube.com/watch?v=Bzj_LLRlu3w))
 
-![video demo](https://github.com/Luc16/VulkanFluidSimulation/assets/33912482/d2a46d67-23d1-4e15-a922-cae68596c805)
+<div style="text-align:center">
+<a href="https://www.youtube.com/watch?v=Bzj_LLRlu3w">
+    <img src="https://github.com/Luc16/VulkanFluidSimulation/assets/33912482/d2a46d67-23d1-4e15-a922-cae68596c805"/>
+</a>
+</div>
 
 ## Controls
 

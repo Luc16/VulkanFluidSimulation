@@ -10,7 +10,11 @@ vulkan code can be found in the [lib](src/lib) folder.
 
 ### [Grid Simulations](src/grid)
 
-These are fluid simulations where a grid is used to store fluid attributes, such as density and velocity. 
+These are fluid simulations where a grid is used to store fluid attributes, such as density and velocity.
+
+<div style="text-align:center">
+    <img src="https://github.com/Luc16/VulkanFluidSimulation/assets/33912482/d2a46d67-23d1-4e15-a922-cae68596c805" width="50%" height="50%"/>
+</div>
 
 ### [SPH Simulations](src/SPH)
 
