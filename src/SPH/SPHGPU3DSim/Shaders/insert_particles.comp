@@ -1,0 +1,80 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_debug_printf : enable //debugPrintfEXT
+
+#include "core.glsl"
+
+layout (binding = 0) uniform ParameterUBO {
+    computeUBO ubo;
+};
+
+layout(std140, binding = 1) buffer ParticleSSBO {
+    Particle particles[ ];
+};
+
+layout(std140, binding = 2) buffer GridSSBO {
+    int grid[ ];
+};
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+uint particleToGrid(uint i, float h, float boundSize){
+    uint idx = uint(particles[i].position.x/h) +  uint(boundSize*particles[i].position.y/h) + uint(boundSize*boundSize*particles[i].position.z/h);
+    return 0;
+}
+
+void main()
+{
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= ubo.numParticles) return;
+
+    uint gidx = particleToGrid(i, ubo.H, ubo.BOUNDARY_SIZE);
+    atomicAdd(grid[gidx], 1);
+//    if (i <= 5) debugPrintfEXT("Invoc:%03d pos: (%f, %f, %f) cell:%03d \\n", i, particles[i].position.x, particles[i].position.y, particles[i].position.z, gidx);
+
+    /*
+    // outro shader
+    // =========================================== //
+
+    // prefix sum
+
+    // outro shader
+    // =========================================== //
+
+    gidx = particles[i].gidx;
+    temp = atomicAdd(grid[gidx], -1);
+    particlesOut[temp - 1] = particles[i];
+
+    // outro shader
+    // =========================================== //
+
+    int maxIdx = boundX*boundZ*boundY;
+    for (int y = -1; y <= 1; y++){
+        int idxy = y*cellsZ*cellsY;
+
+        float ypos = particles[i].position.y + H*y;
+        if (ypos >= boundY || ypos < 0) continue;
+
+        for (int z = -1; z <= 1; z++){
+            float zpos = particles[i].position.z + H*z;
+
+            if (zpos >= boundZ || zpos < 0) continue;
+            int idxz = z*cellsZ;
+
+            for (int x = -1; x <= 1; x++){
+                float xpos = particles[i].position.x + H*x;
+                if (xpos > boundX || xpos < 0) continue;
+
+                int idx = particles[i].gidx + idxz + idxy;
+
+                for (int j = grid[idx]; j < grid[idx]; j++){
+                    interact(particles[i], particles[j]);
+                }
+
+            }
+
+        }
+    }
+
+    */
+}

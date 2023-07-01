@@ -118,4 +118,26 @@ namespace vkb {
                 0, nullptr);
     }
 
+    void ComputeShaderHandler::computeBarriers(VkCommandBuffer commandBuffer, const std::vector<std::pair<VkBuffer, VkDeviceSize>>& buffers) {
+        std::array<VkBufferMemoryBarrier, vkb::SwapChain::MAX_FRAMES_IN_FLIGHT> bufferMemoryBarriers{};
+        for (uint32_t i = 0; i < buffers.size(); i++){
+            bufferMemoryBarriers[i].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+            bufferMemoryBarriers[i].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            bufferMemoryBarriers[i].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            bufferMemoryBarriers[i].buffer = buffers[i].first;
+            bufferMemoryBarriers[i].size = buffers[i].second;
+            bufferMemoryBarriers[i].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+            bufferMemoryBarriers[i].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        }
+
+        vkCmdPipelineBarrier(
+                commandBuffer,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                0,
+                0, nullptr,
+                bufferMemoryBarriers.size(), bufferMemoryBarriers.data(),
+                0, nullptr);
+    }
+
 }

@@ -4,8 +4,8 @@
 
 struct Particle {
     vec3 position, velocity, force;
-    float density, pressure;
-    vec4 color;
+    vec3 color;
+    float density, pressure, scale;
 };
 
 struct computeUBO {

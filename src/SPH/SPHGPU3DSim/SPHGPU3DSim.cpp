@@ -47,6 +47,9 @@ void SPHGPU3DSim::onCreate() {
 
     calculateDensityPressureComputeSystem.createPipelineLayout(computeDescriptorLayout.descriptorSetLayout());
     calculateDensityPressureComputeSystem.createPipeline(calculateDensityPressureShaderPath);
+
+    insertParticlesComputeSystem.createPipelineLayout(computeDescriptorLayout.descriptorSetLayout());
+    insertParticlesComputeSystem.createPipeline(insertParticlesShaderPath);
 }
 
 void SPHGPU3DSim::createComputeDescriptorSets(vkb::DescriptorSetLayout &layout) {
@@ -66,8 +69,11 @@ void SPHGPU3DSim::createComputeDescriptorSets(vkb::DescriptorSetLayout &layout) 
     auto uniformBufferInfo = computeUniformBuffer->descriptorInfo();
     writer.writeBuffer(0, &uniformBufferInfo);
 
-    auto storageBufferInfo = instancedSpheres.descriptorInfo();
-    writer.writeBuffer(1, &storageBufferInfo);
+    auto particleBufferInfo = instancedSpheres.descriptorInfo();
+    writer.writeBuffer(1, &particleBufferInfo);
+
+    auto gridBufferInfo = gridBuffer->descriptorInfo();
+    writer.writeBuffer(2, &gridBufferInfo);
 
     writer.build(computeDescriptorSet, false);
 
@@ -82,6 +88,8 @@ void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     vkDeviceWaitIdle(device.device());
 
     instancedSpheres.resizeBuffer(INSTANCE_COUNT);
+    grid.resize(INSTANCE_COUNT);
+    grid.clear();
 
     plane.setScale(cUbo.BOUNDARY_SIZE);
 
@@ -109,6 +117,16 @@ void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     }
     instancedSpheres.updateBuffer();
 
+    VkDeviceSize bufferSize = sizeof(uint32_t) * INSTANCE_COUNT;
+    vkb::Buffer stagingBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    stagingBuffer.singleWrite(grid.data());
+    gridBuffer = std::make_unique<vkb::Buffer>(device, bufferSize,
+                                                     VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    device.copyBuffer(stagingBuffer.getBuffer(), gridBuffer->getBuffer(), bufferSize);
+
     auto computeDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
             .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
@@ -117,6 +135,11 @@ void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
 
     if (computeDescriptorSet) globalDescriptorPool->freeDescriptors({computeDescriptorSet});
     createComputeDescriptorSets(computeDescriptorLayout);
+
+    barrierBuffers = {
+            instancedSpheres.getBarrierData(),
+            {gridBuffer->getBuffer(), gridBuffer->getSize()}
+    };
 
 }
 
@@ -189,11 +212,17 @@ void SPHGPU3DSim::updateSimulation() {
     computeHandler.runCompute(renderer.currentFrame(), [this](VkCommandBuffer computeCommandBuffer){
         uint32_t blockSize = INSTANCE_COUNT/256 + (1 - (INSTANCE_COUNT%256 == 0));
 
+        insertParticlesComputeSystem.bindAndDispatch(computeCommandBuffer,
+                                                              &computeDescriptorSet,
+                                                              blockSize, 1, 1);
+
+        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, barrierBuffers);
+
         calculateDensityPressureComputeSystem.bindAndDispatch(computeCommandBuffer,
                                                               &computeDescriptorSet,
                                                               blockSize, 1, 1);
 
-        vkb::ComputeShaderHandler::computeBarrier(computeCommandBuffer, instancedSpheres.getBuffer());
+        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, barrierBuffers);
 
         calculateForcesComputeSystem.bindAndDispatch(computeCommandBuffer,
                                                      &computeDescriptorSet,
@@ -201,8 +230,7 @@ void SPHGPU3DSim::updateSimulation() {
 
 
         // Add memory barrier to ensure that the computer shader has finished writing to the buffer
-        vkb::ComputeShaderHandler::computeBarrier(computeCommandBuffer, instancedSpheres.getBuffer());
-
+        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, barrierBuffers);
 
         integrateComputeSystem.bindAndDispatch(computeCommandBuffer,
                                                &computeDescriptorSet,
@@ -290,5 +318,8 @@ void SPHGPU3DSim::compileShaders() {
         command += shaderPath;
         command += ".spv";
         int status = system(command.c_str());
+        if (status != 0) {
+            throw std::runtime_error("Error compiling shader " + shaderPath);
+        }
     }
 }

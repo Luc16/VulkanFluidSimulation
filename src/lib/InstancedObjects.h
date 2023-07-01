@@ -21,6 +21,7 @@ namespace vkb {
         VkVertexInputBindingDescription getBindingDescription();
         [[nodiscard]] VkDescriptorBufferInfo descriptorInfo(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0) const;
         [[nodiscard]] const std::unique_ptr<vkb::Buffer>& getBuffer() { return m_instanceBuffer; };
+        [[nodiscard]] std::pair<VkBuffer, VkDeviceSize> getBarrierData() { return {m_instanceBuffer->getBuffer(), m_instanceBuffer->getSize()}; };
         [[nodiscard]] std::vector<InstanceData> getVector() { return m_instanceVector; };
         [[nodiscard]] size_t size() { return m_instanceVector.size(); };
         [[nodiscard]] constexpr const InstanceData& operator[](uint32_t i) const{ return m_instanceVector[i];}

@@ -46,6 +46,7 @@ private:
             SHADER_DIR + "calculate_forces.comp",
             SHADER_DIR + "integrate.comp",
             SHADER_DIR + "calculate_density_pressure.comp",
+            SHADER_DIR + "insert_particles.comp",
     };
 
     const std::string planeModelPath = "../Models/quadXZ1.obj";
@@ -60,9 +61,6 @@ private:
             shaders[3] + ".spv"
     };
 
-    const std::string calculateForcesShaderPath = shaders[4] + ".spv";
-    const std::string integrateShaderPath = shaders[5] + ".spv";
-    const std::string calculateDensityPressureShaderPath = shaders[6] + ".spv";
     struct Particle {
         alignas(16) glm::vec3 position{};
         alignas(16) glm::vec3 velocity{};
@@ -79,7 +77,7 @@ private:
 
     struct ComputeUniformBufferObject {
         float deltaTime = 1/60.0f;
-        float BOUNDARY_SIZE = 70.0f;
+        float BOUNDARY_SIZE = 75.0f;
         float planeY = 0.0f;
 
         alignas(16) glm::vec3 G{0.0f, -10.0f, 0.0f};   // external (gravitational) forces
@@ -117,19 +115,33 @@ private:
         vkb::Model::createModelFromFile(device, sphereModelPath),
         nullptr, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
     };
+
+    std::vector<int> grid{};
+    std::unique_ptr<vkb::Buffer> gridBuffer;
+
+    std::vector<std::pair<VkBuffer, VkDeviceSize>> barrierBuffers;
     std::unique_ptr<vkb::Buffer> computeUniformBuffer;
     ComputeUniformBufferObject cUbo{};
     vkb::ComputeShaderHandler computeHandler{device};
-    vkb::ComputeSystem calculateDensityPressureComputeSystem{device};
-    vkb::ComputeSystem calculateForcesComputeSystem{device};
-    vkb::ComputeSystem integrateComputeSystem{device};
     VkDescriptorSet computeDescriptorSet = nullptr;
+
+    const std::string calculateForcesShaderPath = shaders[4] + ".spv";
+    vkb::ComputeSystem calculateForcesComputeSystem{device};
+
+    const std::string integrateShaderPath = shaders[5] + ".spv";
+    vkb::ComputeSystem integrateComputeSystem{device};
+
+    const std::string calculateDensityPressureShaderPath = shaders[6] + ".spv";
+    vkb::ComputeSystem calculateDensityPressureComputeSystem{device};
+
+    const std::string insertParticlesShaderPath = shaders[7] + ".spv";
+    vkb::ComputeSystem insertParticlesComputeSystem{device};
 
     vkb::Camera camera{};
     vkb::CameraMovementController cameraController{};
 
     glm::vec3 initialPos = {cUbo.EPS, cUbo.EPS, cUbo.EPS};
-    float drawTime = 0, cpuTime = 0, computeTime = 0, gravityFactor = 1.0f;
+    float drawTime = 0, cpuTime = 0, computeTime = 0, gravityFactor = 50.0f;
     bool activateTimer = false, controlMode = false;
 
     void onCreate() override;
