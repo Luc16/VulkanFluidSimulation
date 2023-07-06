@@ -24,6 +24,7 @@ namespace vkb {
         [[nodiscard]] static std::vector<VkPipelineStageFlags> waitStages() { return {VK_PIPELINE_STAGE_VERTEX_INPUT_BIT}; }
 
         void runCompute(uint32_t currentFrame, const std::function<void(VkCommandBuffer computeCommandBuffer)>& func);
+        void runComputeIsolated(uint32_t currentFrame, const std::function<void(VkCommandBuffer computeCommandBuffer)>& func);
 
         static void computeBarriers(VkCommandBuffer commandBuffer, const std::vector<std::pair<VkBuffer, VkDeviceSize>>& buffers);
         static void computeBarrier(VkCommandBuffer commandBuffer, const std::vector<std::unique_ptr<Buffer>>& buffers);

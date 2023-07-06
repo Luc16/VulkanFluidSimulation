@@ -29,6 +29,7 @@ namespace vkb {
         void unmap();
         void write(void* data, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
         void singleWrite(void* data);
+        void singleRead(void* data);
 
     private:
         VkBuffer m_buffer = VK_NULL_HANDLE;

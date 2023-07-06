@@ -35,7 +35,7 @@ namespace vkb {
         float deltaTime, accTime = 0;
         uint32_t frames = 0;
 
-        while (!window.shouldClose()) {
+        while (!window.shouldClose() && m_running) {
             auto newTime = std::chrono::high_resolution_clock::now();
             deltaTime =
                     std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();

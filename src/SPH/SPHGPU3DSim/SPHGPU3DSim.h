@@ -47,6 +47,7 @@ private:
             SHADER_DIR + "integrate.comp",
             SHADER_DIR + "calculate_density_pressure.comp",
             SHADER_DIR + "insert_particles.comp",
+            SHADER_DIR + "scan.comp",
     };
 
     const std::string planeModelPath = "../Models/quadXZ1.obj";
@@ -99,6 +100,7 @@ private:
 
         float BOUND_DAMPING = -0.5f;
         uint numParticles = 0;
+        uint32_t GRID_SIZE = 0;
     };
 
     vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, planeModelPath)};
@@ -118,6 +120,7 @@ private:
 
     std::vector<int> grid{};
     std::unique_ptr<vkb::Buffer> gridBuffer;
+    std::unique_ptr<vkb::Buffer> gridOutBuffer;
 
     std::vector<std::pair<VkBuffer, VkDeviceSize>> barrierBuffers;
     std::unique_ptr<vkb::Buffer> computeUniformBuffer;
@@ -136,6 +139,9 @@ private:
 
     const std::string insertParticlesShaderPath = shaders[7] + ".spv";
     vkb::ComputeSystem insertParticlesComputeSystem{device};
+
+    const std::string scanShaderPath = shaders[8] + ".spv";
+    vkb::ComputeSystem scanComputeSystem{device};
 
     vkb::Camera camera{};
     vkb::CameraMovementController cameraController{};

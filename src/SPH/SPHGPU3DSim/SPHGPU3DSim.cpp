@@ -16,26 +16,33 @@ void SPHGPU3DSim::onCreate() {
     auto defaultDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
             .build();
-    defaultDescriptorSets = createDescriptorSets(defaultDescriptorLayout,{graphicsUniformBuffers[0]->descriptorInfo()});
+    defaultDescriptorSets = createDescriptorSets(defaultDescriptorLayout,
+                                                 {graphicsUniformBuffers[0]->descriptorInfo()});
     {
-        defaultSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), sizeof(vkb::DrawableObject::PushConstantData));
+        defaultSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(),
+                                           sizeof(vkb::DrawableObject::PushConstantData));
         defaultSystem.createPipeline(renderer.renderPass(), shaderPaths);
     }
 
     {
         instanceSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
-        instanceSystem.createPipeline(renderer.renderPass(), instanceShaderPaths, [this](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
-            info.bindingDescription.push_back(instancedSpheres.getBindingDescription());
-            info.attributeDescription.push_back({4, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Particle, position)});
-            info.attributeDescription.push_back({5, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Particle, color)});
-            info.attributeDescription.push_back({6, 1, VK_FORMAT_R32_SFLOAT, offsetof(Particle, scale)});
-        });
+        instanceSystem.createPipeline(renderer.renderPass(), instanceShaderPaths,
+                                      [this](vkb::GraphicsPipeline::PipelineConfigInfo &info) {
+                                          info.bindingDescription.push_back(instancedSpheres.getBindingDescription());
+                                          info.attributeDescription.push_back(
+                                                  {4, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Particle, position)});
+                                          info.attributeDescription.push_back(
+                                                  {5, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Particle, color)});
+                                          info.attributeDescription.push_back(
+                                                  {6, 1, VK_FORMAT_R32_SFLOAT, offsetof(Particle, scale)});
+                                      });
     }
 
     auto computeDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
-            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
             .build();
 
     createComputeDescriptorSets(computeDescriptorLayout);
@@ -50,6 +57,10 @@ void SPHGPU3DSim::onCreate() {
 
     insertParticlesComputeSystem.createPipelineLayout(computeDescriptorLayout.descriptorSetLayout());
     insertParticlesComputeSystem.createPipeline(insertParticlesShaderPath);
+
+    scanComputeSystem.createPipelineLayout(computeDescriptorLayout.descriptorSetLayout());
+    scanComputeSystem.createPipeline(scanShaderPath);
+
 }
 
 void SPHGPU3DSim::createComputeDescriptorSets(vkb::DescriptorSetLayout &layout) {
@@ -75,6 +86,9 @@ void SPHGPU3DSim::createComputeDescriptorSets(vkb::DescriptorSetLayout &layout) 
     auto gridBufferInfo = gridBuffer->descriptorInfo();
     writer.writeBuffer(2, &gridBufferInfo);
 
+    auto gridOutBufferInfo = gridOutBuffer->descriptorInfo();
+    writer.writeBuffer(3, &gridOutBufferInfo);
+
     writer.build(computeDescriptorSet, false);
 
 
@@ -84,12 +98,12 @@ void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     gUbo.view = camera.getView();
     gUbo.proj = camera.getProjection();
     cUbo.numParticles = INSTANCE_COUNT;
+    cUbo.GRID_SIZE = uint32_t((cUbo.BOUNDARY_SIZE/cUbo.H)*(cUbo.BOUNDARY_SIZE/cUbo.H)*(cUbo.BOUNDARY_SIZE/cUbo.H));
 
     vkDeviceWaitIdle(device.device());
 
     instancedSpheres.resizeBuffer(INSTANCE_COUNT);
     grid.resize(INSTANCE_COUNT);
-    grid.clear();
 
     plane.setScale(cUbo.BOUNDARY_SIZE);
 
@@ -117,20 +131,36 @@ void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     }
     instancedSpheres.updateBuffer();
 
-    VkDeviceSize bufferSize = sizeof(uint32_t) * INSTANCE_COUNT;
+    for (int i = 0; i < 10; i++){
+        grid[i] = i % 5;
+    }
+    grid[0] = 4;
+
+    std::cout << "Grid: ";
+    for (int i = 0; i < 16; i++){
+        std::cout << grid[i] << ", ";
+    }
+    std::cout << "\n";
+
+    VkDeviceSize bufferSize = sizeof(uint32_t) * cUbo.GRID_SIZE;
     vkb::Buffer stagingBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     stagingBuffer.singleWrite(grid.data());
     gridBuffer = std::make_unique<vkb::Buffer>(device, bufferSize,
-                                                     VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+                                               VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    gridOutBuffer = std::make_unique<vkb::Buffer>(device, bufferSize,
+                                                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     device.copyBuffer(stagingBuffer.getBuffer(), gridBuffer->getBuffer(), bufferSize);
+    device.copyBuffer(stagingBuffer.getBuffer(), gridOutBuffer->getBuffer(), bufferSize);
 
     auto computeDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
             .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
             .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
             .build();
 
     if (computeDescriptorSet) globalDescriptorPool->freeDescriptors({computeDescriptorSet});
@@ -314,6 +344,7 @@ void SPHGPU3DSim::compileShaders() {
     for (auto& shaderPath : shaders) {
         std::string command{"glslc "};
         command += shaderPath;
+        command += " --target-env=vulkan1.1 ";
         command += " -o ";
         command += shaderPath;
         command += ".spv";

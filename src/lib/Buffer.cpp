@@ -58,4 +58,11 @@ namespace vkb {
         write(data);
         unmap();
     }
+
+    void Buffer::singleRead(void* data) {
+        map();
+        memcpy(data, m_mapped, (size_t) m_bufferSize);
+        unmap();
+
+    }
 }

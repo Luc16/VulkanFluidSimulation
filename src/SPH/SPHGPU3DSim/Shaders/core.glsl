@@ -27,6 +27,7 @@ struct computeUBO {
     float EPS;
     float BOUND_DAMPING;
     uint numParticles;
+    uint GRID_SIZE;
 };
 
 #endif //CORE_SHADER_H

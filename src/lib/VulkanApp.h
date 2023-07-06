@@ -36,6 +36,7 @@ namespace vkb{
 
     private:
         std::string m_appName;
+        bool m_running = true;
 
     protected:
         std::vector<VkDescriptorSet> createDescriptorSets(DescriptorSetLayout &layout,
@@ -46,6 +47,7 @@ namespace vkb{
         virtual void onCreate() = 0;
         virtual void onDestroy() {};
         virtual void onResize(int width, int height) {};
+        void endProgram() { m_running = false; }
 
         vkb::Window window;
         vkb::Device device;

@@ -1,6 +1,8 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_debug_printf : enable //debugPrintfEXT
+#extension GL_KHR_shader_subgroup_arithmetic : enable
+
 
 #include "core.glsl"
 
@@ -25,12 +27,13 @@ uint particleToGrid(uint i, float h, float boundSize){
 
 void main()
 {
+    uint sid = gl_SubgroupInvocationID;
     uint i = gl_GlobalInvocationID.x;
     if (i >= ubo.numParticles) return;
 
     uint gidx = particleToGrid(i, ubo.H, ubo.BOUNDARY_SIZE);
     atomicAdd(grid[gidx], 1);
-//    if (i <= 5) debugPrintfEXT("Invoc:%03d pos: (%f, %f, %f) cell:%03d \\n", i, particles[i].position.x, particles[i].position.y, particles[i].position.z, gidx);
+    if (i <= 5) debugPrintfEXT("Invoc:%03d pos: (%f, %f, %f) cell:%03d \\n", i, particles[i].position.x, particles[i].position.y, particles[i].position.z, gidx);
 
     /*
     // outro shader

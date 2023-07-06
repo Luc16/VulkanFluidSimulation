@@ -35,6 +35,7 @@ public:
 private:
     const std::string SHADER_DIR = std::string("../src/ComputeShaderTest/Shaders/");
 
+    static constexpr bool testShader = true;
     static constexpr uint32_t PARTICLE_COUNT = 8192;
 
     const std::vector<std::string> shaders = {
@@ -42,6 +43,7 @@ private:
             SHADER_DIR + "default.frag",
             SHADER_DIR + "calculate_forces.comp",
             SHADER_DIR + "move_particles.comp",
+            SHADER_DIR + "scan.comp",
     };
 
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
@@ -51,6 +53,7 @@ private:
 
     const std::string calculateForcesShaderPath = shaders[2] + ".spv";
     const std::string moveParticlesShaderPath = shaders[3] + ".spv";
+    const std::string scanShaderPath = shaders[4] + ".spv";
 
     struct Particle {
         glm::vec2 position, velocity;
@@ -110,6 +113,7 @@ private:
     vkb::ComputeSystem moveParticlesComputeSystem{device};
     std::vector<VkDescriptorSet> computeDescriptorSets;
 
+    vkb::ComputeSystem scanComputeSystem{device};
 
     vkb::Camera camera{};
 
@@ -120,6 +124,7 @@ private:
     void initializeObjects();
     void createComputeDescriptorSets(vkb::DescriptorSetLayout& layout);
     void createUniformBuffers();
+    void testComputeShader();
     void mainLoop(float deltaTime) override;
     void updateUniformBuffers(uint32_t frameIndex, float deltaTime);
     void showImGui();
