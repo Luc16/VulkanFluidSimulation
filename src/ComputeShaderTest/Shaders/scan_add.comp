@@ -6,13 +6,15 @@ layout (binding = 0) uniform ParameterUBO {
     uint size;
 } ubo;
 
-layout(std430, binding = 1) readonly buffer PartialSumSSBO {
+layout(std430, binding = 1) buffer OutGridSSBO {
+    uint grid[ ];
+};
+
+layout(std430, binding = 2) readonly buffer PartialSumSSBO {
     uint partialSums[ ];
 };
 
-layout(std430, binding = 2) buffer OutGridSSBO {
-    uint outGrid[ ];
-};
+
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
@@ -29,7 +31,7 @@ void main() {
         memoryBarrierShared();
         barrier();
 
-        if (i < ubo.size) outGrid[i] += sum;
+        if (i < ubo.size) grid[i] += sum;
     }
 
 }

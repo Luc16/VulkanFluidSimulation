@@ -9,11 +9,7 @@ layout(std430, binding = 1) buffer GridSSBO {
     uint grid[ ];
 };
 
-layout(std430, binding = 2) buffer OutGridSSBO {
-    uint outGrid[ ];
-};
-
-layout(std430, binding = 3) buffer PartialSumsSSBO {
+layout(std430, binding = 2) buffer PartialSumsSSBO {
     uint partialSums[ ];
 };
 
@@ -54,7 +50,6 @@ void main() {
     }
 
     if (i < ubo.size) {
-//        outGrid[i] = sum;
         grid[i] = sum;
     }
 

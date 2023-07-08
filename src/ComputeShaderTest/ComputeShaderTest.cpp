@@ -140,9 +140,28 @@ VkDescriptorSet ComputeShaderTest::createSingleDescriptorSet(vkb::DescriptorSetL
 }
 
 void ComputeShaderTest::testComputeShader() {
+    auto scanDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
+            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .build();
+
+    scanComputeSystem.createPipelineLayout(scanDescriptorLayout.descriptorSetLayout());
+    scanComputeSystem.createPipeline(scanShaderPath);
+
+    auto scanAddDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
+            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .build();
+
+    scanAddComputeSystem.createPipelineLayout(scanAddDescriptorLayout.descriptorSetLayout());
+    scanAddComputeSystem.createPipeline(scanAddShaderPath);
+
+
     uint32_t workGroupSize = 256;
     struct UboData {
-        uint32_t size = 1000;
+        uint32_t size = 50000;
     };
 
     UboData ubo{};
@@ -158,14 +177,15 @@ void ComputeShaderTest::testComputeShader() {
     std::vector<uint32_t> data{};
     data.resize(ubo.size);
 
+    uint32_t diff = 2;
     for (uint32_t &it : data){
-        it = 0;
+        it = diff;
     }
 
-    for (uint32_t i = 0; i < 20; i++){
-        data[i] = 1;//i % 5;
+    for (uint32_t i = 0; i < data.size(); i++){
+        data[i] = i;
     }
-    data[0] = 4;
+//    data[0] = 4;
 
     std::cout << "Grid:\n";
     for (uint32_t i = 0; i < 32; i++){
@@ -180,66 +200,72 @@ void ComputeShaderTest::testComputeShader() {
     vkb::Buffer inBuffer(device, bufferSize,
                          VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    vkb::Buffer outBuffer(device, bufferSize,
-                         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-    std::vector<std::unique_ptr<vkb::Buffer>> partialSums;
-
-//    for (uint32_t n = numShaderCalls; n > workGroupSize; n = (ubo.size + workGroupSize) / workGroupSize) {
-        partialSums.emplace_back(std::make_unique<vkb::Buffer>(device, numShaderCalls * sizeof(uint32_t),
-                                                               VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                                                               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
-//    }
 
     device.copyBuffer(stagingBuffer.getBuffer(), inBuffer.getBuffer(), bufferSize);
 
-    auto scanDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
-            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .build();
+    std::vector<std::unique_ptr<vkb::Buffer>> partialSums;
 
-    VkDescriptorSet scanSet = createSingleDescriptorSet(scanDescriptorLayout, {
-        uBuffer.descriptorInfo(),
-        inBuffer.descriptorInfo(),
-        outBuffer.descriptorInfo(),
-        partialSums[0]->descriptorInfo()
-    });
+    for (uint32_t n = ubo.size; n > 1; n = (n + workGroupSize) / workGroupSize) {
+        uint32_t next = (n + workGroupSize) / workGroupSize;
+        partialSums.emplace_back(std::make_unique<vkb::Buffer>(device, next * sizeof(uint32_t),
+                                                               VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                                               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
+    }
 
-    scanComputeSystem.createPipelineLayout(scanDescriptorLayout.descriptorSetLayout());
-    scanComputeSystem.createPipeline(scanShaderPath);
-
-    auto scanAddDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
-            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .build();
+    std::vector<VkDescriptorSet> scanSets = {
+            createSingleDescriptorSet(scanDescriptorLayout, {
+                    uBuffer.descriptorInfo(),
+                    inBuffer.descriptorInfo(),
+                    partialSums[0]->descriptorInfo()
+            })
+    };
+    for (uint32_t i = 1; i < partialSums.size(); i++){
+        scanSets.emplace_back(createSingleDescriptorSet(scanDescriptorLayout, {
+                uBuffer.descriptorInfo(),
+                partialSums[i - 1]->descriptorInfo(),
+                partialSums[i]->descriptorInfo()
+        }));
+    }
 //
-    VkDescriptorSet scanAddSet = createSingleDescriptorSet(scanAddDescriptorLayout, {
-            uBuffer.descriptorInfo(),
-            partialSums[0]->descriptorInfo(),
-            inBuffer.descriptorInfo(),
-    });
+//    VkDescriptorSet scanSet = createSingleDescriptorSet(scanDescriptorLayout, {
+//            uBuffer.descriptorInfo(),
+//            inBuffer.descriptorInfo(),
+//            partialSums[0]->descriptorInfo()
+//    });
 //
-    scanAddComputeSystem.createPipelineLayout(scanAddDescriptorLayout.descriptorSetLayout());
-    scanAddComputeSystem.createPipeline(scanAddShaderPath);
+//    VkDescriptorSet scanAddSet = createSingleDescriptorSet(scanAddDescriptorLayout, {
+//            uBuffer.descriptorInfo(),
+//            inBuffer.descriptorInfo(),
+//            partialSums[0]->descriptorInfo(),
+//    });
 
-    computeHandler.runComputeIsolated(0, [this, &scanSet, &scanAddSet, &inBuffer, &outBuffer, &partialSums, numShaderCalls](VkCommandBuffer computeCommandBuffer){
-        scanComputeSystem.bindAndDispatch(computeCommandBuffer,
-                                          &scanSet,
-                                          numShaderCalls, 1, 1);
 
-        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, {
-                {inBuffer.getBuffer(), inBuffer.getSize()},
-//                {outBuffer.getBuffer(), outBuffer.getSize()},
-                {partialSums[0]->getBuffer(), partialSums[0]->getSize()}
-        });
+    computeHandler.runComputeIsolated(0, [this, &scanSets, &inBuffer, &partialSums, numShaderCalls](VkCommandBuffer computeCommandBuffer){
+        for (int i = 0; i < partialSums.size(); i++){
+            scanComputeSystem.bindAndDispatch(computeCommandBuffer,
+                                              &scanSets[i],
+                                              numShaderCalls, 1, 1);
+            std::pair<VkBuffer, VkDeviceSize> b1 = (i == 0) ? std::make_pair(inBuffer.getBuffer(), inBuffer.getSize()) :
+                    std::make_pair(partialSums[i-1]->getBuffer(), partialSums[i-1]->getSize());
+            std::pair<VkBuffer, VkDeviceSize> b2 = std::make_pair(partialSums[i]->getBuffer(), partialSums[i]->getSize());
 
-        scanAddComputeSystem.bindAndDispatch(computeCommandBuffer,
-                                          &scanAddSet,
-                                          numShaderCalls, 1, 1);
+            vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, {b1, b2});
+
+        }
+
+        for (int i = int(partialSums.size()) - 2; i >= 0; i--){
+            scanAddComputeSystem.bindAndDispatch(computeCommandBuffer,
+                                                 &scanSets[i],
+                                                 numShaderCalls, 1, 1);
+
+            std::pair<VkBuffer, VkDeviceSize> b1 = (i == 0) ? std::make_pair(inBuffer.getBuffer(), inBuffer.getSize()) :
+                                                   std::make_pair(partialSums[i-1]->getBuffer(), partialSums[i-1]->getSize());
+            std::pair<VkBuffer, VkDeviceSize> b2 = std::make_pair(partialSums[i]->getBuffer(), partialSums[i]->getSize());
+
+            vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, {b1, b2});
+
+        }
+
 
     });
 
@@ -248,10 +274,21 @@ void ComputeShaderTest::testComputeShader() {
     stagingBuffer.singleRead(data.data());
 
     std::cout << "New Grid:\n";
-    for (uint32_t i = 0; i < 300; i++){
+    for (uint32_t i = 0; i < 1000; i++){
         std::cout << data[i] << ", ";
     }
     std::cout << "\n";
+
+    bool error = false;
+    for (uint32_t i = 1; i < data.size(); i++){
+        if (data[i] - data[i-1] != i){// diff) {
+            std::cout << "ERROR at " << i << " !!!!!!\n";
+            error = true;
+        }
+    }
+    if (!error){
+        std::cout << "All good :)\n";
+    }
 
     uBuffer.unmap();
     endProgram();
