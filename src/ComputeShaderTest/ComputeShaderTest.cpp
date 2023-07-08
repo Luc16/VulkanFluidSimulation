@@ -233,6 +233,7 @@ void ComputeShaderTest::testComputeShader() {
         barrierDatas[i] = {b1, b2};
     }
 
+    auto time = std::chrono::high_resolution_clock::now();
     computeHandler.runComputeIsolated(0, [this, &scanSets, &partialSums, &barrierDatas, numShaderCalls](VkCommandBuffer computeCommandBuffer){
         for (int i = 0; i < partialSums.size(); i++) {
             scanComputeSystem.bindAndDispatch(computeCommandBuffer,
@@ -241,26 +242,29 @@ void ComputeShaderTest::testComputeShader() {
             vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, barrierDatas[i]);
         }
 
-        for (int i = int(partialSums.size()) - 2; i >= 0; i--){
+        for (int i = int(partialSums.size()) - 2; i >= 0; i--) {
             scanAddComputeSystem.bindAndDispatch(computeCommandBuffer,
                                                  &scanSets[i],
                                                  numShaderCalls, 1, 1);
 
             vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, barrierDatas[i]);
         }
-
-
     });
+
+
+    float timeTaken = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - time).count();
+
+    std::cout << "Algorithm took: " << timeTaken << "ms for " << ubo.size << " elements\n";
 
     device.copyBuffer(inBuffer.getBuffer(), stagingBuffer.getBuffer(), bufferSize);
 
     stagingBuffer.singleRead(data.data());
 
-    std::cout << "New Grid:\n";
-    for (uint32_t i = 0; i < 1000; i++){
-        std::cout << data[i] << ", ";
-    }
-    std::cout << "\n";
+//    std::cout << "New Grid:\n";
+//    for (uint32_t i = 0; i < 1000; i++){
+//        std::cout << data[i] << ", ";
+//    }
+//    std::cout << "\n";
 
     bool error = false;
     for (uint32_t i = 1; i < data.size(); i++){
