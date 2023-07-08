@@ -161,7 +161,7 @@ void ComputeShaderTest::testComputeShader() {
 
     uint32_t workGroupSize = 256;
     struct UboData {
-        uint32_t size = 50000;
+        uint32_t size = 1000000;
     };
 
     UboData ubo{};
@@ -177,15 +177,11 @@ void ComputeShaderTest::testComputeShader() {
     std::vector<uint32_t> data{};
     data.resize(ubo.size);
 
-    uint32_t diff = 2;
+    uint32_t diff = 1;
     for (uint32_t &it : data){
         it = diff;
     }
-
-    for (uint32_t i = 0; i < data.size(); i++){
-        data[i] = i;
-    }
-//    data[0] = 4;
+    data[0] = 4;
 
     std::cout << "Grid:\n";
     for (uint32_t i = 0; i < 32; i++){
@@ -219,38 +215,30 @@ void ComputeShaderTest::testComputeShader() {
                     partialSums[0]->descriptorInfo()
             })
     };
-    for (uint32_t i = 1; i < partialSums.size(); i++){
-        scanSets.emplace_back(createSingleDescriptorSet(scanDescriptorLayout, {
-                uBuffer.descriptorInfo(),
-                partialSums[i - 1]->descriptorInfo(),
-                partialSums[i]->descriptorInfo()
-        }));
+
+    std::vector<std::vector<std::pair<VkBuffer, VkDeviceSize>>> barrierDatas{partialSums.size()};
+    for (uint32_t i = 0; i < partialSums.size(); i++){
+        if (i > 0) {
+            scanSets.emplace_back(createSingleDescriptorSet(scanDescriptorLayout, {
+                    uBuffer.descriptorInfo(),
+                    partialSums[i - 1]->descriptorInfo(),
+                    partialSums[i]->descriptorInfo()
+            }));
+        }
+
+        std::pair<VkBuffer, VkDeviceSize> b1 = (i == 0) ? std::make_pair(inBuffer.getBuffer(), inBuffer.getSize()) :
+                                               std::make_pair(partialSums[i-1]->getBuffer(), partialSums[i-1]->getSize());
+        std::pair<VkBuffer, VkDeviceSize> b2 = std::make_pair(partialSums[i]->getBuffer(), partialSums[i]->getSize());
+
+        barrierDatas[i] = {b1, b2};
     }
-//
-//    VkDescriptorSet scanSet = createSingleDescriptorSet(scanDescriptorLayout, {
-//            uBuffer.descriptorInfo(),
-//            inBuffer.descriptorInfo(),
-//            partialSums[0]->descriptorInfo()
-//    });
-//
-//    VkDescriptorSet scanAddSet = createSingleDescriptorSet(scanAddDescriptorLayout, {
-//            uBuffer.descriptorInfo(),
-//            inBuffer.descriptorInfo(),
-//            partialSums[0]->descriptorInfo(),
-//    });
 
-
-    computeHandler.runComputeIsolated(0, [this, &scanSets, &inBuffer, &partialSums, numShaderCalls](VkCommandBuffer computeCommandBuffer){
-        for (int i = 0; i < partialSums.size(); i++){
+    computeHandler.runComputeIsolated(0, [this, &scanSets, &partialSums, &barrierDatas, numShaderCalls](VkCommandBuffer computeCommandBuffer){
+        for (int i = 0; i < partialSums.size(); i++) {
             scanComputeSystem.bindAndDispatch(computeCommandBuffer,
                                               &scanSets[i],
                                               numShaderCalls, 1, 1);
-            std::pair<VkBuffer, VkDeviceSize> b1 = (i == 0) ? std::make_pair(inBuffer.getBuffer(), inBuffer.getSize()) :
-                    std::make_pair(partialSums[i-1]->getBuffer(), partialSums[i-1]->getSize());
-            std::pair<VkBuffer, VkDeviceSize> b2 = std::make_pair(partialSums[i]->getBuffer(), partialSums[i]->getSize());
-
-            vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, {b1, b2});
-
+            vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, barrierDatas[i]);
         }
 
         for (int i = int(partialSums.size()) - 2; i >= 0; i--){
@@ -258,12 +246,7 @@ void ComputeShaderTest::testComputeShader() {
                                                  &scanSets[i],
                                                  numShaderCalls, 1, 1);
 
-            std::pair<VkBuffer, VkDeviceSize> b1 = (i == 0) ? std::make_pair(inBuffer.getBuffer(), inBuffer.getSize()) :
-                                                   std::make_pair(partialSums[i-1]->getBuffer(), partialSums[i-1]->getSize());
-            std::pair<VkBuffer, VkDeviceSize> b2 = std::make_pair(partialSums[i]->getBuffer(), partialSums[i]->getSize());
-
-            vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, {b1, b2});
-
+            vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, barrierDatas[i]);
         }
 
 
@@ -281,9 +264,10 @@ void ComputeShaderTest::testComputeShader() {
 
     bool error = false;
     for (uint32_t i = 1; i < data.size(); i++){
-        if (data[i] - data[i-1] != i){// diff) {
+        if (data[i] - data[i-1] != diff) {
             std::cout << "ERROR at " << i << " !!!!!!\n";
             error = true;
+            break;
         }
     }
     if (!error){
