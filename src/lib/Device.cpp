@@ -73,7 +73,7 @@ namespace vkb {
     }
 
     void Device::createLogicalDevice() {
-//
+
 //        VkPhysicalDeviceSubgroupProperties subgroupProperties;
 //        subgroupProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES;
 //        subgroupProperties.pNext = nullptr;

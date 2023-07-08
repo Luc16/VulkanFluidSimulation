@@ -116,24 +116,59 @@ void ComputeShaderTest::initializeObjects() {
 
 }
 
+VkDescriptorSet ComputeShaderTest::createSingleDescriptorSet(vkb::DescriptorSetLayout &layout, std::vector<VkDescriptorBufferInfo> bufferInfos) {
+    VkDescriptorSetLayout setLayout = layout.descriptorSetLayout();
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = globalDescriptorPool->descriptorPool();
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = &setLayout;
+
+    VkDescriptorSet set;
+    if (vkAllocateDescriptorSets(device.device(), &allocInfo, &set) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate descriptor sets!");
+    }
+
+    auto writer = vkb::DescriptorWriter(layout, *globalDescriptorPool);
+    for (uint32_t i = 0; i < bufferInfos.size(); i++){
+        writer.writeBuffer(i, &bufferInfos[i]);
+    }
+
+    writer.build(set, false);
+
+    return set;
+}
+
 void ComputeShaderTest::testComputeShader() {
-    uint32_t gridSize = 1000;
-    VkDeviceSize bufferSize = gridSize*sizeof(uint32_t);
+    uint32_t workGroupSize = 256;
+    struct UboData {
+        uint32_t size = 1000;
+    };
+
+    UboData ubo{};
+    uint32_t numShaderCalls = ubo.size/workGroupSize + 1 - (ubo.size%workGroupSize == 0);
+
+    vkb::Buffer uBuffer(device, sizeof(ubo), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    uBuffer.map();
+    uBuffer.write(&ubo);
+
+    VkDeviceSize bufferSize = ubo.size*sizeof(uint32_t);
 
     std::vector<uint32_t> data{};
-    data.resize(gridSize);
+    data.resize(ubo.size);
 
     for (uint32_t &it : data){
         it = 0;
     }
 
-    for (uint32_t i = 0; i < 10; i++){
-        data[i] = i % 5;
+    for (uint32_t i = 0; i < 20; i++){
+        data[i] = 1;//i % 5;
     }
     data[0] = 4;
 
-    std::cout << "Grid:\t\t";
-    for (uint32_t i = 0; i < 16; i++){
+    std::cout << "Grid:\n";
+    for (uint32_t i = 0; i < 32; i++){
         std::cout << data[i] << ", ";
     }
     std::cout << "\n";
@@ -143,62 +178,82 @@ void ComputeShaderTest::testComputeShader() {
 
     stagingBuffer.singleWrite(data.data());
     vkb::Buffer inBuffer(device, bufferSize,
-                         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     vkb::Buffer outBuffer(device, bufferSize,
                          VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
+    std::vector<std::unique_ptr<vkb::Buffer>> partialSums;
+
+//    for (uint32_t n = numShaderCalls; n > workGroupSize; n = (ubo.size + workGroupSize) / workGroupSize) {
+        partialSums.emplace_back(std::make_unique<vkb::Buffer>(device, numShaderCalls * sizeof(uint32_t),
+                                                               VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                                               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
+//    }
+
     device.copyBuffer(stagingBuffer.getBuffer(), inBuffer.getBuffer(), bufferSize);
 
-    auto computeDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
-            .addBinding({0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+    auto scanDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
+            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
             .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
             .build();
 
-    VkDescriptorSetLayout layout = computeDescriptorLayout.descriptorSetLayout();
-    VkDescriptorSetAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = globalDescriptorPool->descriptorPool();
-    allocInfo.descriptorSetCount = 1;
-    allocInfo.pSetLayouts = &layout;
-
-    VkDescriptorSet set;
-    if (vkAllocateDescriptorSets(device.device(), &allocInfo, &set) != VK_SUCCESS) {
-        throw std::runtime_error("failed to allocate descriptor sets!");
-    }
-
-    auto writer = vkb::DescriptorWriter(computeDescriptorLayout, *globalDescriptorPool);
-
-
-    auto inBuffInfo = inBuffer.descriptorInfo();
-    writer.writeBuffer(0, &inBuffInfo);
-
-    auto outBuffInfo = outBuffer.descriptorInfo();
-    writer.writeBuffer(1, &outBuffInfo);
-
-    writer.build(set, false);
-
-
-    scanComputeSystem.createPipelineLayout(computeDescriptorLayout.descriptorSetLayout());
-    scanComputeSystem.createPipeline(scanShaderPath);
-
-    computeHandler.runComputeIsolated(0, [this, &set, gridSize](VkCommandBuffer computeCommandBuffer){
-        scanComputeSystem.bindAndDispatch(computeCommandBuffer,
-                                                     &set,
-                                                     gridSize/256 + 1, 1, 1);
+    VkDescriptorSet scanSet = createSingleDescriptorSet(scanDescriptorLayout, {
+        uBuffer.descriptorInfo(),
+        inBuffer.descriptorInfo(),
+        outBuffer.descriptorInfo(),
+        partialSums[0]->descriptorInfo()
     });
 
-    device.copyBuffer(outBuffer.getBuffer(), stagingBuffer.getBuffer(), bufferSize);
+    scanComputeSystem.createPipelineLayout(scanDescriptorLayout.descriptorSetLayout());
+    scanComputeSystem.createPipeline(scanShaderPath);
+
+    auto scanAddDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
+            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .build();
+//
+    VkDescriptorSet scanAddSet = createSingleDescriptorSet(scanAddDescriptorLayout, {
+            uBuffer.descriptorInfo(),
+            partialSums[0]->descriptorInfo(),
+            inBuffer.descriptorInfo(),
+    });
+//
+    scanAddComputeSystem.createPipelineLayout(scanAddDescriptorLayout.descriptorSetLayout());
+    scanAddComputeSystem.createPipeline(scanAddShaderPath);
+
+    computeHandler.runComputeIsolated(0, [this, &scanSet, &scanAddSet, &inBuffer, &outBuffer, &partialSums, numShaderCalls](VkCommandBuffer computeCommandBuffer){
+        scanComputeSystem.bindAndDispatch(computeCommandBuffer,
+                                          &scanSet,
+                                          numShaderCalls, 1, 1);
+
+        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, {
+                {inBuffer.getBuffer(), inBuffer.getSize()},
+//                {outBuffer.getBuffer(), outBuffer.getSize()},
+                {partialSums[0]->getBuffer(), partialSums[0]->getSize()}
+        });
+
+        scanAddComputeSystem.bindAndDispatch(computeCommandBuffer,
+                                          &scanAddSet,
+                                          numShaderCalls, 1, 1);
+
+    });
+
+    device.copyBuffer(inBuffer.getBuffer(), stagingBuffer.getBuffer(), bufferSize);
 
     stagingBuffer.singleRead(data.data());
 
-    std::cout << "New Grid:\t";
-    for (uint32_t i = 0; i < 16; i++){
+    std::cout << "New Grid:\n";
+    for (uint32_t i = 0; i < 300; i++){
         std::cout << data[i] << ", ";
     }
     std::cout << "\n";
 
+    uBuffer.unmap();
     endProgram();
 }
 
@@ -244,7 +299,6 @@ void ComputeShaderTest::mainLoop(float deltaTime) {
                                                    PARTICLE_COUNT/256, 1, 1);
 
     });
-
 
 
     renderer.runFrame([this](VkCommandBuffer commandBuffer){

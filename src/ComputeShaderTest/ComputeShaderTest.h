@@ -44,6 +44,7 @@ private:
             SHADER_DIR + "calculate_forces.comp",
             SHADER_DIR + "move_particles.comp",
             SHADER_DIR + "scan.comp",
+            SHADER_DIR + "scan_add.comp",
     };
 
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
@@ -54,6 +55,7 @@ private:
     const std::string calculateForcesShaderPath = shaders[2] + ".spv";
     const std::string moveParticlesShaderPath = shaders[3] + ".spv";
     const std::string scanShaderPath = shaders[4] + ".spv";
+    const std::string scanAddShaderPath = shaders[5] + ".spv";
 
     struct Particle {
         glm::vec2 position, velocity;
@@ -114,6 +116,7 @@ private:
     std::vector<VkDescriptorSet> computeDescriptorSets;
 
     vkb::ComputeSystem scanComputeSystem{device};
+    vkb::ComputeSystem scanAddComputeSystem{device};
 
     vkb::Camera camera{};
 
@@ -124,6 +127,7 @@ private:
     void initializeObjects();
     void createComputeDescriptorSets(vkb::DescriptorSetLayout& layout);
     void createUniformBuffers();
+    VkDescriptorSet createSingleDescriptorSet(vkb::DescriptorSetLayout& layout, std::vector<VkDescriptorBufferInfo> bufferInfos);
     void testComputeShader();
     void mainLoop(float deltaTime) override;
     void updateUniformBuffers(uint32_t frameIndex, float deltaTime);
