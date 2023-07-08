@@ -3,6 +3,7 @@
 //
 
 #include "ComputeShaderTest.h"
+#include <execution>
 
 void ComputeShaderTest::onCreate() {
     if (testShader) {
@@ -234,6 +235,7 @@ void ComputeShaderTest::testComputeShader() {
     }
 
     auto time = std::chrono::high_resolution_clock::now();
+
     computeHandler.runComputeIsolated(0, [this, &scanSets, &partialSums, &barrierDatas, numShaderCalls](VkCommandBuffer computeCommandBuffer){
         for (int i = 0; i < partialSums.size(); i++) {
             scanComputeSystem.bindAndDispatch(computeCommandBuffer,
@@ -257,7 +259,6 @@ void ComputeShaderTest::testComputeShader() {
     std::cout << "Algorithm took: " << timeTaken << "ms for " << ubo.size << " elements\n";
 
     device.copyBuffer(inBuffer.getBuffer(), stagingBuffer.getBuffer(), bufferSize);
-
     stagingBuffer.singleRead(data.data());
 
 //    std::cout << "New Grid:\n";
@@ -271,6 +272,10 @@ void ComputeShaderTest::testComputeShader() {
         if (data[i] - data[i-1] != diff) {
             std::cout << "ERROR at " << i << " !!!!!!\n";
             error = true;
+            uint32_t start = (i < 5) ? 0 : i - 5;
+            for (uint32_t j = start; j < i + 5; j++){
+                std::cout << data[j] << ", ";
+            }
             break;
         }
     }
