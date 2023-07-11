@@ -45,8 +45,8 @@ private:
     struct UniformBufferObject {
         alignas(16) glm::mat4 viewProj;
         alignas(16) glm::vec3 cameraPos;
-        alignas(16) glm::vec3 lightDirection = glm::normalize(glm::vec3(1.0f, 1.0f, 0.0f));
-        alignas(16) glm::mat4 p;
+        alignas(16) glm::vec3 lightDir = glm::vec3(-1.0f, -1.0f, 0.0f);
+        float radius = 1.2f;
     };
 
     struct SphereData {
@@ -68,11 +68,13 @@ private:
     std::vector<SphereData> spheres{};
     std::unique_ptr<vkb::Buffer> sphereBuffer;
 
+    UniformBufferObject ubo{};
     float damping = 0.05f, sphereRadius = 0.641f;
     std::vector<float> sphereSpeeds;
     std::vector<uint32_t> iter;
     float gpuTime = 0, cpuTime = 0;
     bool activateTimer = false;
+    bool drawPlane = true;
 
     void onCreate() override;
     void initializeObjects();

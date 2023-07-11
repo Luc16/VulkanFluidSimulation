@@ -106,8 +106,10 @@ void PointSpheres::mainLoop(float deltaTime) {
 
         renderer.runRenderPass([this](VkCommandBuffer& commandBuffer){
 
-            defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
-            plane.render(defaultSystem, commandBuffer);
+            if (drawPlane) {
+                defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
+                plane.render(defaultSystem, commandBuffer);
+            }
 
             pointSphereSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
             VkBuffer vb = sphereBuffer->getBuffer();
@@ -147,7 +149,6 @@ void PointSpheres::updateSpheres(float deltaTime){
 
 void PointSpheres::updateUniformBuffer(uint32_t frameIndex, float deltaTime){
 
-    UniformBufferObject ubo{};
     camera.setPerspectiveProjection(glm::radians(50.f), renderer.getSwapChainAspectRatio(), 0.1f, 1000.f);
     ubo.viewProj = camera.getProjection()*camera.getView();
     ubo.cameraPos = camera.m_translation;
@@ -175,13 +176,19 @@ void PointSpheres::showImGui(){
             createInstances();
         }
 
+        ImGui::DragFloat("Radius", &ubo.radius, 0.1f, 0.5f, 5.0f);
+
         if (ImGui::CollapsingHeader("Plane", ImGuiTreeNodeFlags_DefaultOpen)) {
 
             ImGui::SliderFloat("y", &plane.m_translation.y, -100.0f, 10.0f);
-            if (ImGui::Button("Reset")) createInstances();
-
+            ImGui::Checkbox("Draw Plane", &drawPlane);
         }
 
+        if (ImGui::Button("Reset")) createInstances();
+
+        if (ImGui::Button("Hard reset") || glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_PRESS){
+            onCreate();
+        }
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                     ImGui::GetIO().Framerate);
         ImGui::End();

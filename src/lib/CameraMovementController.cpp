@@ -22,7 +22,7 @@ namespace vkb {
         camera.m_rotation.y = glm::mod(camera.m_rotation.y, glm::two_pi<float>());
 
         float yaw = camera.m_rotation.y;
-        const glm::vec3 forwardDir{sin(yaw), 0.f, cos(yaw)};
+        const glm::vec3 forwardDir{std::sin(yaw), 0.f, std::cos(yaw)};
         const glm::vec3 rightDir{forwardDir.z, 0.f, -forwardDir.x};
         const glm::vec3 upDir{0.f, -1.f, 0.f};
 

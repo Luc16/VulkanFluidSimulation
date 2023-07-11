@@ -8,7 +8,8 @@ layout(location = 3) in vec2 inTexCoord;
 layout(binding = 0) uniform UniformBufferObject {
     mat4 viewProj;
     vec3 cameraPos;
-    vec3 lightDirection;
+    vec3 lightDir;
+    float radius;
 } ubo;
 
 layout(push_constant) uniform Push {
