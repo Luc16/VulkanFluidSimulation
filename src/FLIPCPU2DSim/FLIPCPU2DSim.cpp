@@ -78,17 +78,12 @@ void FLIPCPU2DSim::initializeObjects() {
     }
 
     VkDeviceSize bufferSize = PARTICLE_COUNT * sizeof(Particle);
-    vkb::Buffer stagingBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    stagingBuffer.singleWrite(particles.data());
-
 
     particleData.resize(vkb::SwapChain::MAX_FRAMES_IN_FLIGHT);
     for (uint32_t i = 0; i < vkb::SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
         particleData[i] = std::make_unique<vkb::Buffer>(device, bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
                                                                            VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-        device.copyBuffer(stagingBuffer.getBuffer(), particleData[i]->getBuffer(), bufferSize);
+        vkb::Buffer::writeVectorToBuffer(device, particleData[i], particles);
     }
 
     resetGrid(true);

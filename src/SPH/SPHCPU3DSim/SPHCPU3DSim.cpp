@@ -69,7 +69,7 @@ void SPHCPU3DSim::createInstances(bool activateRandomOffsets) {
     particleBuffer = std::make_unique<vkb::Buffer>(device, particles.size() * sizeof(Particle),
                                                  VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    updateParticleBuffer();
+    vkb::Buffer::writeVectorToBuffer(device, particleBuffer, particles);
 }
 
 void SPHCPU3DSim::createUniformBuffers() {
@@ -89,7 +89,7 @@ void SPHCPU3DSim::mainLoop(float deltaTime) {
 
     if (!controlMode) {
         updateParticles(deltaTime);
-        updateParticleBuffer();
+        vkb::Buffer::writeVectorToBuffer(device, particleBuffer, particles);
     } else {
         createInstances(false);
     }
@@ -186,18 +186,6 @@ void SPHCPU3DSim::showImGui(){
         }
         ImGui::End();
     }
-
-}
-
-void SPHCPU3DSim::updateParticleBuffer() {
-    VkDeviceSize bufferSize = particles.size() * sizeof(Particle);
-
-    vkb::Buffer stagingBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-    stagingBuffer.singleWrite(particles.data());
-
-    device.copyBuffer(stagingBuffer.getBuffer(), particleBuffer->getBuffer(), bufferSize);
 
 }
 

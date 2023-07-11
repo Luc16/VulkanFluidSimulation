@@ -72,7 +72,7 @@ public:
     struct UniformBufferObject {
         alignas(16) glm::mat4 viewProj;
         alignas(16) glm::vec3 cameraPos;
-        alignas(16) glm::vec3 lightDir = glm::vec3(-1.0f, -1.0f, 0.0f);
+        alignas(16) glm::vec3 lightDir = glm::vec3(1.0f, -1.0f, 0.0f);
         float radius = H;
     };
 
@@ -112,7 +112,6 @@ public:
     void mainLoop(float deltaTime) override;
     void updateUniformBuffer(uint32_t frameIndex);
     void showImGui();
-    void updateParticleBuffer();
     void updateParticles(float deltaTime);
 
     void computeDensityPressure();

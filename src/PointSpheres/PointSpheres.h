@@ -81,7 +81,6 @@ private:
     void createInstances();
     void createUniformBuffers();
     void mainLoop(float deltaTime) override;
-    void updateSphereBuffer();
     void updateSpheres(float deltaTime);
     void updateUniformBuffer(uint32_t frameIndex, float deltaTime);
     void showImGui();

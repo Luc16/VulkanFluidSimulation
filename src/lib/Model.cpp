@@ -32,33 +32,24 @@ namespace vkb {
 
     void Model::updateVertexBuffer(std::vector<Vertex>& vertices, bool createBuffer) {
         VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-        m_vertexCount = static_cast<uint32_t>(vertices.size());
-
-        vkb::Buffer stagingBuffer(m_deviceRef, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        stagingBuffer.singleWrite(vertices.data());
-
         if (createBuffer)
             m_vertexBuffer = std::make_unique<vkb::Buffer>(m_deviceRef, bufferSize,
                                                            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                                                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        m_vertexCount = static_cast<uint32_t>(vertices.size());
 
-        m_deviceRef.copyBuffer(stagingBuffer.getBuffer(), m_vertexBuffer->getBuffer(), bufferSize);
+        vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_vertexBuffer, vertices);
     }
 
     void Model::createIndexBuffer(std::vector<uint32_t>& indices){
         VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
         m_indexCount = static_cast<uint32_t>(indices.size());
 
-        vkb::Buffer stagingBuffer(m_deviceRef, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        stagingBuffer.singleWrite(indices.data());
-
         m_indexBuffer = std::make_unique<vkb::Buffer>(m_deviceRef, bufferSize,
                                                     VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-        m_deviceRef.copyBuffer(stagingBuffer.getBuffer(), m_indexBuffer->getBuffer(), bufferSize);
+        vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_indexBuffer, indices);
     }
 
     std::unique_ptr<Model> Model::createModelFromFile(const Device &device, const std::string &filepath) {

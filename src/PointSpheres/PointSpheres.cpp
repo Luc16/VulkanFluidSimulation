@@ -74,7 +74,7 @@ void PointSpheres::createInstances() {
     sphereBuffer = std::make_unique<vkb::Buffer>(device, spheres.size() * sizeof(SphereData),
                                                  VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    updateSphereBuffer();
+    vkb::Buffer::writeVectorToBuffer(device, sphereBuffer, spheres);
 }
 
 void PointSpheres::createUniformBuffers() {
@@ -93,7 +93,7 @@ void PointSpheres::mainLoop(float deltaTime) {
     updateUniformBuffer(renderer.currentFrame(), deltaTime);
 
     updateSpheres(deltaTime);
-    updateSphereBuffer();
+    vkb::Buffer::writeVectorToBuffer(device, sphereBuffer, spheres);
 
     if (activateTimer) {
         auto time = std::chrono::high_resolution_clock::now();
@@ -119,17 +119,6 @@ void PointSpheres::mainLoop(float deltaTime) {
         });
     });
     if (activateTimer) gpuTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
-}
-
-void PointSpheres::updateSphereBuffer() {
-    VkDeviceSize bufferSize = spheres.size() * sizeof(SphereData);
-
-    vkb::Buffer stagingBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-    stagingBuffer.singleWrite(spheres.data());
-
-    device.copyBuffer(stagingBuffer.getBuffer(), sphereBuffer->getBuffer(), bufferSize);
 }
 
 void PointSpheres::updateSpheres(float deltaTime){
