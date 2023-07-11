@@ -1,4 +1,4 @@
 glslc default.vert -o default.vert.spv
 glslc default.frag -o default.frag.spv
-glslc instancing.vert -o instancing.vert.spv
-glslc instancing.frag -o instancing.frag.spv
+glslc point_particle.vert -o point_particle.vert.spv
+glslc point_particle.frag -o point_particle.frag.spv

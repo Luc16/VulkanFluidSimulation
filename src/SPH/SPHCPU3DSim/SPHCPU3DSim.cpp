@@ -117,6 +117,7 @@ void SPHCPU3DSim::updateUniformBuffer(uint32_t frameIndex) {
     camera.setPerspectiveProjection(glm::radians(50.f), renderer.getSwapChainAspectRatio(), 0.1f, 1000.f);
     ubo.view = camera.getView();
     ubo.proj = camera.getProjection();
+//    ubo.cameraPos = camera.m_translation;
     uniformBuffers[frameIndex]->singleWrite(&ubo);
 
 }

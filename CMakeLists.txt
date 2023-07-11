@@ -35,6 +35,7 @@ add_library( VkFluidSim
 
 set( GENERAL_APPS
         "Instancing"
+        "PointSpheres"
         "ComputeShaderTest"
         "FLIPCPU2DSim"
         )

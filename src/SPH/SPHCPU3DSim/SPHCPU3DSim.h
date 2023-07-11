@@ -65,13 +65,14 @@ public:
 
     const std::string sphereModelPath = "../Models/lowsphere.obj";
     const vkb::RenderSystem::ShaderPaths instanceShaderPaths = vkb::RenderSystem::ShaderPaths {
-            DIR + "Shaders/instancing.vert.spv",
-            DIR + "Shaders/instancing.frag.spv",
+            DIR + "Shaders/point_particle.vert.spv",
+            DIR + "Shaders/point_particle.frag.spv",
     };
 
     struct UniformBufferObject {
         alignas(16) glm::mat4 view;
         alignas(16) glm::mat4 proj;
+//        alignas(16) glm::vec3 cameraPos;
         alignas(16) glm::vec3 lightDirection = glm::normalize(glm::vec3(1.0f, 1.0f, 0.0f));
     };
 

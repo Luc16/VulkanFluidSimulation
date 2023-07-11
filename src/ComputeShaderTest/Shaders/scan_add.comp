@@ -20,6 +20,11 @@ layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 shared uint sum;
 
+/**
+ * Adapted from https://cachemiss.xyz/blog/parallel-reduce-and-scan-on-the-GPU
+ * Copyright (C) 2018 - Maximilian Maldacker
+ */
+
 void main() {
     uint i = gl_GlobalInvocationID.x;
     if (gl_WorkGroupID.x > 0) {

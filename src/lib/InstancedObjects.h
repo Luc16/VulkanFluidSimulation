@@ -18,7 +18,7 @@ namespace vkb {
         void updateBuffer();
         void resizeBuffer(size_t new_size);
 
-        VkVertexInputBindingDescription getBindingDescription();
+        VkVertexInputBindingDescription getBindingDescription(uint32_t binding = 1);
         [[nodiscard]] VkDescriptorBufferInfo descriptorInfo(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0) const;
         [[nodiscard]] const std::unique_ptr<vkb::Buffer>& getBuffer() { return m_instanceBuffer; };
         [[nodiscard]] std::pair<VkBuffer, VkDeviceSize> getBarrierData() { return {m_instanceBuffer->getBuffer(), m_instanceBuffer->getSize()}; };
@@ -109,9 +109,9 @@ namespace vkb {
     }
 
     template<typename InstanceData>
-    VkVertexInputBindingDescription InstancedObjects<InstanceData>::getBindingDescription() {
+    VkVertexInputBindingDescription InstancedObjects<InstanceData>::getBindingDescription(uint32_t binding) {
         VkVertexInputBindingDescription bindingDescription{};
-        bindingDescription.binding = 1;
+        bindingDescription.binding = binding;
         bindingDescription.stride = sizeof(InstanceData);
         bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
 

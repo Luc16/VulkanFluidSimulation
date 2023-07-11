@@ -18,6 +18,11 @@ layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 const int sumSubGroupSize = 32;
 shared uint sdata[sumSubGroupSize]; // gl_SubgroupSize == 32
 
+/**
+ * Adapted from https://cachemiss.xyz/blog/parallel-reduce-and-scan-on-the-GPU
+ * Copyright (C) 2018 - Maximilian Maldacker
+ */
+
 void main() {
     uint sum = 0;
 
