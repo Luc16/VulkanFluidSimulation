@@ -1,21 +1,28 @@
 #version 450
 
-layout(location = 0) in vec3 fragColor;
-layout(location = 1) in vec3 fragPosWorld;
-layout(location = 2) in vec3 fragNormalWorld;
-
-layout(binding = 0) uniform UniformBufferObject {
-    mat4 view;
-    mat4 proj;
-    vec3 lightDirection;
-} ubo;
+layout(location = 0) in vec4 fragColor;
 
 layout(location = 0) out vec4 outColor;
+
+layout(binding = 0) uniform UniformBufferObject {
+    mat4 viewProj;
+    vec3 cameraPos;
+    vec3 lightDir;
+    float radius;
+} ubo;
 
 const float AMBIENT = 0.05;
 
 void main() {
-    float lightIntensity = AMBIENT + max(dot(normalize(fragNormalWorld), normalize(ubo.lightDirection)), 0);
+    vec3 normal;
+    normal.xy = gl_PointCoord*2.0 - vec2(1.0);
+    float mag = dot(normal.xy, normal.xy);
+    if (mag > 1.0) discard;   // kill pixels outside circle
 
-    outColor = vec4(lightIntensity*fragColor, 1.0);
+    normal.z = sqrt(1.0-mag);
+
+    // calculate lighting
+    float diffuse = AMBIENT + max(0.0, dot(ubo.lightDir, normal));
+
+    outColor = fragColor*diffuse;
 }

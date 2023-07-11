@@ -5,9 +5,10 @@ layout(location = 1) in vec3 fragPosWorld;
 layout(location = 2) in vec3 fragNormalWorld;
 
 layout(binding = 0) uniform UniformBufferObject {
-    mat4 view;
-    mat4 proj;
-    vec3 lightDirection;
+    mat4 viewProj;
+    vec3 cameraPos;
+    vec3 lightDir;
+    float radius;
 } ubo;
 
 layout(location = 0) out vec4 outColor;
@@ -15,7 +16,7 @@ layout(location = 0) out vec4 outColor;
 const float AMBIENT = 0.05;
 
 void main() {
-    float lightIntensity = AMBIENT + max(dot(normalize(fragNormalWorld), normalize(ubo.lightDirection)), 0);
+    float lightIntensity = AMBIENT + max(dot(normalize(fragNormalWorld), normalize(ubo.lightDir)), 0);
 
     outColor = vec4(lightIntensity*fragColor, 1.0);
 }

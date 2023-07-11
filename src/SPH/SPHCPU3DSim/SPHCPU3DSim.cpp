@@ -19,12 +19,14 @@ void SPHCPU3DSim::onCreate() {
     }
 
     {
-        instanceSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
-        instanceSystem.createPipeline(renderer.renderPass(), instanceShaderPaths, [this](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
-            info.bindingDescription.push_back(instancedSpheres.getBindingDescription());
-            info.attributeDescription.push_back({4, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(InstanceData, position)});
-            info.attributeDescription.push_back({5, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(InstanceData, color)});
-            info.attributeDescription.push_back({6, 1, VK_FORMAT_R32_SFLOAT, offsetof(InstanceData, scale)});
+        particleSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
+        particleSystem.createPipeline(renderer.renderPass(), instanceShaderPaths, [this](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
+            info.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+            info.bindingDescription.clear();
+            info.bindingDescription.push_back({0, sizeof(Particle), VK_VERTEX_INPUT_RATE_VERTEX});
+            info.attributeDescription.clear();
+            info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Particle, position)});
+            info.attributeDescription.push_back({1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Particle, color)});
         });
     }
 }
@@ -39,7 +41,7 @@ void SPHCPU3DSim::initializeObjects() {
 void SPHCPU3DSim::createInstances(bool activateRandomOffsets) {
     vkDeviceWaitIdle(device.device());
 
-    instancedSpheres.resizeBuffer(INSTANCE_COUNT);
+    particles.resize(INSTANCE_COUNT);
 
     plane.setScale(BOUNDARY_SIZE);
 
@@ -47,10 +49,9 @@ void SPHCPU3DSim::createInstances(bool activateRandomOffsets) {
     auto spherePerSide = (uint32_t) std::cbrt(INSTANCE_COUNT);
     float step = H + 0.01f;
 
-    for (uint32_t i = 0; i < instancedSpheres.size(); i++) {
-        auto& sphere = instancedSpheres[i];
+    for (uint32_t i = 0; i < particles.size(); i++) {
+        auto& sphere = particles[i];
         sphere.color = glm::vec3(0.2f, 0.6f, 1.0f);
-        sphere.scale = 0.8f*H;
         sphere.position = accPos + float(activateRandomOffsets)*glm::vec3(randomFloat(-H/5, H/5), randomFloat(-H/5, H/5), randomFloat(-H/5, H/5));
         sphere.velocity = glm::vec3(0.0f);
         sphere.force = glm::vec3(0.0f);
@@ -65,7 +66,10 @@ void SPHCPU3DSim::createInstances(bool activateRandomOffsets) {
             }
         }
     }
-    instancedSpheres.updateBuffer();
+    particleBuffer = std::make_unique<vkb::Buffer>(device, particles.size() * sizeof(Particle),
+                                                 VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    updateParticleBuffer();
 }
 
 void SPHCPU3DSim::createUniformBuffers() {
@@ -84,8 +88,8 @@ void SPHCPU3DSim::mainLoop(float deltaTime) {
     updateUniformBuffer(renderer.currentFrame());
 
     if (!controlMode) {
-        updateSpheres(deltaTime);
-        instancedSpheres.updateBuffer();
+        updateParticles(deltaTime);
+        updateParticleBuffer();
     } else {
         createInstances(false);
     }
@@ -104,8 +108,12 @@ void SPHCPU3DSim::mainLoop(float deltaTime) {
             defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
             plane.render(defaultSystem, commandBuffer);
 
-            instanceSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
-            instancedSpheres.render(instanceSystem, commandBuffer);
+            particleSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
+            VkBuffer vb = particleBuffer->getBuffer();
+            VkDeviceSize offsets[] = {0};
+            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
+            vkCmdDraw(commandBuffer, INSTANCE_COUNT, 1, 0, 0);
+
         });
     });
     if (activateTimer) gpuTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
@@ -115,9 +123,8 @@ void SPHCPU3DSim::updateUniformBuffer(uint32_t frameIndex) {
 
     UniformBufferObject ubo{};
     camera.setPerspectiveProjection(glm::radians(50.f), renderer.getSwapChainAspectRatio(), 0.1f, 1000.f);
-    ubo.view = camera.getView();
-    ubo.proj = camera.getProjection();
-//    ubo.cameraPos = camera.m_translation;
+    ubo.viewProj = camera.getProjection()*camera.getView();
+    ubo.cameraPos = camera.m_translation;
     uniformBuffers[frameIndex]->singleWrite(&ubo);
 
 }
@@ -182,16 +189,28 @@ void SPHCPU3DSim::showImGui(){
 
 }
 
-void SPHCPU3DSim::updateSpheres(float deltaTime){
+void SPHCPU3DSim::updateParticleBuffer() {
+    VkDeviceSize bufferSize = particles.size() * sizeof(Particle);
 
-    particleHash.create(instancedSpheres.getVector());
+    vkb::Buffer stagingBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    stagingBuffer.singleWrite(particles.data());
+
+    device.copyBuffer(stagingBuffer.getBuffer(), particleBuffer->getBuffer(), bufferSize);
+
+}
+
+void SPHCPU3DSim::updateParticles(float deltaTime){
+
+    particleHash.create(particles);
 
     auto computeDensityPressureThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
-            auto& particle = instancedSpheres[idx];
+            auto& particle = particles[idx];
             particle.density = 0.0f;
             particleHash.query(particle.position, H, [this, &particle](uint32_t otherIdx) {
-                const auto& other = instancedSpheres[otherIdx];
+                const auto& other = particles[otherIdx];
                 auto vec = particle.position - other.position;
                 auto dist2 = glm::dot(vec, vec);
                 if (dist2 < HSQ) {
@@ -205,10 +224,10 @@ void SPHCPU3DSim::updateSpheres(float deltaTime){
 
     auto computeForcesThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
-            auto& particle = instancedSpheres[idx];
+            auto& particle = particles[idx];
             glm::vec3 fPress{0.0f}, fVisc{0.0f};
             particleHash.query(particle.position, H, [this, &particle, &fVisc, &fPress](uint32_t otherIdx) {
-                const auto& other = instancedSpheres[otherIdx];
+                const auto& other = particles[otherIdx];
                 if (&other == &particle) return ;
 
                 auto vec = other.position - particle.position;
@@ -228,7 +247,7 @@ void SPHCPU3DSim::updateSpheres(float deltaTime){
 
     auto integrateThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
-            auto& particle = instancedSpheres[idx];
+            auto& particle = particles[idx];
 
             particle.color = glm::vec3(
                     std::clamp(particle.color.r - colorUpdate, 0.2f, 1.0f),
@@ -283,12 +302,12 @@ void SPHCPU3DSim::updateSpheres(float deltaTime){
 }
 
 void SPHCPU3DSim::computeDensityPressure() {
-    for (auto & particle : instancedSpheres) {
+    for (auto & particle : particles) {
         particle.density = 0.0f;
 //        particleHash.query(particle.position, H, [this, &particle](uint32_t otherIdx) {
         particleHash.query2(particle.position, H);
         for (uint32_t i = 0; i < particleHash.queryCount; i++) {
-            const auto& other = instancedSpheres[particleHash.queryRes[i]];
+            const auto& other = particles[particleHash.queryRes[i]];
             auto vec = particle.position - other.position;
             auto dist2 = glm::dot(vec, vec);
             if (dist2 < HSQ) {
@@ -303,12 +322,12 @@ void SPHCPU3DSim::computeDensityPressure() {
 }
 
 void SPHCPU3DSim::computeForces() {
-    for (auto& particle: instancedSpheres) {
+    for (auto& particle: particles) {
         glm::vec3 fPress{0.0f}, fVisc{0.0f};
         particleHash.query2(particle.position, H);
         for (uint32_t i = 0; i < particleHash.queryCount; i++) {
 //        particleHash.query(particle.position, H, [this, &particle, &fVisc, &fPress](uint32_t otherIdx) {
-            const auto& other = instancedSpheres[particleHash.queryRes[i]];
+            const auto& other = particles[particleHash.queryRes[i]];
             if (&other == &particle) continue;
 
             auto vec = other.position - particle.position;
@@ -328,7 +347,7 @@ void SPHCPU3DSim::computeForces() {
 }
 
 void SPHCPU3DSim::integrate() {
-    for (auto &particle : instancedSpheres) {
+    for (auto &particle : particles) {
 
         particle.color = glm::vec3(
                 std::clamp(particle.color.r - colorUpdate, 0.2f, 1.0f),

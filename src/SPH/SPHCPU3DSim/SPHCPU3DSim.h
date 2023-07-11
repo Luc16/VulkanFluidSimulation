@@ -70,17 +70,16 @@ public:
     };
 
     struct UniformBufferObject {
-        alignas(16) glm::mat4 view;
-        alignas(16) glm::mat4 proj;
-//        alignas(16) glm::vec3 cameraPos;
-        alignas(16) glm::vec3 lightDirection = glm::normalize(glm::vec3(1.0f, 1.0f, 0.0f));
+        alignas(16) glm::mat4 viewProj;
+        alignas(16) glm::vec3 cameraPos;
+        alignas(16) glm::vec3 lightDir = glm::vec3(-1.0f, -1.0f, 0.0f);
+        float radius = H;
     };
 
-    struct InstanceData {
+    struct Particle {
         alignas(16) glm::vec3 position, velocity, force;
         float density, pressure;
         alignas(16) glm::vec3 color;
-        float scale;
     };
 
     vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, planeModelPath)};
@@ -89,13 +88,15 @@ public:
 
     vkb::RenderSystem defaultSystem{device};
     std::vector<VkDescriptorSet> defaultDescriptorSets;
-    vkb::RenderSystem instanceSystem{device};
+    vkb::RenderSystem particleSystem{device};
 
     vkb::Camera camera{};
     vkb::CameraMovementController cameraController{};
 
+    std::vector<Particle> particles{};
+    std::unique_ptr<vkb::Buffer> particleBuffer;
+
     vkb::SpatialHash particleHash{H, 100000};
-    vkb::InstancedObjects<InstanceData> instancedSpheres{device, 0, vkb::Model::createModelFromFile(device, sphereModelPath)};
     std::array<std::jthread, numThreads> threads;
 
     glm::vec3 initialPos = {EPS, EPS, EPS};
@@ -111,8 +112,8 @@ public:
     void mainLoop(float deltaTime) override;
     void updateUniformBuffer(uint32_t frameIndex);
     void showImGui();
-
-    void updateSpheres(float deltaTime);
+    void updateParticleBuffer();
+    void updateParticles(float deltaTime);
 
     void computeDensityPressure();
     void computeForces();
