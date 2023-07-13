@@ -115,7 +115,8 @@ void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
         auto& sphere = instancedSpheres[i];
         sphere.color = glm::vec3(0.2f, 0.6f, 1.0f);
         sphere.scale = 0.8f*cUbo.H;
-        sphere.position = accPos + float(activateRandomOffsets)*glm::vec3(randomFloat(-cUbo.H/5, cUbo.H/5), randomFloat(-cUbo.H/5, cUbo.H/5), randomFloat(-cUbo.H/5, cUbo.H/5));
+        sphere.position = accPos;
+        if (activateRandomOffsets) sphere.position += glm::vec3(randomFloat(-H/5, H/5), randomFloat(-H/5, H/5), randomFloat(-H/5, H/5));
         sphere.velocity = glm::vec3(0.0f);
         sphere.force = glm::vec3(0.0f);
         accPos.x += step;

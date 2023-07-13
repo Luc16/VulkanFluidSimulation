@@ -23,6 +23,7 @@
 #include "../../lib/VulkanApp.h"
 #include "../../lib/InstancedObjects.h"
 #include "../../lib/graphicsDataStructures/SpatialHash.h"
+#include "../../lib/graphicsDataStructures/SpatialGrid.h"
 
 class SPHCPU3DSim: public vkb::VulkanApp {
 public:
@@ -94,9 +95,10 @@ public:
     vkb::CameraMovementController cameraController{};
 
     std::vector<Particle> particles{};
+    std::vector<Particle> sortedParticles{};
     std::unique_ptr<vkb::Buffer> particleBuffer;
 
-    vkb::SpatialHash particleHash{H, 100000};
+    vkb::SpatialGrid grid{};
     std::array<std::jthread, numThreads> threads;
 
     glm::vec3 initialPos = {EPS, EPS, EPS};
@@ -114,9 +116,6 @@ public:
     void showImGui();
     void updateParticles(float deltaTime);
 
-    void computeDensityPressure();
-    void computeForces();
-    void integrate();
 };
 
 

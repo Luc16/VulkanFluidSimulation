@@ -51,13 +51,7 @@ namespace vkb {
             m_table[hashVec(entity.position)]++;
         }
 
-        uint32_t start = 0;
-        for (uint32_t i = 0; i < m_tableSize; i++) {
-            start += m_table[i];
-            m_table[i] = start;
-        }
-        m_table[m_tableSize] = start;
-
+        std::inclusive_scan(m_table.begin(), m_table.end(), m_table.begin());
 
         for (uint32_t i = 0; i < numElements; i++) {
             auto h = hashVec(entities[i].position);

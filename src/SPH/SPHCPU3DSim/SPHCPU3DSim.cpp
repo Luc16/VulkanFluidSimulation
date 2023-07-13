@@ -42,8 +42,11 @@ void SPHCPU3DSim::createInstances(bool activateRandomOffsets) {
     vkDeviceWaitIdle(device.device());
 
     particles.resize(INSTANCE_COUNT);
+    sortedParticles.resize(INSTANCE_COUNT);
 
     plane.setScale(BOUNDARY_SIZE);
+
+    grid = vkb::SpatialGrid(H, glm::vec3(BOUNDARY_SIZE, BOUNDARY_SIZE, BOUNDARY_SIZE));
 
     auto accPos = initialPos;
     auto spherePerSide = (uint32_t) std::cbrt(INSTANCE_COUNT);
@@ -52,7 +55,8 @@ void SPHCPU3DSim::createInstances(bool activateRandomOffsets) {
     for (uint32_t i = 0; i < particles.size(); i++) {
         auto& sphere = particles[i];
         sphere.color = glm::vec3(0.2f, 0.6f, 1.0f);
-        sphere.position = accPos + float(activateRandomOffsets)*glm::vec3(randomFloat(-H/5, H/5), randomFloat(-H/5, H/5), randomFloat(-H/5, H/5));
+        sphere.position = accPos;
+        if (activateRandomOffsets) sphere.position += glm::vec3(randomFloat(-H/5, H/5), randomFloat(-H/5, H/5), randomFloat(-H/5, H/5));
         sphere.velocity = glm::vec3(0.0f);
         sphere.force = glm::vec3(0.0f);
         accPos.x += step;
@@ -191,13 +195,15 @@ void SPHCPU3DSim::showImGui(){
 
 void SPHCPU3DSim::updateParticles(float deltaTime){
 
-    particleHash.create(particles);
+    grid.createAndSort(particles, sortedParticles);
+
+    particles.swap(sortedParticles);
 
     auto computeDensityPressureThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
             auto& particle = particles[idx];
             particle.density = 0.0f;
-            particleHash.query(particle.position, H, [this, &particle](uint32_t otherIdx) {
+            grid.query(particle.position, H, [this, &particle](uint32_t otherIdx) {
                 const auto& other = particles[otherIdx];
                 auto vec = particle.position - other.position;
                 auto dist2 = glm::dot(vec, vec);
@@ -214,7 +220,7 @@ void SPHCPU3DSim::updateParticles(float deltaTime){
         for (uint32_t idx = start; idx < end; idx++) {
             auto& particle = particles[idx];
             glm::vec3 fPress{0.0f}, fVisc{0.0f};
-            particleHash.query(particle.position, H, [this, &particle, &fVisc, &fPress](uint32_t otherIdx) {
+            grid.query(particle.position, H, [this, &particle, &fVisc, &fPress](uint32_t otherIdx) {
                 const auto& other = particles[otherIdx];
                 if (&other == &particle) return ;
 
@@ -286,95 +292,6 @@ void SPHCPU3DSim::updateParticles(float deltaTime){
         }
         threads[numThreads - 1] = std::jthread(function, (numThreads - 1)*particlesPerThread, INSTANCE_COUNT);
         for (auto& thread : threads) thread.join();
-    }
-}
-
-void SPHCPU3DSim::computeDensityPressure() {
-    for (auto & particle : particles) {
-        particle.density = 0.0f;
-//        particleHash.query(particle.position, H, [this, &particle](uint32_t otherIdx) {
-        particleHash.query2(particle.position, H);
-        for (uint32_t i = 0; i < particleHash.queryCount; i++) {
-            const auto& other = particles[particleHash.queryRes[i]];
-            auto vec = particle.position - other.position;
-            auto dist2 = glm::dot(vec, vec);
-            if (dist2 < HSQ) {
-                float partialDensity = MASS * POLY6 * std::pow(HSQ - dist2, 3.f);
-                particle.density += partialDensity;
-            }
-
-        }
-//        });
-        particle.pressure = GAS_CONST * (particle.density - REST_DENS);
-    }
-}
-
-void SPHCPU3DSim::computeForces() {
-    for (auto& particle: particles) {
-        glm::vec3 fPress{0.0f}, fVisc{0.0f};
-        particleHash.query2(particle.position, H);
-        for (uint32_t i = 0; i < particleHash.queryCount; i++) {
-//        particleHash.query(particle.position, H, [this, &particle, &fVisc, &fPress](uint32_t otherIdx) {
-            const auto& other = particles[particleHash.queryRes[i]];
-            if (&other == &particle) continue;
-
-            auto vec = other.position - particle.position;
-            auto dist = glm::length(vec);
-
-            if (dist < H) {
-                fPress += -(vec / dist) * MASS * (particle.pressure + other.pressure) /
-                          (2.f * other.density) * SPIKY_GRAD * std::pow(H - dist, 3.f);
-                fVisc += VISC * MASS * (other.velocity - particle.velocity) /
-                         other.density * VISC_LAP * (H - dist);
-            }
-
-//        });
-        }
-        particle.force = fPress + fVisc + gravityFactor*G*MASS/particle.density;
-    }
-}
-
-void SPHCPU3DSim::integrate() {
-    for (auto &particle : particles) {
-
-        particle.color = glm::vec3(
-                std::clamp(particle.color.r - colorUpdate, 0.2f, 1.0f),
-                std::clamp(particle.color.g - colorUpdate, 0.4f, 1.0f),
-                std::clamp(particle.color.b + colorUpdate, 0.0f, 1.0f)
-        );
-
-        if (particle.density/MIN_DENS < densColorThreshold){
-            particle.color = glm::vec3(0.8f, 0.8f, 1.0f);
-        }
-
-        // forward Euler integration
-        particle.velocity += DT * particle.force / particle.density;
-        particle.position += DT * particle.velocity;
-
-        // enforce boundary conditions
-        if (particle.position.x - EPS < 0.f) {
-            particle.velocity.x *= BOUND_DAMPING;
-            particle.position.x = EPS;
-        } else if (particle.position.x + EPS > BOUNDARY_SIZE) {
-            particle.velocity.x *= BOUND_DAMPING;
-            particle.position.x = BOUNDARY_SIZE - EPS;
-        }
-        if (particle.position.z - EPS < 0.f) {
-            particle.velocity.z *= BOUND_DAMPING;
-            particle.position.z = EPS;
-        } else if (particle.position.z + EPS > BOUNDARY_SIZE) {
-            particle.velocity.z *= BOUND_DAMPING;
-            particle.position.z = BOUNDARY_SIZE - EPS;
-        }
-        if (particle.position.y - EPS < plane.m_translation.y) {
-            particle.velocity.y *= BOUND_DAMPING;
-            particle.position.y = plane.m_translation.y + EPS;
-        }
-//        else if (particle.position.y + EPS > 25.f) {
-//            particle.velocity.y *= BOUND_DAMPING;
-//            particle.position.y = 25.f - EPS;
-//        }
-
     }
 }
 
