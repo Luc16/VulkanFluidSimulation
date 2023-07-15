@@ -32,14 +32,9 @@ void SPHGPU2DSim::onCreate() {
             .build();
 
     createComputeDescriptorSets(computeDescriptorLayout);
-    calculateForcesComputeSystem.createPipelineLayout(computeDescriptorLayout.descriptorSetLayout());
-    calculateForcesComputeSystem.createPipeline(calculateForcesShaderPath);
-
-    integrateComputeSystem.createPipelineLayout(computeDescriptorLayout.descriptorSetLayout());
-    integrateComputeSystem.createPipeline(integrateShaderPath);
-
-    calculateDensityPressureComputeSystem.createPipelineLayout(computeDescriptorLayout.descriptorSetLayout());
-    calculateDensityPressureComputeSystem.createPipeline(calculateDensityPressureShaderPath);
+    calculateForcesComputeSystem.createPipelineWithLayout(computeDescriptorLayout.descriptorSetLayout());
+    integrateComputeSystem.createPipelineWithLayout(computeDescriptorLayout.descriptorSetLayout());
+    calculateDensityPressureComputeSystem.createPipelineWithLayout(computeDescriptorLayout.descriptorSetLayout());
 }
 
 void SPHGPU2DSim::createComputeDescriptorSets(vkb::DescriptorSetLayout &layout) {

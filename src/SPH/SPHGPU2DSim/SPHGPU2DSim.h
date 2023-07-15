@@ -50,10 +50,6 @@ private:
             shaders[1] + ".spv"
     };
 
-    const std::string calculateForcesShaderPath = shaders[2] + ".spv";
-    const std::string integrateShaderPath = shaders[3] + ".spv";
-    const std::string calculateDensityPressureShaderPath = shaders[4] + ".spv";
-
     struct Particle {
         alignas(16) glm::vec3 position{};
         alignas(16) glm::vec3 velocity{};
@@ -129,9 +125,9 @@ private:
     std::unique_ptr<vkb::Buffer> computeUniformBuffer;
     ComputeUniformBufferObject cUbo{};
     vkb::ComputeShaderHandler computeHandler{device};
-    vkb::ComputeSystem calculateDensityPressureComputeSystem{device};
-    vkb::ComputeSystem calculateForcesComputeSystem{device};
-    vkb::ComputeSystem integrateComputeSystem{device};
+    vkb::ComputeSystem calculateForcesComputeSystem{device, shaders[2] + ".spv"};
+    vkb::ComputeSystem calculateDensityPressureComputeSystem{device, shaders[4] + ".spv"};
+    vkb::ComputeSystem integrateComputeSystem{device, shaders[3] + ".spv"};
     VkDescriptorSet computeDescriptorSet{};
 
     vkb::Camera camera{};

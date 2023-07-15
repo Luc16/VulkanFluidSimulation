@@ -14,20 +14,19 @@
 namespace vkb {
     class ComputeSystem {
     public:
-        explicit ComputeSystem(const Device &device);
+        ComputeSystem(const Device &device, std::string shaderPath);
         ~ComputeSystem();
         ComputeSystem(const ComputeSystem &) = delete;
         ComputeSystem &operator=(const ComputeSystem &) = delete;
 
         void bindAndDispatch(VkCommandBuffer commandBuffer, VkDescriptorSet *descriptorSet, uint32_t x, uint32_t y, uint32_t z);
 
-        void createPipelineLayout(VkDescriptorSetLayout computeSetLayout);
-
-        void createPipeline(const std::string& computeShaderPath);
+        void createPipelineWithLayout(VkDescriptorSetLayout computeSetLayout);
 
     private:
 
-        const Device &m_deviceRef;
+        const Device& m_deviceRef;
+        const std::string m_shaderPath;
 
         VkPipeline m_computePipeline{};
         VkPipelineLayout m_computePipelineLayout{};

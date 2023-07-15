@@ -3,10 +3,12 @@
 //
 
 #include "ComputeSystem.h"
+
+#include <utility>
 #include "SwapChain.h"
 
 namespace vkb {
-    ComputeSystem::ComputeSystem(const Device &device) : m_deviceRef(device) {}
+    ComputeSystem::ComputeSystem(const Device &device, std::string shaderPath) : m_deviceRef(device), m_shaderPath(std::move(shaderPath)) {}
 
 
     ComputeSystem::~ComputeSystem() {
@@ -22,9 +24,10 @@ namespace vkb {
 
     }
 
-    void ComputeSystem::createPipelineLayout(VkDescriptorSetLayout computeSetLayout) {
+    void ComputeSystem::createPipelineWithLayout(VkDescriptorSetLayout computeSetLayout) {
         if (m_layoutCreated) vkDestroyPipelineLayout(m_deviceRef.device(), m_computePipelineLayout, nullptr);
         m_layoutCreated = true;
+
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipelineLayoutInfo.setLayoutCount = 1;
@@ -33,14 +36,11 @@ namespace vkb {
         if (vkCreatePipelineLayout(m_deviceRef.device(), &pipelineLayoutInfo, nullptr, &m_computePipelineLayout) != VK_SUCCESS) {
             throw std::runtime_error("failed to create compute pipeline layout!");
         }
-    }
 
-    void ComputeSystem::createPipeline(const std::string& computeShaderPath) {
-        if (!m_layoutCreated) throw std::runtime_error("Need to create pipeline layout before creating pipeline!");
         if (m_pipelineCreated) vkDestroyPipeline(m_deviceRef.device(), m_computePipeline, nullptr);
         m_pipelineCreated = true;
 
-        auto computeShaderCode = GraphicsPipeline::readFile(computeShaderPath);
+        auto computeShaderCode = GraphicsPipeline::readFile(m_shaderPath);
 
         VkShaderModule computeShaderModule = GraphicsPipeline::createShaderModule(m_deviceRef, computeShaderCode);
 
@@ -60,7 +60,6 @@ namespace vkb {
             throw std::runtime_error("failed to create compute pipeline!");
         }
         vkDestroyShaderModule(m_deviceRef.device(), computeShaderModule, nullptr);
-
 
     }
 }

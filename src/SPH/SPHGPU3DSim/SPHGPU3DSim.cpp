@@ -42,20 +42,11 @@ void SPHGPU3DSim::onCreate() {
             .build();
 
     createComputeDescriptorSets(computeDescriptorLayout);
-    calculateForcesComputeSystem.createPipelineLayout(computeDescriptorLayout.descriptorSetLayout());
-    calculateForcesComputeSystem.createPipeline(calculateForcesShaderPath);
-
-    integrateComputeSystem.createPipelineLayout(computeDescriptorLayout.descriptorSetLayout());
-    integrateComputeSystem.createPipeline(integrateShaderPath);
-
-    calculateDensityPressureComputeSystem.createPipelineLayout(computeDescriptorLayout.descriptorSetLayout());
-    calculateDensityPressureComputeSystem.createPipeline(calculateDensityPressureShaderPath);
-
-//    insertParticlesComputeSystem.createPipelineLayout(computeDescriptorLayout.descriptorSetLayout());
-//    insertParticlesComputeSystem.createPipeline(insertParticlesShaderPath);
-//
-//    scanComputeSystem.createPipelineLayout(computeDescriptorLayout.descriptorSetLayout());
-//    scanComputeSystem.createPipeline(scanShaderPath);
+    calculateForcesComputeSystem.createPipelineWithLayout(computeDescriptorLayout.descriptorSetLayout());
+    integrateComputeSystem.createPipelineWithLayout(computeDescriptorLayout.descriptorSetLayout());
+    calculateDensityPressureComputeSystem.createPipelineWithLayout(computeDescriptorLayout.descriptorSetLayout());
+//    insertParticlesComputeSystem.createPipelineWithLayout(computeDescriptorLayout.descriptorSetLayout());
+//    scanComputeSystem.createPipelineWithLayout(computeDescriptorLayout.descriptorSetLayout());
 }
 
 void SPHGPU3DSim::createComputeDescriptorSets(vkb::DescriptorSetLayout &layout) {
@@ -308,16 +299,18 @@ void SPHGPU3DSim::showImGui(){
 }
 
 void SPHGPU3DSim::compileShaders() {
-    for (auto& shaderPath : shaders) {
+    for (auto& shaderName : shaders) {
         std::string command{"glslc "};
-        command += shaderPath;
+        command += SHADER_DIR;
+        command += shaderName;
         command += " --target-env=vulkan1.1 ";
         command += " -o ";
-        command += shaderPath;
+        command += COMPILED_SHADER_DIR;
+        command += shaderName;
         command += ".spv";
         int status = system(command.c_str());
         if (status != 0) {
-            throw std::runtime_error("Error compiling shader " + shaderPath);
+            throw std::runtime_error("Error compiling shader " + shaderName);
         }
     }
 }

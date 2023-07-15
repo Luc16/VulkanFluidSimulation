@@ -34,31 +34,32 @@ public:
 
 private:
     const std::string SHADER_DIR = std::string("../src/SPH/SPHGPU3DSim/Shaders/");
+    const std::string COMPILED_SHADER_DIR = std::string("../src/SPH/SPHGPU3DSim/Shaders/bin/");
 
 
     uint32_t INSTANCE_COUNT = 1024;
 
     const std::vector<std::string> shaders = {
-            SHADER_DIR + "default.vert",
-            SHADER_DIR + "default.frag",
-            SHADER_DIR + "point_particle.vert",
-            SHADER_DIR + "point_particle.frag",
-            SHADER_DIR + "calculate_forces.comp",
-            SHADER_DIR + "integrate.comp",
-            SHADER_DIR + "calculate_density_pressure.comp",
-            SHADER_DIR + "insert_particles.comp",
-            SHADER_DIR + "scan.comp",
+            "default.vert",
+            "default.frag",
+            "point_particle.vert",
+            "point_particle.frag",
+            "calculate_forces.comp",
+            "integrate.comp",
+            "calculate_density_pressure.comp",
+            "insert_particles.comp",
+            "scan.comp",
     };
 
     const std::string planeModelPath = "../Models/quadXZ1.obj";
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
-            shaders[0] + ".spv",
-            shaders[1] + ".spv"
+            COMPILED_SHADER_DIR + shaders[0] + ".spv",
+            COMPILED_SHADER_DIR + shaders[1] + ".spv"
     };
 
     const vkb::RenderSystem::ShaderPaths particleShaderPaths = vkb::RenderSystem::ShaderPaths {
-            shaders[2] + ".spv",
-            shaders[3] + ".spv"
+            COMPILED_SHADER_DIR + shaders[2] + ".spv",
+            COMPILED_SHADER_DIR + shaders[3] + ".spv"
     };
 
     struct Particle {
@@ -122,20 +123,11 @@ private:
     vkb::ComputeShaderHandler computeHandler{device};
     VkDescriptorSet computeDescriptorSet = nullptr;
 
-    const std::string calculateForcesShaderPath = shaders[4] + ".spv";
-    vkb::ComputeSystem calculateForcesComputeSystem{device};
-
-    const std::string integrateShaderPath = shaders[5] + ".spv";
-    vkb::ComputeSystem integrateComputeSystem{device};
-
-    const std::string calculateDensityPressureShaderPath = shaders[6] + ".spv";
-    vkb::ComputeSystem calculateDensityPressureComputeSystem{device};
-
-    const std::string insertParticlesShaderPath = shaders[7] + ".spv";
-    vkb::ComputeSystem insertParticlesComputeSystem{device};
-
-    const std::string scanShaderPath = shaders[8] + ".spv";
-    vkb::ComputeSystem scanComputeSystem{device};
+    vkb::ComputeSystem calculateForcesComputeSystem{device, COMPILED_SHADER_DIR + shaders[4] + ".spv"};
+    vkb::ComputeSystem integrateComputeSystem{device, COMPILED_SHADER_DIR + shaders[5] + ".spv"};
+    vkb::ComputeSystem calculateDensityPressureComputeSystem{device, COMPILED_SHADER_DIR + shaders[6] + ".spv"};
+    vkb::ComputeSystem insertParticlesComputeSystem{device, COMPILED_SHADER_DIR + shaders[7] + ".spv"};
+    vkb::ComputeSystem scanComputeSystem{device, COMPILED_SHADER_DIR + shaders[8] + ".spv"};
 
     vkb::Camera camera{};
     vkb::CameraMovementController cameraController{};

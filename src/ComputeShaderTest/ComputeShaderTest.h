@@ -52,11 +52,6 @@ private:
             shaders[1] + ".spv"
     };
 
-    const std::string calculateForcesShaderPath = shaders[2] + ".spv";
-    const std::string moveParticlesShaderPath = shaders[3] + ".spv";
-    const std::string scanShaderPath = shaders[4] + ".spv";
-    const std::string scanAddShaderPath = shaders[5] + ".spv";
-
     struct Particle {
         glm::vec2 position, velocity;
         glm::vec4 color;
@@ -111,12 +106,12 @@ private:
     std::vector<VkDescriptorSet> defaultDescriptorSets;
 
     vkb::ComputeShaderHandler computeHandler{device};
-    vkb::ComputeSystem calculateForcesComputeSystem{device};
-    vkb::ComputeSystem moveParticlesComputeSystem{device};
+    vkb::ComputeSystem calculateForcesComputeSystem{device, shaders[2] + ".spv"};
+    vkb::ComputeSystem moveParticlesComputeSystem{device, shaders[3] + ".spv"};
     std::vector<VkDescriptorSet> computeDescriptorSets;
 
-    vkb::ComputeSystem scanComputeSystem{device};
-    vkb::ComputeSystem scanAddComputeSystem{device};
+    vkb::ComputeSystem scanComputeSystem{device, shaders[4] + ".spv"};
+    vkb::ComputeSystem scanAddComputeSystem{device, shaders[5] + ".spv"};
 
     vkb::Camera camera{};
 
