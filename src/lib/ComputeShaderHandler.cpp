@@ -78,7 +78,7 @@ namespace vkb {
     }
 
     void ComputeShaderHandler::computeBarrier(VkCommandBuffer commandBuffer, const std::vector<std::unique_ptr<Buffer>>& buffers) {
-        std::array<VkBufferMemoryBarrier, vkb::SwapChain::MAX_FRAMES_IN_FLIGHT> bufferMemoryBarriers{};
+        std::vector<VkBufferMemoryBarrier> bufferMemoryBarriers{buffers.size()};
         for (uint32_t i = 0; i < buffers.size(); i++){
             bufferMemoryBarriers[i].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
             bufferMemoryBarriers[i].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -119,7 +119,7 @@ namespace vkb {
     }
 
     void ComputeShaderHandler::computeBarriers(VkCommandBuffer commandBuffer, const std::vector<std::pair<VkBuffer, VkDeviceSize>>& buffers) {
-        std::array<VkBufferMemoryBarrier, vkb::SwapChain::MAX_FRAMES_IN_FLIGHT> bufferMemoryBarriers{};
+        std::vector<VkBufferMemoryBarrier> bufferMemoryBarriers{buffers.size()};
         for (uint32_t i = 0; i < buffers.size(); i++){
             bufferMemoryBarriers[i].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
             bufferMemoryBarriers[i].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;

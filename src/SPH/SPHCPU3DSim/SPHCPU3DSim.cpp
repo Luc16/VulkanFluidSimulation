@@ -20,7 +20,7 @@ void SPHCPU3DSim::onCreate() {
 
     {
         particleSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
-        particleSystem.createPipeline(renderer.renderPass(), instanceShaderPaths, [this](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
+        particleSystem.createPipeline(renderer.renderPass(), particleShaderPaths, [this](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
             info.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
             info.bindingDescription.clear();
             info.bindingDescription.push_back({0, sizeof(Particle), VK_VERTEX_INPUT_RATE_VERTEX});
@@ -166,7 +166,7 @@ void SPHCPU3DSim::showImGui(){
         int temp = (int) INSTANCE_COUNT;
         ImGui::SliderInt("Num Particles", &temp, 16, 100000);
         if (temp != INSTANCE_COUNT) {
-            if (BOUNDARY_SIZE < particleCubeSize) BOUNDARY_SIZE = particleCubeSize;
+            if (BOUNDARY_SIZE < particleCubeSize + 2*EPS) BOUNDARY_SIZE = particleCubeSize + 2*EPS;
             particlesPerThread = INSTANCE_COUNT/numThreads;
         }
         INSTANCE_COUNT = (uint32_t) temp;
@@ -175,13 +175,14 @@ void SPHCPU3DSim::showImGui(){
         float newBoundSize = BOUNDARY_SIZE;
         ImGui::DragFloat("Boundary Size", &newBoundSize, 1, particleCubeSize, 1000);
         if (newBoundSize != BOUNDARY_SIZE) {
-            if (newBoundSize >= particleCubeSize) BOUNDARY_SIZE = newBoundSize;
+            if (newBoundSize >= particleCubeSize + 2*EPS) BOUNDARY_SIZE = newBoundSize;
             if (initialPos.x > BOUNDARY_SIZE - particleCubeSize + EPS) initialPos.x = BOUNDARY_SIZE - particleCubeSize  + EPS;
             if (initialPos.z > BOUNDARY_SIZE - particleCubeSize  + EPS) initialPos.z = BOUNDARY_SIZE - particleCubeSize  + EPS;
+            if (initialPos.y > BOUNDARY_SIZE - particleCubeSize + EPS) initialPos.y = BOUNDARY_SIZE - particleCubeSize  + EPS;
         }
 
         ImGui::SliderFloat("Initial Pos X", &initialPos.x, EPS, BOUNDARY_SIZE - particleCubeSize);
-        ImGui::SliderFloat("Initial Pos Y", &initialPos.y, EPS, BOUNDARY_SIZE - particleCubeSize);
+        ImGui::SliderFloat("Initial Pos Y", &initialPos.y, EPS, BOUNDARY_SIZE - particleCubeSize - 2*EPS);
         ImGui::SliderFloat("Initial Pos Z", &initialPos.z, EPS, BOUNDARY_SIZE - particleCubeSize);
 
         if (ImGui::Button("Launch and close")){
@@ -275,6 +276,9 @@ void SPHCPU3DSim::updateParticles(float deltaTime){
             if (particle.position.y - EPS < plane.m_translation.y) {
                 particle.velocity.y *= BOUND_DAMPING;
                 particle.position.y = plane.m_translation.y + EPS;
+            } else if (particle.position.y + EPS > BOUNDARY_SIZE) {
+                particle.velocity.y *= BOUND_DAMPING;
+                particle.position.y = BOUNDARY_SIZE - EPS;
             }
 
         }

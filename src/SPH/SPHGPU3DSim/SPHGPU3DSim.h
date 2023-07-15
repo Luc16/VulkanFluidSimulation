@@ -41,8 +41,8 @@ private:
     const std::vector<std::string> shaders = {
             SHADER_DIR + "default.vert",
             SHADER_DIR + "default.frag",
-            SHADER_DIR + "instancing.vert",
-            SHADER_DIR + "instancing.frag",
+            SHADER_DIR + "point_particle.vert",
+            SHADER_DIR + "point_particle.frag",
             SHADER_DIR + "calculate_forces.comp",
             SHADER_DIR + "integrate.comp",
             SHADER_DIR + "calculate_density_pressure.comp",
@@ -56,8 +56,7 @@ private:
             shaders[1] + ".spv"
     };
 
-    const std::string sphereModelPath = "../Models/lowsphere.obj";
-    const vkb::RenderSystem::ShaderPaths instanceShaderPaths = vkb::RenderSystem::ShaderPaths {
+    const vkb::RenderSystem::ShaderPaths particleShaderPaths = vkb::RenderSystem::ShaderPaths {
             shaders[2] + ".spv",
             shaders[3] + ".spv"
     };
@@ -71,9 +70,10 @@ private:
     };
 
     struct UniformBufferObject {
-        glm::mat4 view;
-        glm::mat4 proj;
-        alignas(16) glm::vec3 lightDirection = glm::normalize(glm::vec3(1.0f, 1.0f, 0.0f));
+        alignas(16) glm::mat4 viewProj;
+        alignas(16) glm::vec3 cameraPos;
+        alignas(16) glm::vec3 lightDir = glm::vec3(1.0f, -1.0f, 0.0f);
+        float radius;
     };
 
     struct ComputeUniformBufferObject {
@@ -109,18 +109,12 @@ private:
     UniformBufferObject gUbo{};
     vkb::RenderSystem defaultSystem{device};
     std::vector<VkDescriptorSet> defaultDescriptorSets;
-    vkb::RenderSystem instanceSystem{device};
+    vkb::RenderSystem particleSystem{device};
 
 
-    vkb::InstancedObjects<Particle> instancedSpheres {
-        device,0,
-        vkb::Model::createModelFromFile(device, sphereModelPath),
-        nullptr, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-    };
-
-    std::vector<int> grid{};
-    std::unique_ptr<vkb::Buffer> gridBuffer;
-    std::unique_ptr<vkb::Buffer> gridOutBuffer;
+    std::vector<Particle> particles{};
+    std::vector<Particle> sortedParticles{};
+    std::unique_ptr<vkb::Buffer> particleBuffer;
 
     std::vector<std::pair<VkBuffer, VkDeviceSize>> barrierBuffers;
     std::unique_ptr<vkb::Buffer> computeUniformBuffer;

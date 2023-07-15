@@ -64,8 +64,7 @@ public:
             DIR + "Shaders/default.frag.spv"
     };
 
-    const std::string sphereModelPath = "../Models/lowsphere.obj";
-    const vkb::RenderSystem::ShaderPaths instanceShaderPaths = vkb::RenderSystem::ShaderPaths {
+    const vkb::RenderSystem::ShaderPaths particleShaderPaths = vkb::RenderSystem::ShaderPaths {
             DIR + "Shaders/point_particle.vert.spv",
             DIR + "Shaders/point_particle.frag.spv",
     };

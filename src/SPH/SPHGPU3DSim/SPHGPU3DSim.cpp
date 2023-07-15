@@ -25,24 +25,20 @@ void SPHGPU3DSim::onCreate() {
     }
 
     {
-        instanceSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
-        instanceSystem.createPipeline(renderer.renderPass(), instanceShaderPaths,
-                                      [this](vkb::GraphicsPipeline::PipelineConfigInfo &info) {
-                                          info.bindingDescription.push_back(instancedSpheres.getBindingDescription());
-                                          info.attributeDescription.push_back(
-                                                  {4, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Particle, position)});
-                                          info.attributeDescription.push_back(
-                                                  {5, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Particle, color)});
-                                          info.attributeDescription.push_back(
-                                                  {6, 1, VK_FORMAT_R32_SFLOAT, offsetof(Particle, scale)});
-                                      });
+        particleSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
+        particleSystem.createPipeline(renderer.renderPass(), particleShaderPaths, [this](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
+            info.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+            info.bindingDescription.clear();
+            info.bindingDescription.push_back({0, sizeof(Particle), VK_VERTEX_INPUT_RATE_VERTEX});
+            info.attributeDescription.clear();
+            info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Particle, position)});
+            info.attributeDescription.push_back({1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Particle, color)});
+        });
     }
 
     auto computeDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
             .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
             .build();
 
     createComputeDescriptorSets(computeDescriptorLayout);
@@ -55,12 +51,11 @@ void SPHGPU3DSim::onCreate() {
     calculateDensityPressureComputeSystem.createPipelineLayout(computeDescriptorLayout.descriptorSetLayout());
     calculateDensityPressureComputeSystem.createPipeline(calculateDensityPressureShaderPath);
 
-    insertParticlesComputeSystem.createPipelineLayout(computeDescriptorLayout.descriptorSetLayout());
-    insertParticlesComputeSystem.createPipeline(insertParticlesShaderPath);
-
-    scanComputeSystem.createPipelineLayout(computeDescriptorLayout.descriptorSetLayout());
-    scanComputeSystem.createPipeline(scanShaderPath);
-
+//    insertParticlesComputeSystem.createPipelineLayout(computeDescriptorLayout.descriptorSetLayout());
+//    insertParticlesComputeSystem.createPipeline(insertParticlesShaderPath);
+//
+//    scanComputeSystem.createPipelineLayout(computeDescriptorLayout.descriptorSetLayout());
+//    scanComputeSystem.createPipeline(scanShaderPath);
 }
 
 void SPHGPU3DSim::createComputeDescriptorSets(vkb::DescriptorSetLayout &layout) {
@@ -80,14 +75,8 @@ void SPHGPU3DSim::createComputeDescriptorSets(vkb::DescriptorSetLayout &layout) 
     auto uniformBufferInfo = computeUniformBuffer->descriptorInfo();
     writer.writeBuffer(0, &uniformBufferInfo);
 
-    auto particleBufferInfo = instancedSpheres.descriptorInfo();
+    auto particleBufferInfo = particleBuffer->descriptorInfo();
     writer.writeBuffer(1, &particleBufferInfo);
-
-    auto gridBufferInfo = gridBuffer->descriptorInfo();
-    writer.writeBuffer(2, &gridBufferInfo);
-
-    auto gridOutBufferInfo = gridOutBuffer->descriptorInfo();
-    writer.writeBuffer(3, &gridOutBufferInfo);
 
     writer.build(computeDescriptorSet, false);
 
@@ -95,15 +84,15 @@ void SPHGPU3DSim::createComputeDescriptorSets(vkb::DescriptorSetLayout &layout) 
 }
 
 void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
-    gUbo.view = camera.getView();
-    gUbo.proj = camera.getProjection();
+    gUbo.viewProj = camera.getProjection()*camera.getView();
+    gUbo.cameraPos = camera.m_translation;
+    gUbo.radius = cUbo.H;
     cUbo.numParticles = INSTANCE_COUNT;
     cUbo.GRID_SIZE = uint32_t((cUbo.BOUNDARY_SIZE/cUbo.H)*(cUbo.BOUNDARY_SIZE/cUbo.H)*(cUbo.BOUNDARY_SIZE/cUbo.H));
 
     vkDeviceWaitIdle(device.device());
 
-    instancedSpheres.resizeBuffer(INSTANCE_COUNT);
-    grid.resize(INSTANCE_COUNT);
+    particles.resize(INSTANCE_COUNT);
 
     plane.setScale(cUbo.BOUNDARY_SIZE);
 
@@ -111,12 +100,12 @@ void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     auto spherePerSide = (uint32_t) std::cbrt(INSTANCE_COUNT);
     float step = cUbo.H + 0.01f;
 
-    for (uint32_t i = 0; i < instancedSpheres.size(); i++) {
-        auto& sphere = instancedSpheres[i];
+    for (uint32_t i = 0; i < particles.size(); i++) {
+        auto& sphere = particles[i];
         sphere.color = glm::vec3(0.2f, 0.6f, 1.0f);
         sphere.scale = 0.8f*cUbo.H;
         sphere.position = accPos;
-        if (activateRandomOffsets) sphere.position += glm::vec3(randomFloat(-H/5, H/5), randomFloat(-H/5, H/5), randomFloat(-H/5, H/5));
+        if (activateRandomOffsets) sphere.position += glm::vec3(randomFloat(-cUbo.H/5, cUbo.H/5), randomFloat(-cUbo.H/5, cUbo.H/5), randomFloat(-cUbo.H/5, cUbo.H/5));
         sphere.velocity = glm::vec3(0.0f);
         sphere.force = glm::vec3(0.0f);
         accPos.x += step;
@@ -130,46 +119,22 @@ void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
             }
         }
     }
-    instancedSpheres.updateBuffer();
 
-    for (int i = 0; i < 10; i++){
-        grid[i] = i % 5;
-    }
-    grid[0] = 4;
-
-    std::cout << "Grid: ";
-    for (int i = 0; i < 16; i++){
-        std::cout << grid[i] << ", ";
-    }
-    std::cout << "\n";
-
-    VkDeviceSize bufferSize = sizeof(uint32_t) * cUbo.GRID_SIZE;
-    vkb::Buffer stagingBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    stagingBuffer.singleWrite(grid.data());
-    gridBuffer = std::make_unique<vkb::Buffer>(device, bufferSize,
-                                               VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                                               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    gridOutBuffer = std::make_unique<vkb::Buffer>(device, bufferSize,
-                                                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-    device.copyBuffer(stagingBuffer.getBuffer(), gridBuffer->getBuffer(), bufferSize);
-    device.copyBuffer(stagingBuffer.getBuffer(), gridOutBuffer->getBuffer(), bufferSize);
+    particleBuffer = std::make_unique<vkb::Buffer>(device, particles.size() * sizeof(Particle),
+                                                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    vkb::Buffer::writeVectorToBuffer(device, particleBuffer, particles);
 
     auto computeDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
             .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
             .build();
 
     if (computeDescriptorSet) globalDescriptorPool->freeDescriptors({computeDescriptorSet});
     createComputeDescriptorSets(computeDescriptorLayout);
 
     barrierBuffers = {
-            instancedSpheres.getBarrierData(),
-            {gridBuffer->getBuffer(), gridBuffer->getSize()}
+            {particleBuffer->getBuffer(), particleBuffer->getSize()}
     };
 
 }
@@ -233,8 +198,11 @@ void SPHGPU3DSim::renderObjects() {
         defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
         plane.render(defaultSystem, commandBuffer);
 
-        instanceSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
-        instancedSpheres.render(instanceSystem, commandBuffer);
+        particleSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
+        VkBuffer vb = particleBuffer->getBuffer();
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
+        vkCmdDraw(commandBuffer, INSTANCE_COUNT, 1, 0, 0);
 
     });
 }
@@ -243,11 +211,11 @@ void SPHGPU3DSim::updateSimulation() {
     computeHandler.runCompute(renderer.currentFrame(), [this](VkCommandBuffer computeCommandBuffer){
         uint32_t blockSize = INSTANCE_COUNT/256 + (1 - (INSTANCE_COUNT%256 == 0));
 
-        insertParticlesComputeSystem.bindAndDispatch(computeCommandBuffer,
-                                                              &computeDescriptorSet,
-                                                              blockSize, 1, 1);
+//        insertParticlesComputeSystem.bindAndDispatch(computeCommandBuffer,
+//                                                              &computeDescriptorSet,
+//                                                              blockSize, 1, 1);
 
-        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, barrierBuffers);
+//        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, barrierBuffers);
 
         calculateDensityPressureComputeSystem.bindAndDispatch(computeCommandBuffer,
                                                               &computeDescriptorSet,
@@ -259,8 +227,6 @@ void SPHGPU3DSim::updateSimulation() {
                                                      &computeDescriptorSet,
                                                      blockSize, 1, 1);
 
-
-        // Add memory barrier to ensure that the computer shader has finished writing to the buffer
         vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, barrierBuffers);
 
         integrateComputeSystem.bindAndDispatch(computeCommandBuffer,
@@ -272,8 +238,8 @@ void SPHGPU3DSim::updateSimulation() {
 
 void SPHGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){
     camera.setPerspectiveProjection(glm::radians(50.f), renderer.getSwapChainAspectRatio(), 0.1f, 1000.f);
-    gUbo.view = camera.getView();
-    gUbo.proj = camera.getProjection();
+    gUbo.viewProj = camera.getProjection()*camera.getView();
+    gUbo.cameraPos = camera.m_translation;
     graphicsUniformBuffers[frameIndex]->write(&gUbo);
 
     cUbo.deltaTime = deltaTime;
@@ -315,7 +281,7 @@ void SPHGPU3DSim::showImGui(){
         int temp = (int) INSTANCE_COUNT;
         ImGui::SliderInt("Num Particles", &temp, 16, 100000);
         if (temp != INSTANCE_COUNT) {
-            if (cUbo.BOUNDARY_SIZE < particleCubeSize) cUbo.BOUNDARY_SIZE = particleCubeSize;
+            if (cUbo.BOUNDARY_SIZE < particleCubeSize + 2*cUbo.EPS) cUbo.BOUNDARY_SIZE = particleCubeSize + 2*cUbo.EPS;
         }
         INSTANCE_COUNT = (uint32_t) temp;
 
@@ -323,13 +289,13 @@ void SPHGPU3DSim::showImGui(){
         float newBoundSize = cUbo.BOUNDARY_SIZE;
         ImGui::DragFloat("Boundary Size", &newBoundSize, 1, particleCubeSize, 1000);
         if (newBoundSize != cUbo.BOUNDARY_SIZE) {
-            if (newBoundSize >= particleCubeSize) cUbo.BOUNDARY_SIZE = newBoundSize;
+            if (newBoundSize >= particleCubeSize + 2*cUbo.EPS) cUbo.BOUNDARY_SIZE = newBoundSize;
             if (initialPos.x > cUbo.BOUNDARY_SIZE - particleCubeSize + cUbo.EPS) initialPos.x = cUbo.BOUNDARY_SIZE - particleCubeSize  + cUbo.EPS;
             if (initialPos.z > cUbo.BOUNDARY_SIZE - particleCubeSize  + cUbo.EPS) initialPos.z = cUbo.BOUNDARY_SIZE - particleCubeSize  + cUbo.EPS;
         }
 
         ImGui::SliderFloat("Initial Pos X", &initialPos.x, cUbo.EPS, cUbo.BOUNDARY_SIZE - particleCubeSize);
-        ImGui::SliderFloat("Initial Pos Y", &initialPos.y, cUbo.EPS, cUbo.BOUNDARY_SIZE - particleCubeSize);
+        ImGui::SliderFloat("Initial Pos Y", &initialPos.y, cUbo.EPS, cUbo.BOUNDARY_SIZE - particleCubeSize - 2*cUbo.EPS);
         ImGui::SliderFloat("Initial Pos Z", &initialPos.z, cUbo.EPS, cUbo.BOUNDARY_SIZE - particleCubeSize);
 
         if (ImGui::Button("Launch and close")){
