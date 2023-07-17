@@ -7,7 +7,7 @@ A maior parte do códio base de Vulkan pode ser encontrado no diretório [lib](s
 
 ## Simulações Relevantes
 
-### [Simulações com Grade](src/grid)
+### [Simulações com Grade](src/m_gridBuffer)
 
 Essas são simulações de fluidos utilizando grades para representar os atributos do fluido, 
 como densidade e pressão.

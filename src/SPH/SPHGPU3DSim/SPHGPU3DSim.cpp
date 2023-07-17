@@ -199,6 +199,15 @@ void SPHGPU3DSim::renderObjects() {
 }
 
 void SPHGPU3DSim::updateSimulation() {
+    /* Compute Pipeline:
+     *  1. reset grid
+     *  2. insert particle in grid (atomic_add on the grid pos)
+     *  3. prefix sum
+     *  4. sort particles based on grid position
+     *  5. perform SPH using the nn search with grid
+    */
+
+
     computeHandler.runCompute(renderer.currentFrame(), [this](VkCommandBuffer computeCommandBuffer){
         uint32_t blockSize = INSTANCE_COUNT/256 + (1 - (INSTANCE_COUNT%256 == 0));
 

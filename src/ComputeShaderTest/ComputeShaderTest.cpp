@@ -139,27 +139,19 @@ VkDescriptorSet ComputeShaderTest::createSingleDescriptorSet(vkb::DescriptorSetL
 }
 
 void ComputeShaderTest::testComputeShader() {
-    auto scanDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
-            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .build();
-
-    scanComputeSystem.createPipelineWithLayout(scanDescriptorLayout.descriptorSetLayout());
-
-    auto scanAddDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
-            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .build();
-
-    scanAddComputeSystem.createPipelineWithLayout(scanAddDescriptorLayout.descriptorSetLayout());
-
-
     uint32_t workGroupSize = 256;
     struct UboData {
-        uint32_t size = 1000000;
+        uint32_t size = 10000000;
     };
+
+    auto descriptorLayout = vkb::DescriptorSetLayout::Builder(device)
+            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .build();
+
+    scanComputeSystem.createPipelineWithLayout(descriptorLayout.descriptorSetLayout());
+    scanAddComputeSystem.createPipelineWithLayout(descriptorLayout.descriptorSetLayout());
 
     UboData ubo{};
     uint32_t numShaderCalls = ubo.size/workGroupSize + 1 - (ubo.size%workGroupSize == 0);
@@ -206,7 +198,7 @@ void ComputeShaderTest::testComputeShader() {
     }
 
     std::vector<VkDescriptorSet> scanSets = {
-            createSingleDescriptorSet(scanDescriptorLayout, {
+            createSingleDescriptorSet(descriptorLayout, {
                     uBuffer.descriptorInfo(),
                     inBuffer.descriptorInfo(),
                     partialSums[0]->descriptorInfo()
@@ -216,7 +208,7 @@ void ComputeShaderTest::testComputeShader() {
     std::vector<std::vector<std::pair<VkBuffer, VkDeviceSize>>> barrierDatas{partialSums.size()};
     for (uint32_t i = 0; i < partialSums.size(); i++){
         if (i > 0) {
-            scanSets.emplace_back(createSingleDescriptorSet(scanDescriptorLayout, {
+            scanSets.emplace_back(createSingleDescriptorSet(descriptorLayout, {
                     uBuffer.descriptorInfo(),
                     partialSums[i - 1]->descriptorInfo(),
                     partialSums[i]->descriptorInfo()
@@ -279,7 +271,7 @@ void ComputeShaderTest::testComputeShader() {
         std::cout << "All good :)\n";
     }
 
-    uBuffer.unmap();
+//    uBuffer.unmap();
     endProgram();
 }
 

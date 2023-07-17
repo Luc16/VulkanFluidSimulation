@@ -32,7 +32,7 @@ add_library( VkFluidSim
         src/grid/Grid2DSim/Grid2D.cpp src/grid/Grid2DSim/Grid2D.h
         src/lib/ComputeSystem.cpp src/lib/ComputeSystem.h src/lib/ComputeShaderHandler.cpp src/lib/ComputeShaderHandler.h
         src/lib/graphicsDataStructures/Matrices.h src/lib/graphicsDataStructures/SpatialHash.h src/lib/graphicsDataStructures/SpatialHash.cpp
-        src/lib/graphicsDataStructures/SpatialGrid.h src/lib/graphicsDataStructures/SpatialGrid.cpp)
+        src/lib/graphicsDataStructures/SpatialGrid.h src/lib/graphicsDataStructures/SpatialGrid.cpp src/lib/graphicsDataStructures/GpuSpatialGridHandler.cpp src/lib/graphicsDataStructures/GpuSpatialGridHandler.h)
 
 set( GENERAL_APPS
         "Instancing"

@@ -7,7 +7,6 @@
 
 #include <vector>
 #include "../utils.h"
-#include <forward_list>
 
 namespace vkb {
 

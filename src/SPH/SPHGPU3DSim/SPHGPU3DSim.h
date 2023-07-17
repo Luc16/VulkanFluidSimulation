@@ -114,7 +114,6 @@ private:
 
 
     std::vector<Particle> particles{};
-    std::vector<Particle> sortedParticles{};
     std::unique_ptr<vkb::Buffer> particleBuffer;
 
     std::vector<std::pair<VkBuffer, VkDeviceSize>> barrierBuffers;
