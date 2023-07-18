@@ -164,7 +164,7 @@ void SPHCPU3DSim::showImGui(){
         float particleCubeSize = std::cbrt(float(INSTANCE_COUNT))*H + EPS;
 
         int temp = (int) INSTANCE_COUNT;
-        ImGui::SliderInt("Num Particles", &temp, 16, 100000);
+        ImGui::SliderInt("Num Particles", &temp, 16, 500000);
         if (temp != INSTANCE_COUNT) {
             if (BOUNDARY_SIZE < particleCubeSize + 2*EPS) BOUNDARY_SIZE = particleCubeSize + 2*EPS;
             particlesPerThread = INSTANCE_COUNT/numThreads;

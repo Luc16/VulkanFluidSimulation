@@ -38,7 +38,7 @@ private:
     const std::string COMPILED_SHADER_DIR = std::string("../src/SPH/SPHGPU3DSim/Shaders/bin/");
 
 
-    uint32_t INSTANCE_COUNT = 1024;
+    uint32_t INSTANCE_COUNT = 27000;
 
     const std::vector<std::string> shaders = {
             "default.vert",

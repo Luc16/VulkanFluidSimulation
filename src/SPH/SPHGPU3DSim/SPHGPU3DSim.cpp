@@ -308,7 +308,7 @@ void SPHGPU3DSim::showImGui(){
         float particleCubeSize = std::cbrt(float(INSTANCE_COUNT))*cUbo.H + cUbo.EPS;
 
         int temp = (int) INSTANCE_COUNT;
-        ImGui::SliderInt("Num Particles", &temp, 16, 100000);
+        ImGui::SliderInt("Num Particles", &temp, 16, 500000);
         if (temp != INSTANCE_COUNT) {
             if (cUbo.BOUNDARY_SIZE < particleCubeSize + 2*cUbo.EPS) cUbo.BOUNDARY_SIZE = particleCubeSize + 2*cUbo.EPS;
         }
