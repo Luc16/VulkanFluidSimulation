@@ -16,6 +16,16 @@ namespace vkb {
 
     class GpuSpatialGridHandler {
     public:
+        struct GridUniformBufferObject {
+            uint32_t gridSize;
+        };
+
+        struct GridParticleUniformBufferObject {
+            uint32_t numParticles;
+            float spacing;
+            float boundSize;
+        };
+
         GpuSpatialGridHandler(
                 const Device& device,
                 uint32_t workGroupSize,
@@ -28,7 +38,9 @@ namespace vkb {
         GpuSpatialGridHandler &operator=(const GpuSpatialGridHandler &) = delete;
         ~GpuSpatialGridHandler() = default;
 
-        void createDescriptorsAndBuffers(const std::unique_ptr<vkb::DescriptorPool>& globalPool, uint32_t gridSize, uint32_t numParticles,
+        void createSystems();
+
+        void createDescriptorsAndBuffers(const std::unique_ptr<vkb::DescriptorPool>& globalPool, uint32_t gridSize, GridParticleUniformBufferObject uboData,
                                          const std::unique_ptr<vkb::Buffer>& particleBuffer,
                                          const std::unique_ptr<vkb::Buffer>& sortedParticleBuffer);
 
@@ -38,24 +50,26 @@ namespace vkb {
         void countingSort(VkCommandBuffer commandBuffer);
         void gridBarrier(VkCommandBuffer commandBuffer);
 
+        [[nodiscard]] VkDescriptorBufferInfo gridDescriptorInfo(
+                VkDeviceSize size = VK_WHOLE_SIZE,
+                VkDeviceSize offset = 0) const {return m_gridBuffer->descriptorInfo(size, offset); }
+
+
 
     private:
 
         VkDescriptorSet createSingleDescriptorSet(const std::unique_ptr<vkb::DescriptorPool>& globalPool, vkb::DescriptorSetLayout &layout, std::vector<VkDescriptorBufferInfo> bufferInfos);
         void createScanData(const std::unique_ptr<vkb::DescriptorPool>& globalPool);
 
-        struct UniformBufferObject {
-            uint32_t gridSize;
-            uint32_t numParticles;
-        };
-
         const Device& m_deviceRef;
         uint32_t m_workGroupSize;
-        UniformBufferObject m_ubo{0, 0};
+        GridUniformBufferObject m_gridUbo{0};
+        GridParticleUniformBufferObject m_gridParticleUbo{};
 
         std::vector<std::unique_ptr<Buffer>> m_partialSums;
         std::unique_ptr<Buffer> m_gridBuffer;
-        std::unique_ptr<Buffer> m_uniformBuffer;
+        std::unique_ptr<Buffer> m_gridUniformBuffer;
+        std::unique_ptr<Buffer> m_gridParticleUniformBuffer;
 
 
         vkb::DescriptorSetLayout m_resetDescriptorLayout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
@@ -79,6 +93,7 @@ namespace vkb {
         std::vector<VkDescriptorSet> m_scanDescriptorSets{};
         std::vector<std::vector<std::pair<VkBuffer, VkDeviceSize>>> m_scanBarrierDatas{};
         VkDescriptorSet m_sortDescriptorSet{};
+        bool m_created = false;
 
         vkb::ComputeSystem m_resetGridComputeSystem;
         vkb::ComputeSystem m_insertParticlesComputeSystem;

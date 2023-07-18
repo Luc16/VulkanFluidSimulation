@@ -11,6 +11,7 @@ const std::string APP_NAME = "Vulkan GPU SPH 3D fluid simulation";
 
 int main() {
     SPHGPU3DSim app{WIDTH, HEIGHT, APP_NAME, vkb::Device::INTEL};
+
     app.compileShaders();
 
     try {

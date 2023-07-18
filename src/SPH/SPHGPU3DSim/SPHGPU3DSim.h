@@ -23,6 +23,7 @@
 #include "../../lib/InstancedObjects.h"
 #include "../../lib/ComputeSystem.h"
 #include "../../lib/ComputeShaderHandler.h"
+#include "../../lib/graphicsDataStructures/GpuSpatialGridHandler.h"
 
 
 class SPHGPU3DSim: public vkb::VulkanApp {
@@ -47,8 +48,11 @@ private:
             "calculate_forces.comp",
             "integrate.comp",
             "calculate_density_pressure.comp",
+            "reset_grid.comp",
             "insert_particles.comp",
             "scan.comp",
+            "scan_add.comp",
+            "sort_particles.comp",
     };
 
     const std::string planeModelPath = "../Models/quadXZ1.obj";
@@ -115,8 +119,8 @@ private:
 
     std::vector<Particle> particles{};
     std::unique_ptr<vkb::Buffer> particleBuffer;
+    std::unique_ptr<vkb::Buffer> sortedParticleBuffer;
 
-    std::vector<std::pair<VkBuffer, VkDeviceSize>> barrierBuffers;
     std::unique_ptr<vkb::Buffer> computeUniformBuffer;
     ComputeUniformBufferObject cUbo{};
     vkb::ComputeShaderHandler computeHandler{device};
@@ -125,8 +129,15 @@ private:
     vkb::ComputeSystem calculateForcesComputeSystem{device, COMPILED_SHADER_DIR + shaders[4] + ".spv"};
     vkb::ComputeSystem integrateComputeSystem{device, COMPILED_SHADER_DIR + shaders[5] + ".spv"};
     vkb::ComputeSystem calculateDensityPressureComputeSystem{device, COMPILED_SHADER_DIR + shaders[6] + ".spv"};
-    vkb::ComputeSystem insertParticlesComputeSystem{device, COMPILED_SHADER_DIR + shaders[7] + ".spv"};
-    vkb::ComputeSystem scanComputeSystem{device, COMPILED_SHADER_DIR + shaders[8] + ".spv"};
+
+    vkb::GpuSpatialGridHandler gridHandler{
+        device, 256,
+        COMPILED_SHADER_DIR + shaders[7] + ".spv",
+        COMPILED_SHADER_DIR + shaders[8] + ".spv",
+        COMPILED_SHADER_DIR + shaders[9] + ".spv",
+        COMPILED_SHADER_DIR + shaders[10] + ".spv",
+        COMPILED_SHADER_DIR + shaders[11] + ".spv"
+        };
 
     vkb::Camera camera{};
     vkb::CameraMovementController cameraController{};
