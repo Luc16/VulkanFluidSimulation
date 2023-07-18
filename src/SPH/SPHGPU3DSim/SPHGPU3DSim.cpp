@@ -58,24 +58,26 @@ void SPHGPU3DSim::createComputeDescriptorSets(vkb::DescriptorSetLayout &layout) 
     allocInfo.descriptorSetCount = 1;
     allocInfo.pSetLayouts = &vkLayout;
 
-    if (vkAllocateDescriptorSets(device.device(), &allocInfo, &computeDescriptorSet) != VK_SUCCESS) {
-        throw std::runtime_error("failed to allocate descriptor sets!");
+    for (uint32_t i = 0; i < computeDescriptorSets.size(); i++) {
+
+        if (vkAllocateDescriptorSets(device.device(), &allocInfo, &computeDescriptorSets[i]) != VK_SUCCESS) {
+            throw std::runtime_error("failed to allocate descriptor sets!");
+        }
+
+        auto writer = vkb::DescriptorWriter(layout, *globalDescriptorPool);
+
+        auto uniformBufferInfo = computeUniformBuffer->descriptorInfo();
+        writer.writeBuffer(0, &uniformBufferInfo);
+
+        auto gridBufferInfo = gridHandler.gridDescriptorInfo();
+        writer.writeBuffer(1, &gridBufferInfo);
+
+        auto particleBufferInfo = particleBuffers[(i + 1) % particleBuffers.size()]->descriptorInfo();
+        writer.writeBuffer(2, &particleBufferInfo);
+
+        writer.build(computeDescriptorSets[i], false);
+
     }
-
-    auto writer = vkb::DescriptorWriter(layout, *globalDescriptorPool);
-
-    auto uniformBufferInfo = computeUniformBuffer->descriptorInfo();
-    writer.writeBuffer(0, &uniformBufferInfo);
-
-    auto gridBufferInfo = gridHandler.gridDescriptorInfo();
-    writer.writeBuffer(1, &gridBufferInfo);
-
-    auto particleBufferInfo = particleBuffer->descriptorInfo();
-    writer.writeBuffer(2, &particleBufferInfo);
-
-    writer.build(computeDescriptorSet, false);
-
-
 }
 
 void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
@@ -116,20 +118,22 @@ void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
         }
     }
 
-    particleBuffer = std::make_unique<vkb::Buffer>(device, particles.size() * sizeof(Particle),
-                                                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    vkb::Buffer::writeVectorToBuffer(device, particleBuffer, particles);
+    computeFrameIdx = 0;
+    for (uint32_t i = 0; i < particleBuffers.size(); i++){
+        particleBuffers[i] = std::make_unique<vkb::Buffer>(device, particles.size() * sizeof(Particle),
+                                                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        if (i == 0) vkb::Buffer::writeVectorToBuffer(device, particleBuffers[i], particles);
+    }
 
-    sortedParticleBuffer = std::make_unique<vkb::Buffer>(device, particles.size() * sizeof(Particle),
-                                                         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                                         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    gridHandler.createDescriptorsAndBuffers(
-            globalDescriptorPool,
-            cUbo.GRID_SIZE,
-            {cUbo.numParticles, cUbo.H, cUbo.BOUNDARY_SIZE},
-            particleBuffer, sortedParticleBuffer);
+    if (activateRandomOffsets){
+        gridHandler.createDescriptorsAndBuffers(
+                globalDescriptorPool,
+                cUbo.GRID_SIZE,
+                {cUbo.numParticles, cUbo.H, cUbo.BOUNDARY_SIZE},
+                particleBuffers);
+    }
 
     auto computeDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
@@ -137,7 +141,7 @@ void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
             .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
             .build();
 
-    if (computeDescriptorSet) globalDescriptorPool->freeDescriptors({computeDescriptorSet});
+    if (computeDescriptorSets[0]) globalDescriptorPool->freeDescriptors({computeDescriptorSets[0], computeDescriptorSets[1]});
     createComputeDescriptorSets(computeDescriptorLayout);
 
 
@@ -203,7 +207,7 @@ void SPHGPU3DSim::renderObjects() {
         plane.render(defaultSystem, commandBuffer);
 
         particleSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
-        VkBuffer vb = particleBuffer->getBuffer();
+        VkBuffer vb = particleBuffers[computeFrameIdx]->getBuffer();
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
         vkCmdDraw(commandBuffer, INSTANCE_COUNT, 1, 0, 0);
@@ -224,39 +228,41 @@ void SPHGPU3DSim::updateSimulation() {
     computeHandler.runCompute(renderer.currentFrame(), [this](VkCommandBuffer computeCommandBuffer){
         uint32_t blockSize = INSTANCE_COUNT/256 + (1 - (INSTANCE_COUNT%256 == 0));
 
-//        gridHandler.resetGrid(computeCommandBuffer);
-//
-//        gridHandler.gridBarrier(computeCommandBuffer);
-//
-//        gridHandler.insertParticles(computeCommandBuffer);
-//
-//        gridHandler.gridBarrier(computeCommandBuffer);
-//
-//        gridHandler.prefixSum(computeCommandBuffer);
-//
-//        gridHandler.gridBarrier(computeCommandBuffer);
-//
-//        gridHandler.countingSort(computeCommandBuffer);
+        gridHandler.resetGrid(computeCommandBuffer);
 
-//        vkb::ComputeShaderHandler::computeBarrier(computeCommandBuffer, particleBuffer);
+        gridHandler.gridBarrier(computeCommandBuffer);
+
+        gridHandler.insertParticles(computeFrameIdx, computeCommandBuffer);
+
+        gridHandler.gridBarrier(computeCommandBuffer);
+
+        gridHandler.prefixSum(computeCommandBuffer);
+
+        gridHandler.gridBarrier(computeCommandBuffer);
+
+        gridHandler.countingSort(computeFrameIdx, computeCommandBuffer);
+
+        vkb::ComputeShaderHandler::computeBarrier(computeCommandBuffer, particleBuffers[computeFrameIdx]);
 
         calculateDensityPressureComputeSystem.bindAndDispatch(computeCommandBuffer,
-                                                              &computeDescriptorSet,
+                                                              &computeDescriptorSets[computeFrameIdx],
                                                               blockSize, 1, 1);
 
-        vkb::ComputeShaderHandler::computeBarrier(computeCommandBuffer, particleBuffer);
+        vkb::ComputeShaderHandler::computeBarrier(computeCommandBuffer, particleBuffers[computeFrameIdx]);
 
         calculateForcesComputeSystem.bindAndDispatch(computeCommandBuffer,
-                                                     &computeDescriptorSet,
+                                                     &computeDescriptorSets[computeFrameIdx],
                                                      blockSize, 1, 1);
 
-        vkb::ComputeShaderHandler::computeBarrier(computeCommandBuffer, particleBuffer);
+        vkb::ComputeShaderHandler::computeBarrier(computeCommandBuffer, particleBuffers[computeFrameIdx]);
 
         integrateComputeSystem.bindAndDispatch(computeCommandBuffer,
-                                               &computeDescriptorSet,
+                                               &computeDescriptorSets[computeFrameIdx],
                                                blockSize, 1, 1);
 
     });
+
+    computeFrameIdx = (computeFrameIdx + 1) % particleBuffers.size();
 }
 
 void SPHGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){

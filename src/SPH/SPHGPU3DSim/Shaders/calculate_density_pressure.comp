@@ -22,16 +22,45 @@ void main()
     uint i = gl_GlobalInvocationID.x;
     if (i >= ubo.numParticles) return;
 
+    int numCellsLine = int(ubo.BOUNDARY_SIZE/ubo.H);
+
+    int gidx = int(particles[i].position.x/ubo.H) +
+                numCellsLine*int(particles[i].position.z/ubo.H) +
+                numCellsLine*numCellsLine*int(particles[i].position.y/ubo.H);
+
     particles[i].density = 0;
-    for (uint j = 0; j < ubo.numParticles; j++) {
+    for (int y = -1; y <= 1; y++){
+        int idxy = y*numCellsLine*numCellsLine;
 
-        vec3 vec = particles[i].position - particles[j].position;
-        float dist2 = dot(vec, vec);
+        float ypos = particles[i].position.y + ubo.H*y;
+        if (ypos >= ubo.BOUNDARY_SIZE || ypos < 0) continue;
 
-        if (dist2 < ubo.HSQ) {
-            particles[i].density += ubo.MASS * ubo.POLY6 * pow(ubo.HSQ - dist2, 3.f);
+        for (int z = -1; z <= 1; z++){
+            float zpos = particles[i].position.z + ubo.H*z;
+
+            if (zpos >= ubo.BOUNDARY_SIZE || zpos < 0) continue;
+            int idxz = z*numCellsLine;
+
+            for (int x = -1; x <= 1; x++){
+                float xpos = particles[i].position.x + ubo.H*x;
+                if (xpos > ubo.BOUNDARY_SIZE || xpos < 0) continue;
+
+                int idx = gidx + x + idxz + idxy;
+
+                for (uint j = grid[idx]; j < grid[idx+1]; j++){
+                    vec3 vec = particles[i].position - particles[j].position;
+                    float dist2 = dot(vec, vec);
+
+                    if (dist2 < ubo.HSQ) {
+                        particles[i].density += ubo.MASS * ubo.POLY6 * pow(ubo.HSQ - dist2, 3.f);
+                    }
+                }
+
+            }
+
         }
     }
+
     particles[i].pressure = ubo.GAS_CONST * (particles[i].density - ubo.REST_DENS);
 
 }

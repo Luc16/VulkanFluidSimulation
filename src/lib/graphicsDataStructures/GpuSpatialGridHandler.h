@@ -41,18 +41,17 @@ namespace vkb {
         void createSystems();
 
         void createDescriptorsAndBuffers(const std::unique_ptr<vkb::DescriptorPool>& globalPool, uint32_t gridSize, GridParticleUniformBufferObject uboData,
-                                         const std::unique_ptr<vkb::Buffer>& particleBuffer,
-                                         const std::unique_ptr<vkb::Buffer>& sortedParticleBuffer);
+                                         const std::vector<std::unique_ptr<vkb::Buffer>>& particleBuffers);
 
         void resetGrid(VkCommandBuffer commandBuffer);
-        void insertParticles(VkCommandBuffer commandBuffer);
+        void insertParticles(u_char frameIdx, VkCommandBuffer commandBuffer);
         void prefixSum(VkCommandBuffer commandBuffer);
-        void countingSort(VkCommandBuffer commandBuffer);
+        void countingSort(u_char frameIdx, VkCommandBuffer commandBuffer);
         void gridBarrier(VkCommandBuffer commandBuffer);
 
         [[nodiscard]] VkDescriptorBufferInfo gridDescriptorInfo(
                 VkDeviceSize size = VK_WHOLE_SIZE,
-                VkDeviceSize offset = 0) const {return m_gridBuffer->descriptorInfo(size, offset); }
+                VkDeviceSize offset = 0) const { return m_gridBuffer->descriptorInfo(size, offset); }
 
 
 
@@ -89,10 +88,10 @@ namespace vkb {
                 .build();
 
         VkDescriptorSet m_resetDescriptorSet{};
-        VkDescriptorSet m_insertDescriptorSet{};
+        std::array<VkDescriptorSet, 2> m_insertDescriptorSets{};
         std::vector<VkDescriptorSet> m_scanDescriptorSets{};
         std::vector<std::vector<std::pair<VkBuffer, VkDeviceSize>>> m_scanBarrierDatas{};
-        VkDescriptorSet m_sortDescriptorSet{};
+        std::array<VkDescriptorSet, 2> m_sortDescriptorSets{};
         bool m_created = false;
 
         vkb::ComputeSystem m_resetGridComputeSystem;

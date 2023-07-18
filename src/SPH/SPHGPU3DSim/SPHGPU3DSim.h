@@ -118,13 +118,13 @@ private:
 
 
     std::vector<Particle> particles{};
-    std::unique_ptr<vkb::Buffer> particleBuffer;
-    std::unique_ptr<vkb::Buffer> sortedParticleBuffer;
+    std::vector<std::unique_ptr<vkb::Buffer>> particleBuffers{2};
+    u_char computeFrameIdx = 0;
 
     std::unique_ptr<vkb::Buffer> computeUniformBuffer;
     ComputeUniformBufferObject cUbo{};
     vkb::ComputeShaderHandler computeHandler{device};
-    VkDescriptorSet computeDescriptorSet = nullptr;
+    std::array<VkDescriptorSet, 2> computeDescriptorSets = {nullptr};
 
     vkb::ComputeSystem calculateForcesComputeSystem{device, COMPILED_SHADER_DIR + shaders[4] + ".spv"};
     vkb::ComputeSystem integrateComputeSystem{device, COMPILED_SHADER_DIR + shaders[5] + ".spv"};

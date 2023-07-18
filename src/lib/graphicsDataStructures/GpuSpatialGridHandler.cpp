@@ -34,8 +34,7 @@ namespace vkb {
 
     void GpuSpatialGridHandler::createDescriptorsAndBuffers(const std::unique_ptr<vkb::DescriptorPool>& globalPool,
                                                             uint32_t gridSize, GridParticleUniformBufferObject uboData,
-                                                            const std::unique_ptr<vkb::Buffer>& particleBuffer,
-                                                            const std::unique_ptr<vkb::Buffer>& sortedParticleBuffer) {
+                                                            const std::vector<std::unique_ptr<vkb::Buffer>>& particleBuffers) {
         if (!m_created){
             m_gridUniformBuffer = std::make_unique<vkb::Buffer>(m_deviceRef, sizeof(GridUniformBufferObject), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -47,10 +46,10 @@ namespace vkb {
         }
         if (m_created) {
             // free descriptor sets to create new ones
-            m_scanDescriptorSets.push_back(m_resetDescriptorSet);
-            m_scanDescriptorSets.push_back(m_insertDescriptorSet);
-            m_scanDescriptorSets.push_back(m_sortDescriptorSet);
-            globalPool->freeDescriptors(m_scanDescriptorSets);
+//            m_scanDescriptorSets.push_back(m_resetDescriptorSet);
+//            m_scanDescriptorSets.push_back(m_insertDescriptorSet);
+//            m_scanDescriptorSets.push_back(m_sortDescriptorSet);
+//            globalPool->freeDescriptors(m_scanDescriptorSets);
         }
 
         m_gridParticleUbo = uboData;
@@ -67,18 +66,20 @@ namespace vkb {
                 {m_gridBuffer->descriptorInfo()}
         });
 
-        m_insertDescriptorSet = createSingleDescriptorSet(globalPool, m_generalDescriptorLayout, {
-                {m_gridParticleUniformBuffer->descriptorInfo()},
-                {m_gridBuffer->descriptorInfo()},
-                {particleBuffer->descriptorInfo()}
-        });
+        for (uint32_t i = 0; i < particleBuffers.size(); i++){
+            m_insertDescriptorSets[i] = createSingleDescriptorSet(globalPool, m_generalDescriptorLayout, {
+                    {m_gridParticleUniformBuffer->descriptorInfo()},
+                    {m_gridBuffer->descriptorInfo()},
+                    {particleBuffers[i]->descriptorInfo()}
+            });
 
-        m_sortDescriptorSet = createSingleDescriptorSet(globalPool, m_sortDescriptorLayout, {
-                {m_gridParticleUniformBuffer->descriptorInfo()},
-                {m_gridBuffer->descriptorInfo()},
-                {particleBuffer->descriptorInfo()},
-                {sortedParticleBuffer->descriptorInfo()},
-        });
+            m_sortDescriptorSets[i] = createSingleDescriptorSet(globalPool, m_sortDescriptorLayout, {
+                    {m_gridParticleUniformBuffer->descriptorInfo()},
+                    {m_gridBuffer->descriptorInfo()},
+                    {particleBuffers[i]->descriptorInfo()},
+                    {particleBuffers[(i + 1) % particleBuffers.size()]->descriptorInfo()},
+            });
+        }
 
         m_created = true;
     }
@@ -105,7 +106,6 @@ namespace vkb {
         };
 
         m_scanBarrierDatas.clear();
-        m_scanDescriptorSets.clear();
         m_scanBarrierDatas.resize(m_partialSums.size());
         for (uint32_t i = 0; i < m_partialSums.size(); i++){
             if (i > 0) {
@@ -157,9 +157,9 @@ namespace vkb {
                                                  m_gridUbo.gridSize / 256 + (1 - (m_gridUbo.gridSize % 256 == 0)), 1, 1);
     }
 
-    void GpuSpatialGridHandler::insertParticles(VkCommandBuffer commandBuffer) {
+    void GpuSpatialGridHandler::insertParticles(u_char frameIdx, VkCommandBuffer commandBuffer) {
         m_insertParticlesComputeSystem.bindAndDispatch(commandBuffer,
-                                                       &m_insertDescriptorSet,
+                                                       &m_insertDescriptorSets[frameIdx],
                                                        m_gridParticleUbo.numParticles / 256 + (1 - (m_gridParticleUbo.numParticles % 256 == 0)), 1, 1);
     }
 
@@ -180,9 +180,9 @@ namespace vkb {
         }
     }
 
-    void GpuSpatialGridHandler::countingSort(VkCommandBuffer commandBuffer) {
+    void GpuSpatialGridHandler::countingSort(u_char frameIdx, VkCommandBuffer commandBuffer) {
         m_countingSortComputeSystem.bindAndDispatch(commandBuffer,
-                                                    &m_sortDescriptorSet,
+                                                    &m_sortDescriptorSets[frameIdx],
                                                     m_gridParticleUbo.numParticles / 256 + (1 - (m_gridParticleUbo.numParticles % 256 == 0)), 1, 1);
     }
 
