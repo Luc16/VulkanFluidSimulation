@@ -10,7 +10,7 @@ const uint32_t HEIGHT = 1000;
 const std::string APP_NAME = "Vulkan GPU SPH 3D fluid simulation";
 
 int main() {
-    SPHGPU3DSim app{WIDTH, HEIGHT, APP_NAME, vkb::Device::INTEL};
+    SPHGPU3DSim app{WIDTH, HEIGHT, APP_NAME, vkb::Device::NVIDIA};
 
     app.compileShaders();
 

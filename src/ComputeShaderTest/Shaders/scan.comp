@@ -34,7 +34,7 @@ void main() {
     sum = subgroupInclusiveAdd(sum);
 
 
-    if (gl_SubgroupInvocationID == 16 - 1) { // TODO why 16 not 32?
+    if (gl_SubgroupInvocationID == gl_SubgroupSize - 1) {
         sdata[gl_SubgroupID] = sum;
     }
 

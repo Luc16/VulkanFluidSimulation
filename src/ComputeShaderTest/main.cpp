@@ -10,7 +10,7 @@ const uint32_t HEIGHT = 1000;
 const std::string APP_NAME = "Vulkan N-body simulation";
 
 int main() {
-    ComputeShaderTest app{WIDTH, HEIGHT, APP_NAME, vkb::Device::INTEL};
+    ComputeShaderTest app{WIDTH, HEIGHT, APP_NAME, vkb::Device::NVIDIA};
     app.compileShaders();
 
     try {
