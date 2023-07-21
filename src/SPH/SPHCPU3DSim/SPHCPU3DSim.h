@@ -53,7 +53,8 @@ public:
     // simulation parameters
     static constexpr float EPS = H; // boundary epsilon
     static constexpr float BOUND_DAMPING = -0.5f;
-    float BOUNDARY_SIZE = 70.0f;
+    glm::vec3 BOUNDARY_SIZE = glm::vec3(70.0f) ;
+    glm::ivec2 numParticlesXZ = glm::ivec2(int(std::cbrt(INSTANCE_COUNT)));
     static constexpr uint32_t numThreads = 10;
     uint32_t particlesPerThread = INSTANCE_COUNT/numThreads;
 

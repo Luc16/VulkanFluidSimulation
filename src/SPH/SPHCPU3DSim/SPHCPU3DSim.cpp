@@ -46,12 +46,12 @@ void SPHCPU3DSim::createInstances(bool activateRandomOffsets) {
 
     plane.setScale(BOUNDARY_SIZE);
 
-    grid = vkb::SpatialGrid(H, glm::vec3(BOUNDARY_SIZE, BOUNDARY_SIZE, BOUNDARY_SIZE));
+    grid = vkb::SpatialGrid(H, BOUNDARY_SIZE);
 
     auto accPos = initialPos;
-    auto spherePerSide = (uint32_t) std::cbrt(INSTANCE_COUNT);
     float step = H + 0.01f;
 
+    uint32_t count = 0;
     for (uint32_t i = 0; i < particles.size(); i++) {
         auto& sphere = particles[i];
         sphere.color = glm::vec3(0.2f, 0.6f, 1.0f);
@@ -61,10 +61,12 @@ void SPHCPU3DSim::createInstances(bool activateRandomOffsets) {
         sphere.force = glm::vec3(0.0f);
         accPos.x += step;
 
-        if (i % spherePerSide == spherePerSide - 1) {
+        if (i % numParticlesXZ.x == numParticlesXZ.x - 1) {
+            count++;
             accPos.z += step;
             accPos.x = initialPos.x;
-            if (i % (spherePerSide * spherePerSide) == (spherePerSide * spherePerSide) - 1) {
+            if (count == numParticlesXZ.y) {
+                count = 0;
                 accPos.y += step;
                 accPos.z = initialPos.z;
             }
@@ -111,6 +113,9 @@ void SPHCPU3DSim::mainLoop(float deltaTime) {
 
             defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
             plane.render(defaultSystem, commandBuffer);
+            plane.m_translation.y += BOUNDARY_SIZE.y;
+            plane.render(defaultSystem, commandBuffer);
+            plane.m_translation.y -= BOUNDARY_SIZE.y;
 
             particleSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
             VkBuffer vb = particleBuffer->getBuffer();
@@ -161,29 +166,60 @@ void SPHCPU3DSim::showImGui(){
     if (controlMode) {
         ImGui::Begin("Control Mode");
 
-        float particleCubeSize = std::cbrt(float(INSTANCE_COUNT))*H + EPS;
+        auto getParticleShapeSize = [this]() -> glm::vec3 {
+            return {float(numParticlesXZ.x) * H + H,
+                    float(INSTANCE_COUNT) / float(numParticlesXZ.x * numParticlesXZ.y) * H + H,
+                    float(numParticlesXZ.y) * H + H
+            };
+        };
 
         int temp = (int) INSTANCE_COUNT;
         ImGui::SliderInt("Num Particles", &temp, 16, 500000);
+
+
+        auto particleShapeSize = getParticleShapeSize();
+
         if (temp != INSTANCE_COUNT) {
-            if (BOUNDARY_SIZE < particleCubeSize + 2*EPS) BOUNDARY_SIZE = particleCubeSize + 2*EPS;
             particlesPerThread = INSTANCE_COUNT/numThreads;
-        }
-        INSTANCE_COUNT = (uint32_t) temp;
+            INSTANCE_COUNT = (uint32_t) temp;
 
-
-        float newBoundSize = BOUNDARY_SIZE;
-        ImGui::DragFloat("Boundary Size", &newBoundSize, 1, particleCubeSize, 1000);
-        if (newBoundSize != BOUNDARY_SIZE) {
-            if (newBoundSize >= particleCubeSize + 2*EPS) BOUNDARY_SIZE = newBoundSize;
-            if (initialPos.x > BOUNDARY_SIZE - particleCubeSize + EPS) initialPos.x = BOUNDARY_SIZE - particleCubeSize  + EPS;
-            if (initialPos.z > BOUNDARY_SIZE - particleCubeSize  + EPS) initialPos.z = BOUNDARY_SIZE - particleCubeSize  + EPS;
-            if (initialPos.y > BOUNDARY_SIZE - particleCubeSize + EPS) initialPos.y = BOUNDARY_SIZE - particleCubeSize  + EPS;
+            numParticlesXZ = glm::ivec2(int(std::cbrt(float(temp))));
+            particleShapeSize = getParticleShapeSize();
+            for (int i = 0; i < 3; i++)
+                if (BOUNDARY_SIZE[i] < particleShapeSize[i] + 2*EPS)
+                    BOUNDARY_SIZE[i] = particleShapeSize[i] + 2*EPS;
         }
 
-        ImGui::SliderFloat("Initial Pos X", &initialPos.x, EPS, BOUNDARY_SIZE - particleCubeSize);
-        ImGui::SliderFloat("Initial Pos Y", &initialPos.y, EPS, BOUNDARY_SIZE - particleCubeSize - 2*EPS);
-        ImGui::SliderFloat("Initial Pos Z", &initialPos.z, EPS, BOUNDARY_SIZE - particleCubeSize);
+
+        glm::vec3 newBoundSize = BOUNDARY_SIZE;
+        auto maxBound = glm::vec3(1000.0f);
+
+        ImGui::CDragFloatRanged3("Boundary Size", &newBoundSize[0], 1, &particleShapeSize[0], &maxBound[0]);
+        for (int i = 0; i < 3; i++){
+            if (newBoundSize[i] != BOUNDARY_SIZE[i] && newBoundSize[i] >= particleShapeSize[i] + 2*EPS) {
+                BOUNDARY_SIZE[i] = newBoundSize[i];
+            }
+        }
+
+        auto minPos = glm::vec3(EPS);
+        auto maxPos = glm::vec3(BOUNDARY_SIZE.x - particleShapeSize.x, std::max(BOUNDARY_SIZE.y - particleShapeSize.y - 3*EPS, EPS), BOUNDARY_SIZE.z - particleShapeSize.z);
+        ImGui::CSliderFloatRanged3("Initial Pos", &initialPos[0], &minPos[0], &maxPos[0]);
+
+        auto numParticleMin = glm::ivec2(2);
+        auto numParticleMax = glm::ivec2(int(BOUNDARY_SIZE.x/H - H), int(BOUNDARY_SIZE.z/H - H));
+        ImGui::CSliderIntRanged2("Num Particles XZ", &numParticlesXZ[0], &numParticleMin[0], &numParticleMax[0]);
+
+        particleShapeSize = getParticleShapeSize();
+
+        for (int i = 0; i < 3; i++){
+            float newEps = (i == 1) ? 3*EPS : EPS;
+            if (initialPos[i] > BOUNDARY_SIZE[i] - particleShapeSize[i] - newEps) {
+                if (BOUNDARY_SIZE[i] - initialPos[i] - particleShapeSize[i] < newEps)
+                    BOUNDARY_SIZE[i] = initialPos[i] + particleShapeSize[i] + newEps;
+                else
+                    initialPos[i] = BOUNDARY_SIZE[i] - particleShapeSize[i]  + newEps;
+            }
+        }
 
         if (ImGui::Button("Launch and close")){
             createInstances(true);
@@ -262,23 +298,23 @@ void SPHCPU3DSim::updateParticles(float deltaTime){
             if (particle.position.x - EPS < 0.f) {
                 particle.velocity.x *= BOUND_DAMPING;
                 particle.position.x = EPS;
-            } else if (particle.position.x + EPS > BOUNDARY_SIZE) {
+            } else if (particle.position.x + EPS > BOUNDARY_SIZE.x) {
                 particle.velocity.x *= BOUND_DAMPING;
-                particle.position.x = BOUNDARY_SIZE - EPS;
+                particle.position.x = BOUNDARY_SIZE.x - EPS;
             }
             if (particle.position.z - EPS < 0.f) {
                 particle.velocity.z *= BOUND_DAMPING;
                 particle.position.z = EPS;
-            } else if (particle.position.z + EPS > BOUNDARY_SIZE) {
+            } else if (particle.position.z + EPS > BOUNDARY_SIZE.z) {
                 particle.velocity.z *= BOUND_DAMPING;
-                particle.position.z = BOUNDARY_SIZE - EPS;
+                particle.position.z = BOUNDARY_SIZE.z - EPS;
             }
             if (particle.position.y - EPS < plane.m_translation.y) {
                 particle.velocity.y *= BOUND_DAMPING;
                 particle.position.y = plane.m_translation.y + EPS;
-            } else if (particle.position.y + EPS > BOUNDARY_SIZE) {
+            } else if (particle.position.y + EPS > BOUNDARY_SIZE.y) {
                 particle.velocity.y *= BOUND_DAMPING;
-                particle.position.y = BOUNDARY_SIZE - EPS;
+                particle.position.y = BOUNDARY_SIZE.y - EPS;
             }
 
         }

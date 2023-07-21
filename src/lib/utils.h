@@ -11,6 +11,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/hash.hpp>
 
+#include "../../external/imgui/imgui_internal.h"
 
 #include <iostream>
 #include <stdexcept>
@@ -24,8 +25,6 @@
 #include <chrono>
 #include <memory>
 #include <cstring>
-
-
 #include <functional>
 #include <random>
 
@@ -66,5 +65,9 @@ inline int randomInt(int min, int max) {
     return dis_int(gen);
 }
 
-
+namespace ImGui {
+    bool CSliderFloatRanged3(const char* label, float v[3], float v_min[3], float v_max[3], const char* format = "%.3f", ImGuiSliderFlags flags = 0);
+    bool CDragFloatRanged3(const char* label, float v[3], float v_speed, float v_min[3], float v_max[3], const char* format = "%.3f", ImGuiSliderFlags flags = 0);
+    bool CSliderIntRanged2(const char *label, int v[2], int v_min[2], int v_max[2], const char *format = "%d", ImGuiSliderFlags flags = 0);
+}
 #endif //VULKANBASE_UTILS_H
