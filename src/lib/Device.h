@@ -61,6 +61,7 @@ namespace vkb{
         [[nodiscard]] VkQueue computeQueue() const { return m_computeQueue; }
         [[nodiscard]] VkSampleCountFlagBits msaaSamples() const { return m_msaaSamples; }
         [[nodiscard]] QueueFamilyIndices getQueueFamilies() const {return m_queueFamilyIndices; };
+        [[nodiscard]] std::string getPhysicalDeviceName() const { return m_physicalDeviceProperties.deviceName; };
 
         // helper functions
         [[nodiscard]] QueueFamilyIndices findQueueFamilies(VkPhysicalDevice physicalDevice) const;
@@ -87,7 +88,7 @@ namespace vkb{
         static void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
         bool isDeviceSuitable(VkPhysicalDevice pDevice);
         bool checkDeviceExtensionSupport(VkPhysicalDevice pDevice);
-        VkSampleCountFlagBits getMaxUsableSampleCount();
+        [[nodiscard]] VkSampleCountFlagBits getMaxUsableSampleCount() const;
 
         const Window& m_windowRef;
 
@@ -97,6 +98,7 @@ namespace vkb{
         VkDebugUtilsMessengerEXT m_debugMessenger{};
         VkSurfaceKHR m_surface{};
         VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
+        VkPhysicalDeviceProperties m_physicalDeviceProperties{};
         VkDevice m_device{};
         VkQueue m_graphicsQueue{};
         VkQueue m_presentQueue{};

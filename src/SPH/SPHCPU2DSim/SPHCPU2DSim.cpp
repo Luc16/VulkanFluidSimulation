@@ -171,7 +171,7 @@ void SPHCPU2DSim::showImGui(){
     ImGui::DragFloat("Color thresh", &densColorThreshold, 0.02f, 0.5f, 10.0f);
 
     if (ImGui::Button("Reset")) onCreate();
-
+    ImGui::Text("Using %s", device.getPhysicalDeviceName().c_str());
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                 ImGui::GetIO().Framerate);
     ImGui::End();

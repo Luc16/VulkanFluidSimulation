@@ -156,6 +156,7 @@ namespace vkb {
                 m_physicalDevice = pDevice;
                 m_queueFamilyIndices = findQueueFamilies(pDevice);
                 m_msaaSamples = getMaxUsableSampleCount();
+                m_physicalDeviceProperties = properties;
             }
         }
 
@@ -174,9 +175,7 @@ namespace vkb {
             throw std::runtime_error("failed to find a suitable GPU!");
         }
 
-        VkPhysicalDeviceProperties properties;
-        vkGetPhysicalDeviceProperties(m_physicalDevice, &properties);
-        std::cout << "\nUsing physical device: " << properties.deviceName << '\n';
+        std::cout << "\nUsing physical device: " << m_physicalDeviceProperties.deviceName << '\n';
     }
 
     void Device::createSurface(){
@@ -260,7 +259,7 @@ namespace vkb {
         return familyIndices.isComplete() && extensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
     }
 
-    VkSampleCountFlagBits Device::getMaxUsableSampleCount() {
+    VkSampleCountFlagBits Device::getMaxUsableSampleCount() const {
         VkPhysicalDeviceProperties physicalDeviceProperties{};
         vkGetPhysicalDeviceProperties(m_physicalDevice, &physicalDeviceProperties);
 
