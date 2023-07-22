@@ -21,29 +21,31 @@ void main()
 {
     uint i = gl_GlobalInvocationID.x;
     if (i >= ubo.numParticles) return;
-    int numCellsLine = int(ubo.BOUNDARY_SIZE/ubo.H);
+
+    int numCellsX = int(ubo.BOUNDARY_SIZE.x/ubo.H);
+    int numCellsZ = int(ubo.BOUNDARY_SIZE.z/ubo.H);
 
     int gidx = int(particles[i].position.x/ubo.H) +
-                numCellsLine*int(particles[i].position.z/ubo.H) +
-                numCellsLine*numCellsLine*int(particles[i].position.y/ubo.H);
+                numCellsX*int(particles[i].position.z/ubo.H) +
+                numCellsX*numCellsZ*int(particles[i].position.y/ubo.H);
 
     vec3 pForce = vec3(0);
     vec3 vForce = vec3(0);
     for (int y = -1; y <= 1; y++){
-        int idxy = y*numCellsLine*numCellsLine;
+        int idxy = y*numCellsX*numCellsZ;
 
         float ypos = particles[i].position.y + ubo.H*y;
-        if (ypos >= ubo.BOUNDARY_SIZE || ypos < 0) continue;
+        if (ypos >= ubo.BOUNDARY_SIZE.y || ypos < 0) continue;
 
         for (int z = -1; z <= 1; z++){
             float zpos = particles[i].position.z + ubo.H*z;
 
-            if (zpos >= ubo.BOUNDARY_SIZE || zpos < 0) continue;
-            int idxz = z*numCellsLine;
+            if (zpos >= ubo.BOUNDARY_SIZE.z || zpos < 0) continue;
+            int idxz = z*numCellsX;
 
             for (int x = -1; x <= 1; x++){
                 float xpos = particles[i].position.x + ubo.H*x;
-                if (xpos > ubo.BOUNDARY_SIZE || xpos < 0) continue;
+                if (xpos > ubo.BOUNDARY_SIZE.x || xpos < 0) continue;
 
                 int idx = gidx + x + idxz + idxy;
 

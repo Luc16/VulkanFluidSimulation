@@ -85,8 +85,7 @@ void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     gUbo.cameraPos = camera.m_translation;
     gUbo.radius = cUbo.H;
     cUbo.numParticles = INSTANCE_COUNT;
-    uint32_t dimSize = uint32_t(cUbo.BOUNDARY_SIZE/cUbo.H) + 1;
-    cUbo.GRID_SIZE = dimSize*dimSize*dimSize + 1;
+    cUbo.GRID_SIZE = uint32_t(cUbo.BOUNDARY_SIZE.x/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.y/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.z/cUbo.H) + 1;
 
     vkDeviceWaitIdle(device.device());
 
@@ -98,20 +97,22 @@ void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     auto spherePerSide = (uint32_t) std::cbrt(INSTANCE_COUNT);
     float step = cUbo.H + 0.01f;
 
+    uint32_t count = 0;
     for (uint32_t i = 0; i < particles.size(); i++) {
         auto& sphere = particles[i];
         sphere.color = glm::vec3(0.2f, 0.6f, 1.0f);
-        sphere.scale = 0.8f*cUbo.H;
         sphere.position = accPos;
         if (activateRandomOffsets) sphere.position += glm::vec3(randomFloat(-cUbo.H/5, cUbo.H/5), randomFloat(-cUbo.H/5, cUbo.H/5), randomFloat(-cUbo.H/5, cUbo.H/5));
         sphere.velocity = glm::vec3(0.0f);
         sphere.force = glm::vec3(0.0f);
         accPos.x += step;
 
-        if (i % spherePerSide == spherePerSide - 1) {
+        if (i % numParticlesXZ.x == numParticlesXZ.x - 1) {
+            count++;
             accPos.z += step;
             accPos.x = initialPos.x;
-            if (i % (spherePerSide * spherePerSide) == (spherePerSide * spherePerSide) - 1) {
+            if (count == numParticlesXZ.y) {
+                count = 0;
                 accPos.y += step;
                 accPos.z = initialPos.z;
             }
@@ -305,27 +306,59 @@ void SPHGPU3DSim::showImGui(){
     if (controlMode) {
         ImGui::Begin("Control Mode");
 
-        float particleCubeSize = std::cbrt(float(INSTANCE_COUNT))*cUbo.H + cUbo.EPS;
+        auto getParticleShapeSize = [this]() -> glm::vec3 {
+            return {float(numParticlesXZ.x) * cUbo.H + cUbo.H,
+                    float(INSTANCE_COUNT) / float(numParticlesXZ.x * numParticlesXZ.y) * cUbo.H + cUbo.H,
+                    float(numParticlesXZ.y) * cUbo.H + cUbo.H
+            };
+        };
 
         int temp = (int) INSTANCE_COUNT;
         ImGui::SliderInt("Num Particles", &temp, 16, 500000);
+
+
+        auto particleShapeSize = getParticleShapeSize();
+
         if (temp != INSTANCE_COUNT) {
-            if (cUbo.BOUNDARY_SIZE < particleCubeSize + 2*cUbo.EPS) cUbo.BOUNDARY_SIZE = particleCubeSize + 2*cUbo.EPS;
-        }
-        INSTANCE_COUNT = (uint32_t) temp;
+            INSTANCE_COUNT = (uint32_t) temp;
 
-
-        float newBoundSize = cUbo.BOUNDARY_SIZE;
-        ImGui::DragFloat("Boundary Size", &newBoundSize, 1, particleCubeSize, 1000);
-        if (newBoundSize != cUbo.BOUNDARY_SIZE) {
-            if (newBoundSize >= particleCubeSize + 2*cUbo.EPS) cUbo.BOUNDARY_SIZE = newBoundSize;
-            if (initialPos.x > cUbo.BOUNDARY_SIZE - particleCubeSize + cUbo.EPS) initialPos.x = cUbo.BOUNDARY_SIZE - particleCubeSize  + cUbo.EPS;
-            if (initialPos.z > cUbo.BOUNDARY_SIZE - particleCubeSize  + cUbo.EPS) initialPos.z = cUbo.BOUNDARY_SIZE - particleCubeSize  + cUbo.EPS;
+            numParticlesXZ = glm::ivec2(int(std::cbrt(float(temp))));
+            particleShapeSize = getParticleShapeSize();
+            for (int i = 0; i < 3; i++)
+                if (cUbo.BOUNDARY_SIZE[i] < particleShapeSize[i] + 2*cUbo.EPS)
+                    cUbo.BOUNDARY_SIZE[i] = particleShapeSize[i] + 2*cUbo.EPS;
         }
 
-        ImGui::SliderFloat("Initial Pos X", &initialPos.x, cUbo.EPS, cUbo.BOUNDARY_SIZE - particleCubeSize);
-        ImGui::SliderFloat("Initial Pos Y", &initialPos.y, cUbo.EPS, cUbo.BOUNDARY_SIZE - particleCubeSize - 2*cUbo.EPS);
-        ImGui::SliderFloat("Initial Pos Z", &initialPos.z, cUbo.EPS, cUbo.BOUNDARY_SIZE - particleCubeSize);
+
+        glm::vec3 newBoundSize = cUbo.BOUNDARY_SIZE;
+        auto maxBound = glm::vec3(1000.0f);
+
+        ImGui::CDragFloatRanged3("Boundary Size", &newBoundSize[0], 1, &particleShapeSize[0], &maxBound[0]);
+        for (int i = 0; i < 3; i++){
+            if (newBoundSize[i] != cUbo.BOUNDARY_SIZE[i] && newBoundSize[i] >= particleShapeSize[i] + 2*cUbo.EPS) {
+                cUbo.BOUNDARY_SIZE[i] = newBoundSize[i];
+            }
+        }
+
+        auto minPos = glm::vec3(cUbo.EPS);
+        auto maxPos = glm::vec3(cUbo.BOUNDARY_SIZE.x - particleShapeSize.x, std::max(cUbo.BOUNDARY_SIZE.y - particleShapeSize.y - 3*cUbo.EPS, cUbo.EPS), cUbo.BOUNDARY_SIZE.z - particleShapeSize.z);
+        ImGui::CSliderFloatRanged3("Initial Pos", &initialPos[0], &minPos[0], &maxPos[0]);
+
+        auto numParticleMin = glm::ivec2(2);
+        auto numParticleMax = glm::ivec2(int(cUbo.BOUNDARY_SIZE.x/cUbo.H - cUbo.H), int(cUbo.BOUNDARY_SIZE.z/cUbo.H - cUbo.H));
+        ImGui::CSliderIntRanged2("Num Particles XZ", &numParticlesXZ[0], &numParticleMin[0], &numParticleMax[0]);
+
+        particleShapeSize = getParticleShapeSize();
+
+        for (int i = 0; i < 3; i++){
+            float newEps = (i == 1) ? 3*cUbo.EPS : cUbo.EPS;
+            if (initialPos[i] > cUbo.BOUNDARY_SIZE[i] - particleShapeSize[i] - newEps) {
+                if (cUbo.BOUNDARY_SIZE[i] - initialPos[i] - particleShapeSize[i] < newEps)
+                    cUbo.BOUNDARY_SIZE[i] = initialPos[i] + particleShapeSize[i] + newEps;
+                else
+                    initialPos[i] = cUbo.BOUNDARY_SIZE[i] - particleShapeSize[i]  + newEps;
+            }
+        }
 
         if (ImGui::Button("Launch and close")){
             initializeObjects(true);

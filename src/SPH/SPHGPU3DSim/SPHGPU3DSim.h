@@ -83,7 +83,7 @@ private:
 
     struct ComputeUniformBufferObject {
         float deltaTime = 1/60.0f;
-        float BOUNDARY_SIZE = 75.0f;
+        alignas(16) glm::vec3 BOUNDARY_SIZE = glm::vec3(75.0f);
         float planeY = 0.0f;
 
         alignas(16) glm::vec3 G{0.0f, -10.0f, 0.0f};   // external (gravitational) forces
@@ -107,6 +107,7 @@ private:
         uint numParticles = 0;
         uint32_t GRID_SIZE = 0;
     };
+    glm::ivec2 numParticlesXZ = glm::ivec2(int(std::cbrt(INSTANCE_COUNT)));
 
     vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, planeModelPath)};
 

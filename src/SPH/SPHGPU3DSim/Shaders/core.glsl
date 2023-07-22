@@ -10,7 +10,7 @@ struct Particle {
 
 struct computeUBO {
     float deltaTime;
-    float BOUNDARY_SIZE;
+    vec3 BOUNDARY_SIZE;
     float planeY;
 
     vec3 G;   // external (gravitational) forces

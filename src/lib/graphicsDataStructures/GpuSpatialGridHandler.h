@@ -23,7 +23,7 @@ namespace vkb {
         struct GridParticleUniformBufferObject {
             uint32_t numParticles;
             float spacing;
-            float boundSize;
+            alignas(16) glm::vec3 boundSize;
         };
 
         GpuSpatialGridHandler(

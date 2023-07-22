@@ -29,16 +29,16 @@ void main()
     if (particles[i].position.x - ubo.EPS < 0.f) {
         particles[i].velocity.x *= ubo.BOUND_DAMPING;
         particles[i].position.x = ubo.EPS;
-    } else if (particles[i].position.x + ubo.EPS > ubo.BOUNDARY_SIZE) {
+    } else if (particles[i].position.x + ubo.EPS > ubo.BOUNDARY_SIZE.x) {
         particles[i].velocity.x *= ubo.BOUND_DAMPING;
-        particles[i].position.x = ubo.BOUNDARY_SIZE - ubo.EPS;
+        particles[i].position.x = ubo.BOUNDARY_SIZE.x - ubo.EPS;
     }
     if (particles[i].position.z - ubo.EPS < 0.f) {
         particles[i].velocity.z *= ubo.BOUND_DAMPING;
         particles[i].position.z = ubo.EPS;
-    } else if (particles[i].position.z + ubo.EPS > ubo.BOUNDARY_SIZE) {
+    } else if (particles[i].position.z + ubo.EPS > ubo.BOUNDARY_SIZE.z) {
         particles[i].velocity.z *= ubo.BOUND_DAMPING;
-        particles[i].position.z = ubo.BOUNDARY_SIZE - ubo.EPS;
+        particles[i].position.z = ubo.BOUNDARY_SIZE.z - ubo.EPS;
     }
     if (particles[i].position.y - ubo.EPS < ubo.planeY) {
         particles[i].velocity.y *= ubo.BOUND_DAMPING;
