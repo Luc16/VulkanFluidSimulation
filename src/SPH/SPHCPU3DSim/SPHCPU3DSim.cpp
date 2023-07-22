@@ -154,6 +154,8 @@ void SPHCPU3DSim::showImGui(){
     ImGui::DragFloat("Color thresh", &densColorThreshold, 0.005f, 0.5f, 10.0f);
 
     ImGui::SliderFloat("Plane Y", &plane.m_translation.y, -100.0f, 100.0f);
+    if (ImGui::SliderFloat("Bound X", &BOUNDARY_SIZE.x, 20.0f, 75.0f))
+        plane.setScale(BOUNDARY_SIZE);
 
     if (ImGui::Button("Reset and enter control mode")) controlMode = true;
     if (ImGui::Button("Reset")) createInstances(true);
@@ -264,6 +266,11 @@ void SPHCPU3DSim::updateParticles(float deltaTime){
 
                 auto vec = other.position - particle.position;
                 auto dist = glm::length(vec);
+
+                if (dist == 0){
+                    particle.position += glm::vec3(0.001);
+                    return;
+                }
 
                 if (dist < H) {
                     fPress += -(vec / dist) * MASS * (particle.pressure + other.pressure) /

@@ -282,6 +282,7 @@ void SPHGPU3DSim::showImGui(){
     ImGui::Begin("Control Panel");
 
     ImGui::Text("Rendering %d instances", INSTANCE_COUNT);
+    ImGui::Text("Grid size: %d", cUbo.GRID_SIZE);
     ImGui::Checkbox("Display time", &activateTimer);
     if(activateTimer){
         ImGui::Text("Cpu time: %f ms", cpuTime);
@@ -292,6 +293,8 @@ void SPHGPU3DSim::showImGui(){
     if (ImGui::Button("Reset and enter control mode")) controlMode = true;
 
     ImGui::DragFloat("Gravity", &gravityFactor, 1.f, 1.f, 1000.f);
+    ImGui::DragFloat("Viscosity", &cUbo.VISC, 1.f, 10.0f, 500.f);
+    ImGui::DragFloat("DeltaTime", &cUbo.DT, 0.00005f, 0.0005f, 0.002f, "%.5f");
 
     ImGui::SliderFloat("Plane Y", &plane.m_translation.y, -100.0f, 100.0f);
 

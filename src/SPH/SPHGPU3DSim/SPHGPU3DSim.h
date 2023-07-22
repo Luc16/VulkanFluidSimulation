@@ -92,7 +92,7 @@ private:
         float H = 1.5f;           // kernel radius
         float HSQ = H * H;        // radius^2 for optimization
         float MASS = 2.5f;        // assume all particles have the same mass
-        float VISC = 200.f;       // viscosity constant
+        float VISC = 50.f;       // viscosity constant
         float DT = 0.0007f;       // integration timestep
         // smoothing kernels defined in Müller and their gradients
         // adapted to 2D per "SPH Based Shallow Water Simulation" by Solenthaler et al.
