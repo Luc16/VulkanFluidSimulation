@@ -61,6 +61,7 @@ set( SPH_APPS
         "SPHGPU2DSim"
         "SPHCPU3DSim"
         "SPHGPU3DSim"
+        "PBFCPU3DSim"
         )
 
 foreach( testsourcefolder ${SPH_APPS} )

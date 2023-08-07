@@ -2,9 +2,9 @@
 // Created by luc on 13/12/22.
 //
 
-#include "SPHCPU3DSim.h"
+#include "PBFCPU3DSim.h"
 
-void SPHCPU3DSim::onCreate() {
+void PBFCPU3DSim::onCreate() {
     initializeObjects();
     createUniformBuffers();
 
@@ -29,16 +29,18 @@ void SPHCPU3DSim::onCreate() {
             info.attributeDescription.push_back({1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Particle, color)});
         });
     }
+
+    createFunctions();
 }
 
-void SPHCPU3DSim::initializeObjects() {
+void PBFCPU3DSim::initializeObjects() {
     camera.m_translation = {-56.9685f, 51.9174f, 65.334};
     camera.m_rotation = {0.416948f, 1.95856f, 3.14159};
 
     createInstances(true);
 }
 
-void SPHCPU3DSim::createInstances(bool activateRandomOffsets) {
+void PBFCPU3DSim::createInstances(bool activateRandomOffsets) {
     vkDeviceWaitIdle(device.device());
 
     particles.resize(INSTANCE_COUNT);
@@ -78,7 +80,7 @@ void SPHCPU3DSim::createInstances(bool activateRandomOffsets) {
     vkb::Buffer::writeVectorToBuffer(device, particleBuffer, particles);
 }
 
-void SPHCPU3DSim::createUniformBuffers() {
+void PBFCPU3DSim::createUniformBuffers() {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
     uniformBuffers.resize(vkb::SwapChain::MAX_FRAMES_IN_FLIGHT);
     for (size_t i = 0; i < vkb::SwapChain::MAX_FRAMES_IN_FLIGHT; ++i) {
@@ -87,7 +89,7 @@ void SPHCPU3DSim::createUniformBuffers() {
     }
 }
 
-void SPHCPU3DSim::mainLoop(float deltaTime) {
+void PBFCPU3DSim::mainLoop(float deltaTime) {
     auto currentTime = std::chrono::high_resolution_clock::now();
 
     cameraController.moveCamera(window.window(), deltaTime, camera);
@@ -128,7 +130,7 @@ void SPHCPU3DSim::mainLoop(float deltaTime) {
     if (activateTimer) gpuTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
 }
 
-void SPHCPU3DSim::updateUniformBuffer(uint32_t frameIndex) {
+void PBFCPU3DSim::updateUniformBuffer(uint32_t frameIndex) {
 
     UniformBufferObject ubo{};
     camera.setPerspectiveProjection(glm::radians(50.f), renderer.getSwapChainAspectRatio(), 0.1f, 1000.f);
@@ -138,7 +140,7 @@ void SPHCPU3DSim::updateUniformBuffer(uint32_t frameIndex) {
 
 }
 
-void SPHCPU3DSim::showImGui(){
+void PBFCPU3DSim::showImGui(){
 
     ImGui::Begin("Control Panel");
 
@@ -237,13 +239,42 @@ void SPHCPU3DSim::showImGui(){
 
 }
 
-void SPHCPU3DSim::updateParticles(float deltaTime){
+void PBFCPU3DSim::threadedCall(const std::function<void(uint32_t, uint32_t)> &func) {
+    for (uint32_t i = 0; i < numThreads - 1; i++){
+        threads[i] = std::jthread(func, i * particlesPerThread, (i+1) * particlesPerThread);
+    }
+    threads[numThreads - 1] = std::jthread(func, (numThreads - 1)*particlesPerThread, INSTANCE_COUNT);
+    for (auto& thread : threads) thread.join();
+}
 
+void PBFCPU3DSim::updateParticles(float deltaTime){
+
+    // predict positions
+
+    // find neighbor particles
     grid.createAndSort(particles, sortedParticles);
-
     particles.swap(sortedParticles);
 
-    auto computeDensityPressureThreaded = [this](uint32_t start, uint32_t end) {
+//    while (iter < solverIterations) {
+//        1. calculateLambda
+//
+//        2. calculate delte Pressure and collision detection
+//
+//        3. update positions
+//    }
+
+//    update velocities
+//    apply vorticity and XSPH viscosity
+//    update positions
+
+
+    threadedCall(computeDensityPressureThreaded);
+    threadedCall(computeForcesThreaded);
+    threadedCall(integrateThreaded);
+}
+
+void PBFCPU3DSim::createFunctions() {
+    computeDensityPressureThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
             auto& particle = particles[idx];
             particle.density = 0.0f;
@@ -260,7 +291,7 @@ void SPHCPU3DSim::updateParticles(float deltaTime){
         }
     };
 
-    auto computeForcesThreaded = [this](uint32_t start, uint32_t end) {
+    computeForcesThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
             auto& particle = particles[idx];
             glm::vec3 fPress{0.0f}, fVisc{0.0f};
@@ -288,7 +319,7 @@ void SPHCPU3DSim::updateParticles(float deltaTime){
         }
     };
 
-    auto integrateThreaded = [this](uint32_t start, uint32_t end) {
+    integrateThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
             auto& particle = particles[idx];
 
@@ -332,19 +363,6 @@ void SPHCPU3DSim::updateParticles(float deltaTime){
         }
     };
 
-    std::array<std::function<void(uint32_t, uint32_t)>, 3> threadFunctions = {
-            computeDensityPressureThreaded,
-            computeForcesThreaded,
-            integrateThreaded
-    };
-
-    for (const auto& function : threadFunctions) {
-        for (uint32_t i = 0; i < numThreads - 1; i++){
-            threads[i] = std::jthread(function, i * particlesPerThread, (i+1) * particlesPerThread);
-        }
-        threads[numThreads - 1] = std::jthread(function, (numThreads - 1)*particlesPerThread, INSTANCE_COUNT);
-        for (auto& thread : threads) thread.join();
-    }
 }
 
 

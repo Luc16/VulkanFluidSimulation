@@ -2,8 +2,8 @@
 // Created by luc on 13/12/22.
 //
 
-#ifndef VULKANBASE_SPHCPU3DSIM_H
-#define VULKANBASE_SPHCPU3DSIM_H
+#ifndef VULKANBASE_PBFCPU3DSIM_H
+#define VULKANBASE_PBFCPU3DSIM_H
 
 #include <sstream>
 #include <thread>
@@ -25,13 +25,13 @@
 #include "../../lib/graphicsDataStructures/SpatialHash.h"
 #include "../../lib/graphicsDataStructures/SpatialGrid.h"
 
-class SPHCPU3DSim: public vkb::VulkanApp {
+class PBFCPU3DSim: public vkb::VulkanApp {
 public:
-    SPHCPU3DSim(int width, int height, const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
+    PBFCPU3DSim(int width, int height, const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
     VulkanApp(width, height, appName, type) {}
 
 public:
-    std::string DIR = std::string("../src/SPH/SPHCPU3DSim/");
+    std::string DIR = std::string("../src/SPH/PBFCPU3DSim/");
 
     uint32_t INSTANCE_COUNT = 27000;
     static constexpr glm::vec3 G{0.0f, -10.0f, 0.0f};   // external (gravitational) forces
@@ -100,6 +100,7 @@ public:
 
     vkb::SpatialGrid grid{};
     std::array<std::jthread, numThreads> threads;
+    std::function<void(uint32_t,uint32_t)> computeDensityPressureThreaded, computeForcesThreaded, integrateThreaded;
 
     glm::vec3 initialPos = {EPS, EPS, EPS};
     float gravityFactor = 40.f, sphereRadius = 0.641f;
@@ -107,7 +108,10 @@ public:
     float gpuTime = 0, cpuTime = 0;
     bool activateTimer = false, controlMode = false;
 
+    void threadedCall(const std::function<void(uint32_t,uint32_t)>& func);
+
     void onCreate() override;
+    void createFunctions();
     void initializeObjects();
     void createInstances(bool activateRandomOffsets);
     void createUniformBuffers();
@@ -116,7 +120,8 @@ public:
     void showImGui();
     void updateParticles(float deltaTime);
 
+
 };
 
 
-#endif //VULKANBASE_SPHCPU3DSIM_H
+#endif //VULKANBASE_PBFCPU3DSIM_H

@@ -94,7 +94,6 @@ void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     plane.setScale(cUbo.BOUNDARY_SIZE);
 
     auto accPos = initialPos;
-    auto spherePerSide = (uint32_t) std::cbrt(INSTANCE_COUNT);
     float step = cUbo.H + 0.01f;
 
     uint32_t count = 0;

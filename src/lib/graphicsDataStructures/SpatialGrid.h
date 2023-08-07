@@ -18,6 +18,8 @@ namespace vkb {
         SpatialGrid &operator=(const SpatialGrid &) = default;
         ~SpatialGrid();
 
+        [[nodiscard]] uint32_t size() { return m_grid.size(); }
+
         template<typename Entity>
         void createAndSort(const std::vector<Entity>& entities, std::vector<Entity>& sortedEntities);
 
