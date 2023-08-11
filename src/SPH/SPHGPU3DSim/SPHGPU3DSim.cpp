@@ -5,7 +5,7 @@
 #include "SPHGPU3DSim.h"
 
 void SPHGPU3DSim::onCreate() {
-    camera.m_translation = {-56.9685f, 51.9174f, 65.334};
+    camera.m_translation = {-107.37f, 99.6999f, 112.698f};
     camera.m_rotation = {0.416948f, 1.95856f, 3.14159};
     camera.updateView();
     auto extent = window.extent();
@@ -94,7 +94,7 @@ void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     plane.setScale(cUbo.BOUNDARY_SIZE);
 
     auto accPos = initialPos;
-    float step = cUbo.H + 0.01f;
+    particleSpacing = cUbo.H + 0.2f;
 
     uint32_t count = 0;
     for (uint32_t i = 0; i < particles.size(); i++) {
@@ -104,15 +104,15 @@ void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
         if (activateRandomOffsets) sphere.position += glm::vec3(randomFloat(-cUbo.H/5, cUbo.H/5), randomFloat(-cUbo.H/5, cUbo.H/5), randomFloat(-cUbo.H/5, cUbo.H/5));
         sphere.velocity = glm::vec3(0.0f);
         sphere.force = glm::vec3(0.0f);
-        accPos.x += step;
+        accPos.x += particleSpacing;
 
         if (i % numParticlesXZ.x == numParticlesXZ.x - 1) {
             count++;
-            accPos.z += step;
+            accPos.z += particleSpacing;
             accPos.x = initialPos.x;
             if (count == numParticlesXZ.y) {
                 count = 0;
-                accPos.y += step;
+                accPos.y += particleSpacing;
                 accPos.z = initialPos.z;
             }
         }
@@ -309,9 +309,9 @@ void SPHGPU3DSim::showImGui(){
         ImGui::Begin("Control Mode");
 
         auto getParticleShapeSize = [this]() -> glm::vec3 {
-            return {float(numParticlesXZ.x) * cUbo.H + cUbo.H,
-                    float(INSTANCE_COUNT) / float(numParticlesXZ.x * numParticlesXZ.y) * cUbo.H + cUbo.H,
-                    float(numParticlesXZ.y) * cUbo.H + cUbo.H
+            return {float(numParticlesXZ.x) * particleSpacing + cUbo.H,
+                    float(INSTANCE_COUNT) / float(numParticlesXZ.x * numParticlesXZ.y) * particleSpacing + cUbo.H,
+                    float(numParticlesXZ.y) * particleSpacing + cUbo.H
             };
         };
 
