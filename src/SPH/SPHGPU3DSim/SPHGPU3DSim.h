@@ -94,12 +94,12 @@ private:
         float MASS = 2.5f;        // assume all particles have the same mass
         float VISC = 50.f;       // viscosity constant
         float DT = 0.001f;       // integration timestep
-        // smoothing kernels defined in Müller and their gradients
-        // adapted to 2D per "SPH Based Shallow Water Simulation" by Solenthaler et al.
-        float POLY6 = 4.f / (glm::pi<float>() * H*H*H*H*H*H*H*H);
 
-        float SPIKY_GRAD = -10.f / (glm::pi<float>() * H*H*H*H*H);
-        float VISC_LAP = 40.f / (glm::pi<float>() * H*H*H*H*H);
+        // smoothing kernels defined in Müller and their gradients
+        float POLY6 = 315.0f / (64.0f * glm::pi<float>() *H*H*H *H*H*H *H*H*H);
+        float SPIKY_GRAD = 45.0f / (glm::pi<float>() * H*H*H *H*H*H);
+        float VISC_LAP = 45.0f / (glm::pi<float>() * H*H*H *H*H*H);
+
         // simulation parameters
         float EPS = H; // boundary epsilon
 

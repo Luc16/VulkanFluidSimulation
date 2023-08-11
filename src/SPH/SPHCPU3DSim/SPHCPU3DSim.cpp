@@ -49,7 +49,7 @@ void SPHCPU3DSim::createInstances(bool activateRandomOffsets) {
     grid = vkb::SpatialGrid(H, BOUNDARY_SIZE);
 
     auto accPos = initialPos;
-    float step = H + 0.01f;
+    float step = H + 0.1f;
 
     uint32_t count = 0;
     for (uint32_t i = 0; i < particles.size(); i++) {
@@ -277,8 +277,9 @@ void SPHCPU3DSim::updateParticles(float deltaTime){
                 }
 
                 if (dist < H) {
-                    fPress += -(vec / dist) * MASS * (particle.pressure + other.pressure) /
-                              (2.f * other.density) * SPIKY_GRAD * std::pow(H - dist, 3.f);
+                    fPress += (vec / dist) * MASS * (particle.pressure + other.pressure) /
+                              (2.f * other.density) * SPIKY_GRAD * std::pow(H - dist, 2.f);
+
                     fVisc += VISC * MASS * (other.velocity - particle.velocity) /
                              other.density * VISC_LAP * (H - dist);
                 }

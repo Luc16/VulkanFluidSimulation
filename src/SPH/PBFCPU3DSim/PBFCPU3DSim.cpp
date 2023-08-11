@@ -268,13 +268,13 @@ void PBFCPU3DSim::updateParticles(float deltaTime){
 //    update positions
 
 
-    threadedCall(computeDensityPressureThreaded);
-    threadedCall(computeForcesThreaded);
+    threadedCall(computeDensityThreaded);
+    threadedCall(computeLambdaThreaded);
     threadedCall(integrateThreaded);
 }
 
 void PBFCPU3DSim::createFunctions() {
-    computeDensityPressureThreaded = [this](uint32_t start, uint32_t end) {
+    computeDensityThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
             auto& particle = particles[idx];
             particle.density = 0.0f;
@@ -287,35 +287,42 @@ void PBFCPU3DSim::createFunctions() {
                     particle.density += partialDensity;
                 }
             });
-            particle.pressure = GAS_CONST * (particle.density - REST_DENS);
         }
     };
 
-    computeForcesThreaded = [this](uint32_t start, uint32_t end) {
+    computeLambdaThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
             auto& particle = particles[idx];
-            glm::vec3 fPress{0.0f}, fVisc{0.0f};
-            grid.query(particle.position, H, [this, &particle, &fVisc, &fPress](uint32_t otherIdx) {
+            float gradConstraint = 0.0f;
+            grid.query(particle.position, H, [this, &particle](uint32_t otherIdx) {
                 const auto& other = particles[otherIdx];
-                if (&other == &particle) return ;
-
-                auto vec = other.position - particle.position;
-                auto dist = glm::length(vec);
-
-                if (dist == 0){
-                    particle.position += glm::vec3(0.001);
-                    return;
+                auto vec = particle.position - other.position;
+                auto dist2 = glm::dot(vec, vec);
+                if (dist2 < HSQ) {
+                    float partialDensity = MASS * POLY6 * std::pow(HSQ - dist2, 3.f);
+                    particle.density += partialDensity;
                 }
-
-                if (dist < H) {
-                    fPress += -(vec / dist) * MASS * (particle.pressure + other.pressure) /
-                              (2.f * other.density) * SPIKY_GRAD * std::pow(H - dist, 3.f);
-                    fVisc += VISC * MASS * (other.velocity - particle.velocity) /
-                             other.density * VISC_LAP * (H - dist);
-                }
-
             });
-            particle.force = fPress + fVisc + gravityFactor*G*MASS/particle.density;
+        }
+    };
+
+    computePositionCorrectionThreaded = [this](uint32_t start, uint32_t end) {
+        for (uint32_t idx = start; idx < end; idx++) {
+            auto& particle = particles[idx];
+            auto deltaPos = glm::vec3(0.0f);
+            grid.query(particle.position, H, [this, &particle, &deltaPos](uint32_t otherIdx) {
+                const auto& other = particles[otherIdx];
+
+                if (&other == &particle) return;
+
+                auto vec = particle.position - other.position;
+                auto dist2 = glm::dot(vec, vec);
+                if (dist2 < HSQ) {
+                    auto dist = glm::length(vec);
+                    deltaPos += (vec / dist) * (particle.lambda + other.lambda) * SPIKY_GRAD * std::pow(H - dist, 2.f);;
+                }
+            });
+            deltaPos /= REST_DENS;
         }
     };
 

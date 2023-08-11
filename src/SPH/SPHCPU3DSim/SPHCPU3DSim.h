@@ -44,10 +44,9 @@ public:
     float DT = 0.001f;       // integration timestep
 
     // smoothing kernels defined in Müller and their gradients
-    // adapted to 2D per "SPH Based Shallow Water Simulation" by Solenthaler et al.
-    static constexpr float POLY6 = 4.f / (glm::pi<float>() * H*H*H*H*H*H*H*H);
-    static constexpr float SPIKY_GRAD = -10.f / (glm::pi<float>() * H*H*H*H*H);
-    static constexpr float VISC_LAP = 40.f / (glm::pi<float>() * H*H*H*H*H);
+    static constexpr float POLY6 = 315.0f / (64.0f * glm::pi<float>() *H*H*H *H*H*H *H*H*H);
+    static constexpr float SPIKY_GRAD = 45.0f / (glm::pi<float>() * H*H*H *H*H*H);
+    static constexpr float VISC_LAP = 45.0f / (glm::pi<float>() * H*H*H *H*H*H);
     static constexpr float MIN_DENS = MASS * POLY6 * HSQ * HSQ * HSQ;
 
     // simulation parameters

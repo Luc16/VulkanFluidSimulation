@@ -44,9 +44,8 @@ public:
     float DT = 0.001f;       // integration timestep
 
     // smoothing kernels defined in Müller and their gradients
-    // adapted to 2D per "SPH Based Shallow Water Simulation" by Solenthaler et al.
     static constexpr float POLY6 = 4.f / (glm::pi<float>() * H*H*H*H*H*H*H*H);
-    static constexpr float SPIKY_GRAD = -10.f / (glm::pi<float>() * H*H*H*H*H);
+    static constexpr float SPIKY_GRAD = -15.f / (glm::pi<float>() * H*H*H*H*H*H);
     static constexpr float VISC_LAP = 40.f / (glm::pi<float>() * H*H*H*H*H);
     static constexpr float MIN_DENS = MASS * POLY6 * HSQ * HSQ * HSQ;
 
@@ -79,7 +78,7 @@ public:
 
     struct Particle {
         alignas(16) glm::vec3 position, velocity, force;
-        float density, pressure;
+        float density, lambda;
         alignas(16) glm::vec3 color;
     };
 
@@ -100,7 +99,12 @@ public:
 
     vkb::SpatialGrid grid{};
     std::array<std::jthread, numThreads> threads;
-    std::function<void(uint32_t,uint32_t)> computeDensityPressureThreaded, computeForcesThreaded, integrateThreaded;
+
+    // simulation functions
+    std::function<void(uint32_t,uint32_t)> computeDensityThreaded;
+    std::function<void(uint32_t,uint32_t)> computeLambdaThreaded;
+    std::function<void(uint32_t,uint32_t)> computePositionCorrectionThreaded;
+    std::function<void(uint32_t,uint32_t)> integrateThreaded;
 
     glm::vec3 initialPos = {EPS, EPS, EPS};
     float gravityFactor = 40.f, sphereRadius = 0.641f;
