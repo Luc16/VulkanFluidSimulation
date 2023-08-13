@@ -58,9 +58,13 @@ void PBFCPU3DSim::createInstances(bool activateRandomOffsets) {
         auto& sphere = particles[i];
         sphere.color = glm::vec3(0.2f, 0.6f, 1.0f);
         sphere.position = accPos;
-        if (activateRandomOffsets) sphere.position += glm::vec3(randomFloat(-H/5, H/5), randomFloat(-H/5, H/5), randomFloat(-H/5, H/5));
+        if (activateRandomOffsets) sphere.position += glm::vec3(
+                randomFloat((accPos.x != EPS) ? -H/5 : 0.0f, H/5),
+                randomFloat((accPos.y != EPS) ? -H/5 : 0.0f, H/5),
+                randomFloat((accPos.z != EPS) ? -H/5 : 0.0f, H/5));
         sphere.velocity = glm::vec3(0.0f);
-        sphere.force = glm::vec3(0.0f);
+        sphere.predPos = glm::vec3(0.0f);
+        sphere.posCorrection = glm::vec3(0.0f);
         accPos.x += step;
 
         if (i % numParticlesXZ.x == numParticlesXZ.x - 1) {
@@ -155,7 +159,10 @@ void PBFCPU3DSim::showImGui(){
 
     ImGui::SliderFloat("Gravity", &gravityFactor, 1.f, 1000.f);
     ImGui::DragFloat("Viscosity", &VISC, 1.f, 10.0f, 500.f);
-    ImGui::DragFloat("DeltaTime", &DT, 0.00005f, 0.0005f, 0.002f, "%.5f");
+    ImGui::DragFloat("DeltaTime", &DT, 0.00005f, 0.0005f, 0.02f, "%.5f");
+    ImGui::DragFloat("Rest Density", &REST_DENS, 1.0f, 4.0f, 1000.0f, "%.0f");
+    ImGui::DragFloat("Mass", &MASS, 0.5f, 1.0f, 40.0f, "%.1f");
+    ImGui::DragFloat("CFM", &CFM, 1.0f, 1.0f, 1000.0f, "%.1f");
 //    ImGui::DragFloat("Color upate", &colorUpdate, 0.0005f, 0.0f, 1.0f);
 //    ImGui::DragFloat("Color thresh", &densColorThreshold, 0.005f, 0.5f, 10.0f);
 
@@ -250,37 +257,43 @@ void PBFCPU3DSim::threadedCall(const std::function<void(uint32_t, uint32_t)> &fu
 void PBFCPU3DSim::updateParticles(float deltaTime){
 
     // predict positions
-
+    threadedCall(predictPositionsThreaded)
+;
     // find neighbor particles
     grid.createAndSort(particles, sortedParticles);
     particles.swap(sortedParticles);
 
-//    while (iter < solverIterations) {
-//        1. calculateLambda
-//
-//        2. calculate delte Pressure and collision detection
-//
-//        3. update positions
-//    }
+    for (uint32_t i = 0; i < 4; i++) {
+        threadedCall(computeDensityThreaded);
+        threadedCall(computeLambdaThreaded);
 
-//    update velocities
-//    apply vorticity and XSPH viscosity
-//    update positions
+        threadedCall(computePositionCorrectionThreaded);
 
+        threadedCall(correctPositionThreaded);
+    }
 
-    threadedCall(computeDensityThreaded);
-    threadedCall(computeLambdaThreaded);
-    threadedCall(integrateThreaded);
+    threadedCall(updateVelocitiesThreaded);
+    //    apply vorticity and XSPH viscosity
+    threadedCall(updatePositionThreaded);
 }
 
 void PBFCPU3DSim::createFunctions() {
+    predictPositionsThreaded = [this](uint32_t start, uint32_t end) {
+        for (uint32_t idx = start; idx < end; idx++) {
+            auto& particle = particles[idx];
+
+            particle.velocity += DT*G;
+            particle.predPos = particle.position + DT*particle.velocity;
+        }
+    };
+
     computeDensityThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
             auto& particle = particles[idx];
             particle.density = 0.0f;
-            grid.query(particle.position, H, [this, &particle](uint32_t otherIdx) {
+            grid.query(particle.predPos, H, [this, &particle](uint32_t otherIdx) {
                 const auto& other = particles[otherIdx];
-                auto vec = particle.position - other.position;
+                auto vec = particle.predPos - other.predPos;
                 auto dist2 = glm::dot(vec, vec);
                 if (dist2 < HSQ) {
                     float partialDensity = MASS * POLY6 * std::pow(HSQ - dist2, 3.f);
@@ -293,80 +306,116 @@ void PBFCPU3DSim::createFunctions() {
     computeLambdaThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
             auto& particle = particles[idx];
-            float gradConstraint = 0.0f;
-            grid.query(particle.position, H, [this, &particle](uint32_t otherIdx) {
+            auto gradCiSum = glm::vec3(0.0f);
+            float gradCsqSum = 0.0f;
+
+            grid.query(particle.predPos, H, [this, &particle, &gradCiSum, &gradCsqSum](uint32_t otherIdx) {
                 const auto& other = particles[otherIdx];
-                auto vec = particle.position - other.position;
+
+                auto vec = particle.predPos - other.predPos;
                 auto dist2 = glm::dot(vec, vec);
+
+                if (&particle == &other || dist2 < 0.0000001f) return;
+
+
                 if (dist2 < HSQ) {
-                    float partialDensity = MASS * POLY6 * std::pow(HSQ - dist2, 3.f);
-                    particle.density += partialDensity;
+                    float dist = std::sqrt(dist2);
+                    float delta = H - dist;
+                    glm::vec3 gradCj = (vec/dist) * SPIKY_GRAD * delta * delta;
+
+                    // contribution from particle
+                    gradCiSum += gradCj;
+
+                    // contribution from neighbors
+                    gradCsqSum += glm::dot(gradCj, gradCj);
+
                 }
             });
+
+
+            float gradConstraintSqSum = (gradCsqSum + glm::dot(gradCiSum, gradCiSum))/(REST_DENS * REST_DENS);
+
+            float constraint = particle.density/REST_DENS - 1;
+
+            particle.lambda = - constraint / (gradConstraintSqSum + CFM);
         }
     };
 
     computePositionCorrectionThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
             auto& particle = particles[idx];
-            auto deltaPos = glm::vec3(0.0f);
-            grid.query(particle.position, H, [this, &particle, &deltaPos](uint32_t otherIdx) {
+            particle.posCorrection = glm::vec3(0.0f);
+
+            grid.query(particle.predPos, H, [this, &particle](uint32_t otherIdx) {
                 const auto& other = particles[otherIdx];
 
-                if (&other == &particle) return;
-
-                auto vec = particle.position - other.position;
+                auto vec = particle.predPos - other.predPos;
                 auto dist2 = glm::dot(vec, vec);
+
+                if (&other == &particle || dist2 < 0.0000001f) return;
+
                 if (dist2 < HSQ) {
                     auto dist = glm::length(vec);
-                    deltaPos += (vec / dist) * (particle.lambda + other.lambda) * SPIKY_GRAD * std::pow(H - dist, 2.f);;
+                    float sCorr = -0.1f * std::pow(std::pow(HSQ - dist2, 3.f) / std::pow(HSQ*(1.0f - 0.09f), 3.f), 4.0f);
+
+                    particle.posCorrection += (vec / dist) * (particle.lambda + other.lambda + sCorr) * SPIKY_GRAD * (H - dist)*(H - dist);
                 }
             });
-            deltaPos /= REST_DENS;
+
+
+
+            particle.posCorrection /= REST_DENS;
         }
     };
 
-    integrateThreaded = [this](uint32_t start, uint32_t end) {
+    correctPositionThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
             auto& particle = particles[idx];
 
-            particle.color = glm::vec3(
-                    std::clamp(particle.color.r - colorUpdate, 0.2f, 1.0f),
-                    std::clamp(particle.color.g - colorUpdate, 0.4f, 1.0f),
-                    std::clamp(particle.color.b + colorUpdate, 0.0f, 1.0f)
-            );
-
-            if (particle.density/MIN_DENS < densColorThreshold){
-                particle.color = glm::vec3(0.8f, 0.8f, 1.0f);
-            }
-
-            // forward Euler integration
-            particle.velocity += DT * particle.force / particle.density;
-            particle.position += DT * particle.velocity;
+            particle.predPos += particle.posCorrection;
 
             // enforce boundary conditions
-            if (particle.position.x - EPS < 0.f) {
-                particle.velocity.x *= BOUND_DAMPING;
-                particle.position.x = EPS;
-            } else if (particle.position.x + EPS > BOUNDARY_SIZE.x) {
-                particle.velocity.x *= BOUND_DAMPING;
-                particle.position.x = BOUNDARY_SIZE.x - EPS;
+            float nearEPS = EPS + 0.02;
+            if (particle.predPos.x - EPS < 0.0f) {
+                particle.predPos.x = nearEPS;
+            } else if (particle.predPos.x + EPS > BOUNDARY_SIZE.x) {
+                particle.predPos.x = BOUNDARY_SIZE.x - nearEPS;
             }
-            if (particle.position.z - EPS < 0.f) {
-                particle.velocity.z *= BOUND_DAMPING;
-                particle.position.z = EPS;
-            } else if (particle.position.z + EPS > BOUNDARY_SIZE.z) {
-                particle.velocity.z *= BOUND_DAMPING;
-                particle.position.z = BOUNDARY_SIZE.z - EPS;
+            if (particle.predPos.z - EPS < 0.0f) {
+                particle.predPos.z = nearEPS;
+            } else if (particle.predPos.z + EPS > BOUNDARY_SIZE.z) {
+                particle.predPos.z = BOUNDARY_SIZE.z - nearEPS;
             }
-            if (particle.position.y - EPS < plane.m_translation.y) {
-                particle.velocity.y *= BOUND_DAMPING;
-                particle.position.y = plane.m_translation.y + EPS;
-            } else if (particle.position.y + EPS > BOUNDARY_SIZE.y) {
-                particle.velocity.y *= BOUND_DAMPING;
-                particle.position.y = BOUNDARY_SIZE.y - EPS;
+            if (particle.predPos.y - EPS < plane.m_translation.y) {
+                particle.predPos.y = plane.m_translation.y + nearEPS;
+            } else if (particle.predPos.y + EPS > BOUNDARY_SIZE.y) {
+                particle.predPos.y = BOUNDARY_SIZE.y - nearEPS;
             }
 
+
+        }
+    };
+
+    updateVelocitiesThreaded = [this](uint32_t start, uint32_t end) {
+        for (uint32_t idx = start; idx < end; idx++) {
+            auto& particle = particles[idx];
+
+            particle.velocity = (particle.predPos - particle.position)/DT;
+
+            if (particle.density >= REST_DENS) {
+                particle.color = {1.0f, 0.0f, 0.0f};
+            } else {
+                particle.color = glm::vec3(0.2f, 0.6f, 1.0f);
+            }
+
+        }
+    };
+
+    updatePositionThreaded = [this](uint32_t start, uint32_t end) {
+        for (uint32_t idx = start; idx < end; idx++) {
+            auto& particle = particles[idx];
+
+            particle.position = particle.predPos;
         }
     };
 
