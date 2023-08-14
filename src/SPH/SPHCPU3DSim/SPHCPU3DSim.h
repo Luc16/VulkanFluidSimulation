@@ -76,10 +76,44 @@ public:
         float radius = H;
     };
 
-    struct Particle {
-        alignas(16) glm::vec3 position, velocity, force;
-        float density, pressure;
-        alignas(16) glm::vec3 color;
+    // 140 - 170
+//    struct Particle {
+//        alignas(16) glm::vec3 position, velocity, force;
+//        float density, pressure;
+//        alignas(16) glm::vec3 color;
+//    };
+
+    struct ParticleData {
+        std::vector<glm::vec3> position, velocity, force;
+        std::vector<float> density, pressure;
+        std::vector<glm::vec3> color;
+
+        void resize(size_t newSize) {
+            position.resize(newSize);
+            velocity.resize(newSize);
+            force.resize(newSize);
+            density.resize(newSize);
+            pressure.resize(newSize);
+            color.resize(newSize);
+        }
+
+        void swap(ParticleData& other) {
+            position.swap(other.position);
+            velocity.swap(other.velocity);
+            force.swap(other.force);
+            density.swap(other.density);
+            pressure.swap(other.pressure);
+            color.swap(other.color);
+        }
+
+        void set(uint32_t i, const ParticleData& other, uint32_t j){
+            position[i] = other.position[j];
+            velocity[i] = other.velocity[j];
+            force[i] = other.force[j];
+            density[i] = other.density[j];
+            pressure[i] = other.pressure[j];
+            color[i] = other.color[j];
+        }
     };
 
     vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, planeModelPath)};
@@ -93,9 +127,13 @@ public:
     vkb::Camera camera{};
     vkb::CameraMovementController cameraController{};
 
-    std::vector<Particle> particles{};
-    std::vector<Particle> sortedParticles{};
-    std::unique_ptr<vkb::Buffer> particleBuffer;
+//    std::vector<Particle> particles{};
+//    std::vector<Particle> sortedParticles{};
+    ParticleData particles{};
+    ParticleData sortedParticles{};
+    std::unique_ptr<vkb::Buffer> particlePosBuffer;
+    std::unique_ptr<vkb::Buffer> particleColBuffer;
+    std::unique_ptr<vkb::Buffer> idxBuffer;
 
     vkb::SpatialGrid grid{};
     std::array<std::jthread, numThreads> threads;

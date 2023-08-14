@@ -1,7 +1,7 @@
 #version 450
 
 layout(location = 0) in vec3 inPosition;
-layout(location = 1) in vec4 inColor;
+layout(location = 1) in vec3 inColor;
 
 layout(binding = 0) uniform UniformBufferObject {
     mat4 viewProj;
@@ -21,5 +21,5 @@ void main() {
 
     gl_PointSize = 1000*ubo.radius/cameraDist;
 
-    fragColor = inColor;
+    fragColor = vec4(inColor, 1.0f);
 }

@@ -23,10 +23,11 @@ void SPHCPU3DSim::onCreate() {
         particleSystem.createPipeline(renderer.renderPass(), particleShaderPaths, [this](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
             info.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
             info.bindingDescription.clear();
-            info.bindingDescription.push_back({0, sizeof(Particle), VK_VERTEX_INPUT_RATE_VERTEX});
+            info.bindingDescription.push_back({0, sizeof(glm::vec3), VK_VERTEX_INPUT_RATE_VERTEX});
+            info.bindingDescription.push_back({1, sizeof(glm::vec3), VK_VERTEX_INPUT_RATE_VERTEX});
             info.attributeDescription.clear();
-            info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Particle, position)});
-            info.attributeDescription.push_back({1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Particle, color)});
+            info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
+            info.attributeDescription.push_back({1, 1, VK_FORMAT_R32G32B32_SFLOAT, 0});
         });
     }
 }
@@ -52,13 +53,12 @@ void SPHCPU3DSim::createInstances(bool activateRandomOffsets) {
     float step = H + 0.1f;
 
     uint32_t count = 0;
-    for (uint32_t i = 0; i < particles.size(); i++) {
-        auto& sphere = particles[i];
-        sphere.color = glm::vec3(0.2f, 0.6f, 1.0f);
-        sphere.position = accPos;
-        if (activateRandomOffsets) sphere.position += glm::vec3(randomFloat(-H/5, H/5), randomFloat(-H/5, H/5), randomFloat(-H/5, H/5));
-        sphere.velocity = glm::vec3(0.0f);
-        sphere.force = glm::vec3(0.0f);
+    for (uint32_t i = 0; i < INSTANCE_COUNT; i++) {
+        particles.color[i] = glm::vec3(0.2f, 0.6f, 1.0f);
+        particles.position[i] = accPos;
+        if (activateRandomOffsets) particles.position[i] += glm::vec3(randomFloat(-H/5, H/5), randomFloat(-H/5, H/5), randomFloat(-H/5, H/5));
+        particles.velocity[i] = glm::vec3(0.0f);
+        particles.force[i] = glm::vec3(0.0f);
         accPos.x += step;
 
         if (i % numParticlesXZ.x == numParticlesXZ.x - 1) {
@@ -72,10 +72,22 @@ void SPHCPU3DSim::createInstances(bool activateRandomOffsets) {
             }
         }
     }
-    particleBuffer = std::make_unique<vkb::Buffer>(device, particles.size() * sizeof(Particle),
+    particlePosBuffer = std::make_unique<vkb::Buffer>(device, particles.position.size() * sizeof(glm::vec3),
                                                  VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    vkb::Buffer::writeVectorToBuffer(device, particleBuffer, particles);
+    vkb::Buffer::writeVectorToBuffer(device, particlePosBuffer, particles.position);
+
+    particleColBuffer = std::make_unique<vkb::Buffer>(device, particles.color.size() * sizeof(glm::vec3),
+                                                      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    vkb::Buffer::writeVectorToBuffer(device, particleColBuffer, particles.color);
+
+    std::vector<uint32_t> idxs(INSTANCE_COUNT);
+    std::iota(std::begin(idxs), std::end(idxs), 0);
+    idxBuffer = std::make_unique<vkb::Buffer>(device, idxs.size() * sizeof(uint32_t),
+                                                      VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    vkb::Buffer::writeVectorToBuffer(device, idxBuffer, idxs);
 }
 
 void SPHCPU3DSim::createUniformBuffers() {
@@ -95,7 +107,8 @@ void SPHCPU3DSim::mainLoop(float deltaTime) {
 
     if (!controlMode) {
         updateParticles(deltaTime);
-        vkb::Buffer::writeVectorToBuffer(device, particleBuffer, particles);
+        vkb::Buffer::writeVectorToBuffer(device, particlePosBuffer, particles.position);
+        vkb::Buffer::writeVectorToBuffer(device, particleColBuffer, particles.color);
     } else {
         createInstances(false);
     }
@@ -118,10 +131,13 @@ void SPHCPU3DSim::mainLoop(float deltaTime) {
             plane.m_translation.y -= BOUNDARY_SIZE.y;
 
             particleSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
-            VkBuffer vb = particleBuffer->getBuffer();
+            VkBuffer vbPos = particlePosBuffer->getBuffer();
+            VkBuffer vbCol = particleColBuffer->getBuffer();
             VkDeviceSize offsets[] = {0};
-            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
-            vkCmdDraw(commandBuffer, INSTANCE_COUNT, 1, 0, 0);
+            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vbPos, offsets);
+            vkCmdBindVertexBuffers(commandBuffer, 1, 1, &vbCol, offsets);
+            vkCmdBindIndexBuffer(commandBuffer, idxBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+            vkCmdDrawIndexed(commandBuffer, INSTANCE_COUNT, 1, 0, 0, 0);
 
         });
     });
@@ -239,95 +255,91 @@ void SPHCPU3DSim::showImGui(){
 
 void SPHCPU3DSim::updateParticles(float deltaTime){
 
-    grid.createAndSort(particles, sortedParticles);
+    grid.createAndSortVec(particles, sortedParticles);
 
     particles.swap(sortedParticles);
 
     auto computeDensityPressureThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
-            auto& particle = particles[idx];
-            particle.density = 0.0f;
-            grid.query(particle.position, H, [this, &particle](uint32_t otherIdx) {
-                const auto& other = particles[otherIdx];
-                auto vec = particle.position - other.position;
+            particles.density[idx] = 0.0f;
+            grid.query(particles.position[idx], H, [this, idx](uint32_t otherIdx) {
+                auto vec = particles.position[idx] - particles.position[otherIdx];
                 auto dist2 = glm::dot(vec, vec);
                 if (dist2 < HSQ) {
                     float partialDensity = MASS * POLY6 * std::pow(HSQ - dist2, 3.f);
-                    particle.density += partialDensity;
+                    particles.density[idx] += partialDensity;
                 }
             });
-            particle.pressure = GAS_CONST * (particle.density - REST_DENS);
+            particles.pressure[idx] = GAS_CONST * (particles.density[idx] - REST_DENS);
         }
     };
 
     auto computeForcesThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
-            auto& particle = particles[idx];
             glm::vec3 fPress{0.0f}, fVisc{0.0f};
-            grid.query(particle.position, H, [this, &particle, &fVisc, &fPress](uint32_t otherIdx) {
-                const auto& other = particles[otherIdx];
-                if (&other == &particle) return ;
+            grid.query(particles.position[idx], H, [this, idx, &fVisc, &fPress](uint32_t otherIdx) {
 
-                auto vec = other.position - particle.position;
+                if (otherIdx == idx) return;
+
+                auto vec = particles.position[otherIdx] - particles.position[idx];
                 auto dist = glm::length(vec);
 
                 if (dist == 0){
-                    particle.position += glm::vec3(0.001);
+                    particles.position[idx] += glm::vec3(0.001);
                     return;
                 }
 
                 if (dist < H) {
-                    fPress += (vec / dist) * MASS * (particle.pressure + other.pressure) /
-                              (2.f * other.density) * SPIKY_GRAD * std::pow(H - dist, 2.f);
+                    fPress += (vec / dist) * MASS * (particles.pressure[idx] + particles.pressure[otherIdx]) /
+                              (2.f * particles.density[otherIdx]) * SPIKY_GRAD * std::pow(H - dist, 2.f);
 
-                    fVisc += VISC * MASS * (other.velocity - particle.velocity) /
-                             other.density * VISC_LAP * (H - dist);
+                    fVisc += VISC * MASS * (particles.velocity[otherIdx] - particles.velocity[idx]) /
+                             particles.density[otherIdx] * VISC_LAP * (H - dist);
                 }
 
             });
-            particle.force = fPress + fVisc + gravityFactor*G*MASS/particle.density;
+            particles.force[idx] = fPress + fVisc + gravityFactor*G*MASS/particles.density[idx];
         }
     };
 
     auto integrateThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
-            auto& particle = particles[idx];
 
-            particle.color = glm::vec3(
-                    std::clamp(particle.color.r - colorUpdate, 0.2f, 1.0f),
-                    std::clamp(particle.color.g - colorUpdate, 0.4f, 1.0f),
-                    std::clamp(particle.color.b + colorUpdate, 0.0f, 1.0f)
+            particles.color[idx] = glm::vec3(
+                    std::clamp(particles.color[idx].r - colorUpdate, 0.2f, 1.0f),
+                    std::clamp(particles.color[idx].g - colorUpdate, 0.4f, 1.0f),
+                    std::clamp(particles.color[idx].b + colorUpdate, 0.0f, 1.0f)
             );
 
-            if (particle.density/MIN_DENS < densColorThreshold){
-                particle.color = glm::vec3(0.8f, 0.8f, 1.0f);
+            if (particles.density[idx]/MIN_DENS < densColorThreshold){
+                particles.color[idx] = glm::vec3(0.8f, 0.8f, 1.0f);
             }
 
             // forward Euler integration
-            particle.velocity += DT * particle.force / particle.density;
-            particle.position += DT * particle.velocity;
+            particles.velocity[idx] += DT * particles.force[idx] / particles.density[idx];
+            particles.position[idx] += DT * particles.velocity[idx];
 
             // enforce boundary conditions
-            if (particle.position.x - EPS < 0.f) {
-                particle.velocity.x *= BOUND_DAMPING;
-                particle.position.x = EPS;
-            } else if (particle.position.x + EPS > BOUNDARY_SIZE.x) {
-                particle.velocity.x *= BOUND_DAMPING;
-                particle.position.x = BOUNDARY_SIZE.x - EPS;
+            if (particles.position[idx].x - EPS < 0.f) {
+                particles.velocity[idx].x *= BOUND_DAMPING;
+                particles.position[idx].x = EPS;
+            } else if (particles.position[idx].x + EPS > BOUNDARY_SIZE.x) {
+                particles.velocity[idx].x *= BOUND_DAMPING;
+                particles.position[idx].x = BOUNDARY_SIZE.x - EPS;
             }
-            if (particle.position.z - EPS < 0.f) {
-                particle.velocity.z *= BOUND_DAMPING;
-                particle.position.z = EPS;
-            } else if (particle.position.z + EPS > BOUNDARY_SIZE.z) {
-                particle.velocity.z *= BOUND_DAMPING;
-                particle.position.z = BOUNDARY_SIZE.z - EPS;
+            if (particles.position[idx].z - EPS < 0.f) {
+                particles.velocity[idx].z *= BOUND_DAMPING;
+                particles.position[idx].z = EPS;
+            } else if (particles.position[idx].z + EPS > BOUNDARY_SIZE.z) {
+                particles.velocity[idx].z *= BOUND_DAMPING;
+                particles.position[idx].z = BOUNDARY_SIZE.z - EPS;
             }
-            if (particle.position.y - EPS < plane.m_translation.y) {
-                particle.velocity.y *= BOUND_DAMPING;
-                particle.position.y = plane.m_translation.y + EPS;
-            } else if (particle.position.y + EPS > BOUNDARY_SIZE.y) {
-                particle.velocity.y *= BOUND_DAMPING;
-                particle.position.y = BOUNDARY_SIZE.y - EPS;
+            if (particles.position[idx].y - EPS < plane.m_translation.y) {
+                particles.velocity[idx].y *= BOUND_DAMPING;
+                particles.position[idx].y = plane.m_translation.y + EPS;
+            } else if (particles.position[idx].y + EPS > BOUNDARY_SIZE.y) {
+                particles.velocity[idx].y *= BOUND_DAMPING;
+                particles.position[idx].y = BOUNDARY_SIZE.y - EPS;
             }
 
         }
