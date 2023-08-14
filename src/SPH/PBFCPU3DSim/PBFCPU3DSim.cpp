@@ -267,7 +267,7 @@ void PBFCPU3DSim::updateParticles(float deltaTime){
     grid.createAndSort(particles, sortedParticles);
     particles.swap(sortedParticles);
 
-    for (uint32_t i = 0; i < 2; i++) {
+    for (uint32_t i = 0; i < jacobiIterations; i++) {
         threadedCall(computeDensityThreaded);
         threadedCall(computeLambdaThreaded);
 

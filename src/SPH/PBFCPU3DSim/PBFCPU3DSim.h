@@ -42,7 +42,8 @@ public:
     float VISC = 0.8f;       // viscosity constant
     float DT = 0.010f;       // integration timestep
     float ART_PRESSURE_COEF = 0.1f;
-    float VORTICITY_COEF = 0.004f;
+    float VORTICITY_COEF = 0.0004f;
+    uint32_t jacobiIterations = 2;
 
     // smoothing kernels defined in Müller and their gradients
     static constexpr float POLY6 = 315.0f / (64.0f * glm::pi<float>() *H*H*H *H*H*H *H*H*H);
