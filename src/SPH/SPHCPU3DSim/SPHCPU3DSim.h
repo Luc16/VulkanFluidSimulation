@@ -76,13 +76,6 @@ public:
         float radius = H;
     };
 
-    // 140 - 170
-//    struct Particle {
-//        alignas(16) glm::vec3 position, velocity, force;
-//        float density, pressure;
-//        alignas(16) glm::vec3 color;
-//    };
-
     struct ParticleData {
         std::vector<glm::vec3> position, velocity, force;
         std::vector<float> density, pressure;
@@ -127,8 +120,6 @@ public:
     vkb::Camera camera{};
     vkb::CameraMovementController cameraController{};
 
-//    std::vector<Particle> particles{};
-//    std::vector<Particle> sortedParticles{};
     ParticleData particles{};
     ParticleData sortedParticles{};
     std::unique_ptr<vkb::Buffer> particlePosBuffer;
