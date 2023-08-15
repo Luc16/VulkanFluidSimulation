@@ -225,24 +225,6 @@ void SPHCPU2DSim::computeForces() {
     }
 }
 
-void SPHCPU2DSim::pushParticlesApart() {
-    for (int _ = 0; _ < 10; _++) {
-        for (auto & particle : particles) {
-        particleHash.query(particle.position, H, [this, &particle](uint32_t otherIdx) {
-                auto vec = particle.position - particles[otherIdx].position;
-                auto dist2 = glm::dot(vec, vec);
-
-                if (dist2 != 0 && dist2 < 4*particleRadius*particleRadius){
-                    auto dist = std::sqrt(dist2);
-                    vec = vec*(0.5f*(2*particleRadius - dist)/dist);
-                    particle.position += vec;
-                    particles[otherIdx].position -= vec;
-                }
-            });
-        }
-    }
-}
-
 void SPHCPU2DSim::moveObstacle() {
     static glm::vec2 prevMouse{};
     auto mouse = window.getMousePos();

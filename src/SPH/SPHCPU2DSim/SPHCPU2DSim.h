@@ -133,7 +133,6 @@ private:
 
     void computeDensityPressure();
     void computeForces();
-    void pushParticlesApart();
     void moveObstacle();
     void integrate();
 
