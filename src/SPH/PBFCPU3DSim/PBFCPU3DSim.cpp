@@ -459,7 +459,10 @@ void PBFCPU3DSim::createFunctions() {
 
                 if (dist2 < HSQ) {
                     float dist = std::sqrt(dist2);
-                    locationVector += glm::normalize(particle.vorticity)*(vec/dist) * SPIKY_GRAD * (H - dist) * (H - dist);
+                    float lengthVort = glm::length(particle.vorticity);
+                    if (lengthVort > 0.0f){
+                        locationVector += (particle.vorticity/lengthVort)*(vec/dist) * SPIKY_GRAD * (H - dist) * (H - dist);
+                    }
                 }
             });
 
@@ -470,6 +473,10 @@ void PBFCPU3DSim::createFunctions() {
     updatePositionThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
             auto& particle = particles[idx];
+
+            if (particle.velocity != particle.velocity) {
+                std::cout << "\n";
+            }
 
             // adding the viscosity term
             particle.velocity += particle.posCorrection;
