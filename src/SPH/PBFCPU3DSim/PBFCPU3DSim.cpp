@@ -403,6 +403,24 @@ void PBFCPU3DSim::createFunctions() {
         for (uint32_t idx = start; idx < end; idx++) {
             auto& particle = particles[idx];
 
+            // enforce boundary conditions
+            float nearEPS = EPS + 0.02;
+            if (particle.predPos.x - EPS < 0.0f) {
+                particle.predPos.x = nearEPS;
+            } else if (particle.predPos.x + EPS > BOUNDARY_SIZE.x) {
+                particle.predPos.x = BOUNDARY_SIZE.x - nearEPS;
+            }
+            if (particle.predPos.z - EPS < 0.0f) {
+                particle.predPos.z = nearEPS;
+            } else if (particle.predPos.z + EPS > BOUNDARY_SIZE.z) {
+                particle.predPos.z = BOUNDARY_SIZE.z - nearEPS;
+            }
+            if (particle.predPos.y - EPS < plane.m_translation.y) {
+                particle.predPos.y = plane.m_translation.y + nearEPS;
+            } else if (particle.predPos.y + EPS > BOUNDARY_SIZE.y) {
+                particle.predPos.y = BOUNDARY_SIZE.y - nearEPS;
+            }
+
             particle.velocity = (particle.predPos - particle.position)/DT;
 
             if (particle.density >= REST_DENS) {
@@ -473,10 +491,6 @@ void PBFCPU3DSim::createFunctions() {
     updatePositionThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
             auto& particle = particles[idx];
-
-            if (particle.velocity != particle.velocity) {
-                std::cout << "\n";
-            }
 
             // adding the viscosity term
             particle.velocity += particle.posCorrection;
