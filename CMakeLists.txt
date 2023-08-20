@@ -39,6 +39,7 @@ set( GENERAL_APPS
         "PointSpheres"
         "ComputeShaderTest"
         "FLIPCPU2DSim"
+        "SineWaveFluidSim"
         )
 
 foreach( testsourcefolder ${GENERAL_APPS} )

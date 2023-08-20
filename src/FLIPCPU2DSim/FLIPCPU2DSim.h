@@ -26,12 +26,12 @@
 #include "../lib/graphicsDataStructures/Matrices.h"
 
 
-class FLIPCPU2DSim: public vkb::VulkanApp {
+class SineWaveFluidSim: public vkb::VulkanApp {
 public:
     constexpr static uint32_t WIDTH = 1500;
     constexpr static uint32_t HEIGHT = 1000;
 
-    explicit FLIPCPU2DSim(const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
+    explicit SineWaveFluidSim(const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
             VulkanApp(WIDTH, HEIGHT, appName, type) {}
 
 private:

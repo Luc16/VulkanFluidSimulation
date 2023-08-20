@@ -20,7 +20,7 @@ void SPHCPU3DSim::onCreate() {
 
     {
         particleSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
-        particleSystem.createPipeline(renderer.renderPass(), particleShaderPaths, [this](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
+        particleSystem.createPipeline(renderer.renderPass(), particleShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
             info.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
             info.bindingDescription.clear();
             info.bindingDescription.push_back({0, sizeof(glm::vec3), VK_VERTEX_INPUT_RATE_VERTEX});
@@ -305,15 +305,15 @@ void SPHCPU3DSim::updateParticles(float deltaTime){
     auto integrateThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
 
-            particles.color[idx] = glm::vec3(
-                    std::clamp(particles.color[idx].r - colorUpdate, 0.2f, 1.0f),
-                    std::clamp(particles.color[idx].g - colorUpdate, 0.4f, 1.0f),
-                    std::clamp(particles.color[idx].b + colorUpdate, 0.0f, 1.0f)
-            );
-
-            if (particles.density[idx]/MIN_DENS < densColorThreshold){
-                particles.color[idx] = glm::vec3(0.8f, 0.8f, 1.0f);
-            }
+//            particles.color[idx] = glm::vec3(
+//                    std::clamp(particles.color[idx].r - colorUpdate, 0.2f, 1.0f),
+//                    std::clamp(particles.color[idx].g - colorUpdate, 0.4f, 1.0f),
+//                    std::clamp(particles.color[idx].b + colorUpdate, 0.0f, 1.0f)
+//            );
+//
+//            if (particles.density[idx]/MIN_DENS < densColorThreshold){
+//                particles.color[idx] = glm::vec3(0.8f, 0.8f, 1.0f);
+//            }
 
             // forward Euler integration
             particles.velocity[idx] += DT * particles.force[idx] / particles.density[idx];
