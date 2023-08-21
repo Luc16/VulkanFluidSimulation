@@ -49,6 +49,7 @@ private:
         float omega = 0.14f;
         float phi = 4.0f;
         float amp = 0.5f;
+        uint32_t numSines = 12;
     };
 
     vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, planeModelPath)};

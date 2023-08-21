@@ -10,6 +10,7 @@ layout(binding = 0) uniform UniformBufferObject {
     float omega;
     float phi;
     float amp;
+    uint numSines;
 } ubo;
 
 layout(location = 0) out vec4 outColor;

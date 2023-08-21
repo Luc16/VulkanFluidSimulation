@@ -147,6 +147,9 @@ void SineWaveFluidSim::showImGui(){
         ImGui::DragFloat("omega", &ubo.omega, 0.01f);
         ImGui::DragFloat("phi", &ubo.phi, 0.2f);
         ImGui::DragFloat("amp", &ubo.amp, 0.02f);
+        int temp = ubo.numSines;
+        ImGui::DragInt("numSines", &temp, 1);
+        ubo.numSines = temp;
 
         ImGui::Text("Using %s", device.getPhysicalDeviceName().c_str());
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
