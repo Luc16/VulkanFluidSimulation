@@ -50,6 +50,6 @@ void main()
     uint k = atomicAdd(grid[gidx], -1);
     outPos[k-1] = pos[i];
     outVel[k-1] = vel[i];
-    particleIdx[k-1] = gidx;
+    gridIdx[k-1] = gidx;
 
 }

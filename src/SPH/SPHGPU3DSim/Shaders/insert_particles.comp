@@ -27,9 +27,9 @@ void main()
     int numCellsX = int(ubo.boundSize.x/ubo.spacing);
     int numCellsZ = int(ubo.boundSize.z/ubo.spacing);
 
-    int gidx = int(positons[i].x/ubo.spacing) +
-                numCellsX*int(positons[i].z/ubo.spacing) +
-                numCellsX*numCellsZ*int(positons[i].y/ubo.spacing);
+    int gidx = int(positions[i].x/ubo.spacing) +
+                numCellsX*int(positions[i].z/ubo.spacing) +
+                numCellsX*numCellsZ*int(positions[i].y/ubo.spacing);
 
     atomicAdd(grid[gidx], 1);
 }
