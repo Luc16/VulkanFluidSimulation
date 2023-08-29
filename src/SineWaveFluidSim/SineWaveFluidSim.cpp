@@ -147,7 +147,7 @@ void SineWaveFluidSim::showImGui(){
         ImGui::DragFloat("omega", &ubo.omega, 0.01f);
         ImGui::DragFloat("phi", &ubo.phi, 0.2f);
         ImGui::DragFloat("amp", &ubo.amp, 0.02f);
-        int temp = ubo.numSines;
+        int temp = int(ubo.numSines);
         ImGui::DragInt("numSines", &temp, 1);
         ubo.numSines = temp;
 

@@ -13,8 +13,8 @@ layout(std430, binding = 1) buffer GridSSBO {
     uint grid[ ];
 };
 
-layout(std140, binding = 2) buffer ParticleSSBO {
-    Particle particles[ ];
+layout(std430, binding = 2) buffer ParticlePosSSBO {
+    vec3 positions[ ];
 };
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
@@ -27,9 +27,9 @@ void main()
     int numCellsX = int(ubo.boundSize.x/ubo.spacing);
     int numCellsZ = int(ubo.boundSize.z/ubo.spacing);
 
-    int gidx = int(particles[i].position.x/ubo.spacing) +
-                numCellsX*int(particles[i].position.z/ubo.spacing) +
-                numCellsX*numCellsZ*int(particles[i].position.y/ubo.spacing);
+    int gidx = int(positons[i].x/ubo.spacing) +
+                numCellsX*int(positons[i].z/ubo.spacing) +
+                numCellsX*numCellsZ*int(positons[i].y/ubo.spacing);
 
     atomicAdd(grid[gidx], 1);
 }

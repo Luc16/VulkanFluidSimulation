@@ -6,11 +6,11 @@
 #define VULKANFLUIDSIMULATION_GPUSPATIALGRIDHANDLER_H
 
 #include <vector>
-#include "../utils.h"
-#include "../ComputeSystem.h"
-#include "../descriptors/DescriptorSetLayout.h"
-#include "../Buffer.h"
-#include "../descriptors/DescriptorPool.h"
+#include "../../lib/utils.h"
+#include "../../lib/ComputeSystem.h"
+#include "../../lib/descriptors/DescriptorSetLayout.h"
+#include "../../lib/Buffer.h"
+#include "../../lib/descriptors/DescriptorPool.h"
 
 namespace vkb {
 
@@ -40,8 +40,11 @@ namespace vkb {
 
         void createSystems();
 
-        void createDescriptorsAndBuffers(const std::unique_ptr<vkb::DescriptorPool>& globalPool, uint32_t gridSize, GridParticleUniformBufferObject uboData,
-                                         const std::vector<std::unique_ptr<vkb::Buffer>>& particleBuffers);
+        void createDescriptorsAndBuffers(const std::unique_ptr<DescriptorPool>& globalPool,
+                                                                     uint32_t gridSize, GridParticleUniformBufferObject uboData,
+                                                                     const std::unique_ptr<Buffer>& particleIdxBuffer,
+                                                                     const std::array<std::unique_ptr<Buffer>, 2>& particlePosBuffers,
+                                                                     const std::array<std::unique_ptr<Buffer>, 2>& particleVelBuffers);
 
         void resetGrid(VkCommandBuffer commandBuffer);
         void insertParticles(u_char frameIdx, VkCommandBuffer commandBuffer);
@@ -72,25 +75,33 @@ namespace vkb {
 
 
         vkb::DescriptorSetLayout m_resetDescriptorLayout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
-                .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
+                .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+                .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
                 .build();
-        vkb::DescriptorSetLayout m_generalDescriptorLayout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
-                .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+        vkb::DescriptorSetLayout m_insertDescriptorLayout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
+                .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+                .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+                .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+                .build();
+        vkb::DescriptorSetLayout m_scanDescriptorLayout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
+                .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+                .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+                .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                 .build();
         vkb::DescriptorSetLayout m_sortDescriptorLayout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
-                .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
-                .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // particles in
-                .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // particles out
+                .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+                .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
+                .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // particles pos in
+                .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // particles vel in
+                .addBinding({4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // particles pos out
+                .addBinding({5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // particles vel out
+                .addBinding({6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // particles vel out
                 .build();
 
         VkDescriptorSet m_resetDescriptorSet{};
         std::array<VkDescriptorSet, 2> m_insertDescriptorSets{};
         std::vector<VkDescriptorSet> m_scanDescriptorSets{};
-        std::vector<std::vector<std::pair<VkBuffer, VkDeviceSize>>> m_scanBarrierDatas{};
+        std::vector<std::vector<std::pair<VkBuffer, VkDeviceSize>>> m_scanBarrierData{};
         std::array<VkDescriptorSet, 2> m_sortDescriptorSets{};
         bool m_created = false;
 

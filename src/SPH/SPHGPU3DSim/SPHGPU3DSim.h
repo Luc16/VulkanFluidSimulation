@@ -23,7 +23,7 @@
 #include "../../lib/InstancedObjects.h"
 #include "../../lib/ComputeSystem.h"
 #include "../../lib/ComputeShaderHandler.h"
-#include "../../lib/graphicsDataStructures/GpuSpatialGridHandler.h"
+#include "GpuSpatialGridHandler.h"
 
 
 class SPHGPU3DSim: public vkb::VulkanApp {
@@ -66,12 +66,21 @@ private:
             COMPILED_SHADER_DIR + shaders[3] + ".spv"
     };
 
-    struct Particle {
-        alignas(16) glm::vec3 position{};
-        alignas(16) glm::vec3 velocity{};
-        alignas(16) glm::vec3 force{};
-        alignas(16) glm::vec3 color{};
-        float density{}, pressure{}, scale{};
+    struct ParticleData {
+        std::vector<glm::vec3> position{};
+        std::vector<glm::vec3> velocity{};
+        std::vector<glm::vec3> force{};
+        std::vector<uint32_t> idx{};
+        std::vector<float> density{}, pressure{};
+
+        void resize(size_t newSize) {
+            position.resize(newSize);
+            velocity.resize(newSize);
+            force.resize(newSize);
+            idx.resize(newSize);
+            density.resize(newSize);
+            pressure.resize(newSize);
+        }
     };
 
     struct UniformBufferObject {
@@ -117,8 +126,16 @@ private:
     vkb::RenderSystem particleSystem{device};
 
 
-    std::vector<Particle> particles{};
-    std::vector<std::unique_ptr<vkb::Buffer>> particleBuffers{2};
+    ParticleData particles{};
+    std::array<std::unique_ptr<vkb::Buffer>, 2> positionBuffers;
+    std::array<std::unique_ptr<vkb::Buffer>, 2> velocityBuffers;
+    std::unique_ptr<vkb::Buffer> forceBuffer;
+    std::unique_ptr<vkb::Buffer> densityBuffer;
+    std::unique_ptr<vkb::Buffer> pressureBuffer;
+    std::unique_ptr<vkb::Buffer> gridIdxBuffer;
+
+    std::array<std::vector<std::pair<VkBuffer, VkDeviceSize>>, 2> particleBarrierData;
+
     u_char computeFrameIdx = 0;
 
     std::unique_ptr<vkb::Buffer> computeUniformBuffer;

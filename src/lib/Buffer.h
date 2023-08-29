@@ -24,6 +24,8 @@ namespace vkb {
         [[nodiscard]] VkDeviceMemory getMemory() const { return m_memory; }
         [[nodiscard]] VkDeviceSize getSize() const { return m_bufferSize; }
         [[nodiscard]] VkDescriptorBufferInfo descriptorInfo(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0) const;
+        [[nodiscard]] std::pair<VkBuffer, VkDeviceSize> getBarrierData() { return {m_buffer, m_bufferSize}; };
+
 
         void map();
         void unmap();
