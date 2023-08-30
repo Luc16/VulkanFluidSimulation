@@ -121,9 +121,8 @@ namespace vkb {
                 }));
             }
 
-            std::pair<VkBuffer, VkDeviceSize> b1 = (i == 0) ? std::make_pair(m_gridBuffer->getBuffer(), m_gridBuffer->getSize()) :
-                                                   std::make_pair(m_partialSums[i-1]->getBuffer(), m_partialSums[i-1]->getSize());
-            std::pair<VkBuffer, VkDeviceSize> b2 = std::make_pair(m_partialSums[i]->getBuffer(), m_partialSums[i]->getSize());
+            std::pair<VkBuffer, VkDeviceSize> b1 = (i == 0) ? m_gridBuffer->getBarrierData() : m_partialSums[i-1]->getBarrierData();
+            std::pair<VkBuffer, VkDeviceSize> b2 = m_partialSums[i]->getBarrierData();
 
             m_scanBarrierData[i] = {b1, b2};
         }

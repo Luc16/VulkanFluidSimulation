@@ -29,7 +29,7 @@ void SPHGPU3DSim::onCreate() {
         particleSystem.createPipeline(renderer.renderPass(), particleShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
             info.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
             info.bindingDescription.clear();
-            info.bindingDescription.push_back({0, sizeof(glm::vec3), VK_VERTEX_INPUT_RATE_VERTEX});
+            info.bindingDescription.push_back({0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX});
             info.attributeDescription.clear();
             info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
         });
@@ -98,9 +98,9 @@ void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     uint32_t count = 0;
     for (uint32_t i = 0; i < particles.position.size(); i++) {
         particles.position[i] = accPos;
-        if (activateRandomOffsets) particles.position[i] += glm::vec3(randomFloat(-cUbo.H/5, cUbo.H/5), randomFloat(-cUbo.H/5, cUbo.H/5), randomFloat(-cUbo.H/5, cUbo.H/5));
-        particles.velocity[i] = glm::vec3(0.0f);
-        particles.force[i] = glm::vec3(0.0f);
+        if (activateRandomOffsets) particles.position[i] += glm::vec4(randomFloat(-cUbo.H/5, cUbo.H/5), randomFloat(-cUbo.H/5, cUbo.H/5), randomFloat(-cUbo.H/5, cUbo.H/5), 0.0f);
+        particles.velocity[i] = glm::vec4(0.0f);
+        particles.force[i] = glm::vec4(0.0f);
         accPos.x += particleSpacing;
 
         if (i % numParticlesXZ.x == numParticlesXZ.x - 1) {
@@ -124,10 +124,10 @@ void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     };
 
     for (uint32_t i = 0; i < positionBuffers.size(); i++){
-        positionBuffers[i] = std::make_unique<vkb::Buffer>(device, particles.position.size() * sizeof(glm::vec3),
+        positionBuffers[i] = std::make_unique<vkb::Buffer>(device, particles.position.size() * sizeof(glm::vec4), // size of vec4 because in the shader it jumps 16 bytes
                                                           VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        velocityBuffers[i] = makeBuffer(particles.velocity.size() * sizeof(glm::vec3));
+        velocityBuffers[i] = makeBuffer(particles.velocity.size() * sizeof(glm::vec4)); // size of vec4 because in the shader it jumps 16 bytes
         if (i == 0) {
             vkb::Buffer::writeVectorToBuffer(device, positionBuffers[i], particles.position);
             vkb::Buffer::writeVectorToBuffer(device, velocityBuffers[i], particles.velocity);
@@ -135,7 +135,7 @@ void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
 
     }
 
-    forceBuffer = makeBuffer(particles.force.size()*sizeof(glm::vec3));
+    forceBuffer = makeBuffer(particles.force.size()*sizeof(glm::vec4)); // size of vec4 because in the shader it jumps 16 bytes
     vkb::Buffer::writeVectorToBuffer(device, forceBuffer, particles.force);
 
     densityBuffer = makeBuffer(particles.density.size()*sizeof(float));
@@ -271,23 +271,23 @@ void SPHGPU3DSim::updateSimulation() {
 
         gridHandler.countingSort(computeFrameIdx, computeCommandBuffer);
 
-        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+//        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
 
-        calculateDensityPressureComputeSystem.bindAndDispatch(computeCommandBuffer,
-                                                              &computeDescriptorSets[computeFrameIdx],
-                                                              blockSize, 1, 1);
-
-        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
-
-        calculateForcesComputeSystem.bindAndDispatch(computeCommandBuffer,
-                                                     &computeDescriptorSets[computeFrameIdx],
-                                                     blockSize, 1, 1);
-
-        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
-
-        integrateComputeSystem.bindAndDispatch(computeCommandBuffer,
-                                               &computeDescriptorSets[computeFrameIdx],
-                                               blockSize, 1, 1);
+//        calculateDensityPressureComputeSystem.bindAndDispatch(computeCommandBuffer,
+//                                                              &computeDescriptorSets[computeFrameIdx],
+//                                                              blockSize, 1, 1);
+//
+//        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+//
+//        calculateForcesComputeSystem.bindAndDispatch(computeCommandBuffer,
+//                                                     &computeDescriptorSets[computeFrameIdx],
+//                                                     blockSize, 1, 1);
+//
+//        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+//
+//        integrateComputeSystem.bindAndDispatch(computeCommandBuffer,
+//                                               &computeDescriptorSets[computeFrameIdx],
+//                                               blockSize, 1, 1);
 
     });
 

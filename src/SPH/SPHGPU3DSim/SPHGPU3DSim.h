@@ -67,9 +67,9 @@ private:
     };
 
     struct ParticleData {
-        std::vector<glm::vec3> position{};
-        std::vector<glm::vec3> velocity{};
-        std::vector<glm::vec3> force{};
+        std::vector<glm::vec4> position{};
+        std::vector<glm::vec4> velocity{};
+        std::vector<glm::vec4> force{};
         std::vector<uint32_t> idx{};
         std::vector<float> density{}, pressure{};
 
@@ -161,7 +161,7 @@ private:
 
     glm::ivec2 numParticlesXZ = glm::ivec2(int(std::cbrt(INSTANCE_COUNT)));
     float particleSpacing = cUbo.H;
-    glm::vec3 initialPos = {cUbo.EPS, cUbo.EPS, cUbo.EPS};
+    glm::vec4 initialPos = {cUbo.EPS, cUbo.EPS, cUbo.EPS, 0};
     float drawTime = 0, cpuTime = 0, computeTime = 0, gravityFactor = 50.0f;
     bool activateTimer = false, controlMode = false;
 
