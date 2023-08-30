@@ -51,7 +51,4 @@ void main()
     outVel[k-1] = vel[i];
     gridIdx[k-1] = gidx;
 
-    debugPrintfEXT("i: %d, k = %d, out pos: (%f, %f, %f) <- (%f, %f, %f)\n", i, k - 1, outPos[k-1].x, outPos[k-1].y, outPos[k-1].z, pos[i].x, pos[i].y, pos[i].z);
-
-
 }

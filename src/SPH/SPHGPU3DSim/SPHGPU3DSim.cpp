@@ -35,47 +35,43 @@ void SPHGPU3DSim::onCreate() {
         });
     }
 
-    auto computeDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
-            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .build();
-
-    createComputeDescriptorSets(computeDescriptorLayout);
-    calculateForcesComputeSystem.createPipelineWithLayout(computeDescriptorLayout.descriptorSetLayout());
-    integrateComputeSystem.createPipelineWithLayout(computeDescriptorLayout.descriptorSetLayout());
-    calculateDensityPressureComputeSystem.createPipelineWithLayout(computeDescriptorLayout.descriptorSetLayout());
+    createComputeDescriptorSets();
+    calculateForcesComputeSystem.createPipelineWithLayout(forcesLayout.descriptorSetLayout());
+    integrateComputeSystem.createPipelineWithLayout(integrateLayout.descriptorSetLayout());
+    calculateDensityPressureComputeSystem.createPipelineWithLayout(densityPressureLayout.descriptorSetLayout());
 
     gridHandler.createSystems();
 }
 
-void SPHGPU3DSim::createComputeDescriptorSets(vkb::DescriptorSetLayout &layout) {
-    VkDescriptorSetLayout vkLayout = layout.descriptorSetLayout();
-    VkDescriptorSetAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = globalDescriptorPool->descriptorPool();
-    allocInfo.descriptorSetCount = 1;
-    allocInfo.pSetLayouts = &vkLayout;
+void SPHGPU3DSim::createComputeDescriptorSets() {
+    for (uint32_t i = 0; i < densityPressureSets.size(); i++) {
+        densityPressureSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, densityPressureLayout, {
+                {computeUniformBuffer->descriptorInfo()},
+                {gridHandler.gridDescriptorInfo()},
+                {positionBuffers[(i + 1) % positionBuffers.size()]->descriptorInfo()},
+                {densityBuffer->descriptorInfo()},
+                {pressureBuffer->descriptorInfo()},
+                {gridIdxBuffer->descriptorInfo()}
+        });
 
-    for (uint32_t i = 0; i < computeDescriptorSets.size(); i++) {
+        forcesSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, forcesLayout, {
+                {computeUniformBuffer->descriptorInfo()},
+                {gridHandler.gridDescriptorInfo()},
+                {positionBuffers[(i + 1) % positionBuffers.size()]->descriptorInfo()},
+                {velocityBuffers[(i + 1) % velocityBuffers.size()]->descriptorInfo()},
+                {forceBuffer->descriptorInfo()},
+                {densityBuffer->descriptorInfo()},
+                {pressureBuffer->descriptorInfo()},
+                {gridIdxBuffer->descriptorInfo()}
+        });
 
-        if (vkAllocateDescriptorSets(device.device(), &allocInfo, &computeDescriptorSets[i]) != VK_SUCCESS) {
-            throw std::runtime_error("failed to allocate descriptor sets!");
-        }
-
-        auto writer = vkb::DescriptorWriter(layout, *globalDescriptorPool);
-
-        auto uniformBufferInfo = computeUniformBuffer->descriptorInfo();
-        writer.writeBuffer(0, &uniformBufferInfo);
-
-        auto gridBufferInfo = gridHandler.gridDescriptorInfo();
-        writer.writeBuffer(1, &gridBufferInfo);
-
-        auto particleBufferInfo = positionBuffers[(i + 1) % positionBuffers.size()]->descriptorInfo();
-        writer.writeBuffer(2, &particleBufferInfo);
-
-        writer.build(computeDescriptorSets[i], false);
-
+        integrateSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, integrateLayout, {
+                {computeUniformBuffer->descriptorInfo()},
+                {positionBuffers[(i + 1) % positionBuffers.size()]->descriptorInfo()},
+                {velocityBuffers[(i + 1) % velocityBuffers.size()]->descriptorInfo()},
+                {forceBuffer->descriptorInfo()},
+                {densityBuffer->descriptorInfo()},
+        });
     }
 }
 
@@ -124,10 +120,10 @@ void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     };
 
     for (uint32_t i = 0; i < positionBuffers.size(); i++){
-        positionBuffers[i] = std::make_unique<vkb::Buffer>(device, particles.position.size() * sizeof(glm::vec4), // size of vec4 because in the shader it jumps 16 bytes
+        positionBuffers[i] = std::make_unique<vkb::Buffer>(device, particles.position.size() * sizeof(glm::vec4),
                                                           VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        velocityBuffers[i] = makeBuffer(particles.velocity.size() * sizeof(glm::vec4)); // size of vec4 because in the shader it jumps 16 bytes
+        velocityBuffers[i] = makeBuffer(particles.velocity.size() * sizeof(glm::vec4));
         if (i == 0) {
             vkb::Buffer::writeVectorToBuffer(device, positionBuffers[i], particles.position);
             vkb::Buffer::writeVectorToBuffer(device, velocityBuffers[i], particles.velocity);
@@ -135,7 +131,7 @@ void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
 
     }
 
-    forceBuffer = makeBuffer(particles.force.size()*sizeof(glm::vec4)); // size of vec4 because in the shader it jumps 16 bytes
+    forceBuffer = makeBuffer(particles.force.size()*sizeof(glm::vec4));
     vkb::Buffer::writeVectorToBuffer(device, forceBuffer, particles.force);
 
     densityBuffer = makeBuffer(particles.density.size()*sizeof(float));
@@ -164,15 +160,17 @@ void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
                 velocityBuffers);
     }
 
-    auto computeDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
-            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .build();
+    if (objectsInitialized) globalDescriptorPool->freeDescriptors({
+        densityPressureSets[0],
+        densityPressureSets[1],
+        forcesSets[0],
+        forcesSets[1],
+        integrateSets[0],
+        integrateSets[1]
+    });
+    createComputeDescriptorSets();
 
-    if (computeDescriptorSets[0]) globalDescriptorPool->freeDescriptors({computeDescriptorSets[0], computeDescriptorSets[1]});
-    createComputeDescriptorSets(computeDescriptorLayout);
-
+    objectsInitialized = true;
 
 }
 
@@ -271,23 +269,23 @@ void SPHGPU3DSim::updateSimulation() {
 
         gridHandler.countingSort(computeFrameIdx, computeCommandBuffer);
 
-//        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
 
-//        calculateDensityPressureComputeSystem.bindAndDispatch(computeCommandBuffer,
-//                                                              &computeDescriptorSets[computeFrameIdx],
-//                                                              blockSize, 1, 1);
-//
-//        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
-//
-//        calculateForcesComputeSystem.bindAndDispatch(computeCommandBuffer,
-//                                                     &computeDescriptorSets[computeFrameIdx],
-//                                                     blockSize, 1, 1);
-//
-//        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
-//
-//        integrateComputeSystem.bindAndDispatch(computeCommandBuffer,
-//                                               &computeDescriptorSets[computeFrameIdx],
-//                                               blockSize, 1, 1);
+        calculateDensityPressureComputeSystem.bindAndDispatch(computeCommandBuffer,
+                                                              &densityPressureSets[computeFrameIdx],
+                                                              blockSize, 1, 1);
+
+        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+
+        calculateForcesComputeSystem.bindAndDispatch(computeCommandBuffer,
+                                                     &forcesSets[computeFrameIdx],
+                                                     blockSize, 1, 1);
+
+        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+
+        integrateComputeSystem.bindAndDispatch(computeCommandBuffer,
+                                               &integrateSets[computeFrameIdx],
+                                               blockSize, 1, 1);
 
     });
 
@@ -416,3 +414,10 @@ void SPHGPU3DSim::compileShaders() {
         }
     }
 }
+
+/*
+ *
+validation layer: Validation Error: [ VUID-vkCmdBindDescriptorSets-pDescriptorSets-06563 ] Object 0: VK_NULL_HANDLE, type = VK_OBJECT_TYPE_DESCRIPTOR_SET; | MessageID = 0x747d089 | vkCmdBindDescriptorSets(): Attempt to bind pDescriptorSets[0] (VkDescriptorSet 0x0[]) that does not exist, and VK_EXT_graphics_pipeline_library is not enabled. The Vulkan spec states: Each element of pDescriptorSets must be a valid VkDescriptorSet (https://vulkan.lunarg.com/doc/view/1.3.250.1/linux/1.3-extensions/vkspec.html#VUID-vkCmdBindDescriptorSets-pDescriptorSets-06563)
+validation layer: Validation Error: [ VUID-vkCmdDispatch-None-02697 ] Object 0: handle = 0x5624b9e94140, type = VK_OBJECT_TYPE_COMMAND_BUFFER; | MessageID = 0xfd9e3152 | vkCmdDispatch(): VkPipeline 0xcc25c90000000082[] uses set #0 but that set is not bound. The Vulkan spec states: For each set n that is statically used by a bound shader, a descriptor set must have been bound to n at the same pipeline bind point, with a VkPipelineLayout that is compatible for set n, with the VkPipelineLayout used to create the current VkPipeline, as described in Pipeline Layout Compatibility (https://vulkan.lunarg.com/doc/view/1.3.250.1/linux/1.3-extensions/vkspec.html#VUID-vkCmdDispatch-None-02697)
+
+ * */

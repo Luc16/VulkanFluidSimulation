@@ -18,6 +18,9 @@ namespace vkb {
 
         void build(VkDescriptorSet &set, bool allocateDescriptor=true);
         void update(VkDescriptorSet &set);
+        static VkDescriptorSet createSingleDescriptorSet(const std::unique_ptr<DescriptorPool>& pool,
+                                                         DescriptorSetLayout &layout,
+                                                         std::vector<VkDescriptorBufferInfo> bufferInfos);
     private:
         DescriptorSetLayout& m_layout;
         DescriptorPool& m_pool;

@@ -11,8 +11,20 @@ layout(std430, binding = 1) readonly buffer GridSSBO {
     uint grid[ ];
 };
 
-layout(std140, binding = 2) buffer ParticleSSBO {
-    Particle particles[ ];
+layout(std430, binding = 2) readonly buffer PositionSSBO {
+    vec3 pos[ ];
+};
+
+layout(std430, binding = 3) buffer DensitySSBO {
+    float densities[ ];
+};
+
+layout(std430, binding = 4) buffer PressureSSBO {
+    float pressures[ ];
+};
+
+layout(std430, binding = 5) readonly buffer ParticleIdxSSBO {
+    int gridIdx[ ];
 };
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
@@ -25,35 +37,31 @@ void main()
     int numCellsX = int(ubo.BOUNDARY_SIZE.x/ubo.H);
     int numCellsZ = int(ubo.BOUNDARY_SIZE.z/ubo.H);
 
-    int gidx = int(particles[i].position.x/ubo.H) +
-                numCellsX*int(particles[i].position.z/ubo.H) +
-                numCellsX*numCellsZ*int(particles[i].position.y/ubo.H);
-
-    particles[i].density = 0;
+    densities[i] = 0;
     for (int y = -1; y <= 1; y++){
         int idxy = y*numCellsX*numCellsZ;
 
-        float ypos = particles[i].position.y + ubo.H*y;
+        float ypos = pos[i].y + ubo.H*y;
         if (ypos >= ubo.BOUNDARY_SIZE.y || ypos < 0) continue;
 
         for (int z = -1; z <= 1; z++){
-            float zpos = particles[i].position.z + ubo.H*z;
+            float zpos = pos[i].z + ubo.H*z;
 
             if (zpos >= ubo.BOUNDARY_SIZE.z || zpos < 0) continue;
             int idxz = z*numCellsX;
 
             for (int x = -1; x <= 1; x++){
-                float xpos = particles[i].position.x + ubo.H*x;
+                float xpos = pos[i].x + ubo.H*x;
                 if (xpos > ubo.BOUNDARY_SIZE.x || xpos < 0) continue;
 
-                int idx = gidx + x + idxz + idxy;
+                int idx = gridIdx[i] + x + idxz + idxy;
 
                 for (uint j = grid[idx]; j < grid[idx+1]; j++){
-                    vec3 vec = particles[i].position - particles[j].position;
+                    vec3 vec = pos[i] - pos[j];
                     float dist2 = dot(vec, vec);
 
                     if (dist2 < ubo.HSQ) {
-                        particles[i].density += ubo.MASS * ubo.POLY6 * pow(ubo.HSQ - dist2, 3.f);
+                        densities[i] += ubo.MASS * ubo.POLY6 * pow(ubo.HSQ - dist2, 3.f);
                     }
                 }
 
@@ -62,6 +70,6 @@ void main()
         }
     }
 
-    particles[i].pressure = ubo.GAS_CONST * (particles[i].density - ubo.REST_DENS);
+    pressures[i] = ubo.GAS_CONST * (densities[i] - ubo.REST_DENS);
 
 }

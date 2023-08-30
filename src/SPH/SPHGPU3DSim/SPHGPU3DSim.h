@@ -66,6 +66,7 @@ private:
             COMPILED_SHADER_DIR + shaders[3] + ".spv"
     };
 
+    // these vec4s is read as vec3 in shader because of the 16 byte spacing
     struct ParticleData {
         std::vector<glm::vec4> position{};
         std::vector<glm::vec4> velocity{};
@@ -141,11 +142,40 @@ private:
     std::unique_ptr<vkb::Buffer> computeUniformBuffer;
     ComputeUniformBufferObject cUbo{};
     vkb::ComputeShaderHandler computeHandler{device};
-    std::array<VkDescriptorSet, 2> computeDescriptorSets = {nullptr};
 
     vkb::ComputeSystem calculateForcesComputeSystem{device, COMPILED_SHADER_DIR + shaders[4] + ".spv"};
+    std::array<VkDescriptorSet, 2> forcesSets;
+    vkb::DescriptorSetLayout forcesLayout = vkb::DescriptorSetLayout::Builder(device)
+            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
+            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pos
+            .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // vel
+            .addBinding({4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // forces
+            .addBinding({5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // density
+            .addBinding({6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pressure
+            .addBinding({7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid idx
+            .build();
+
     vkb::ComputeSystem integrateComputeSystem{device, COMPILED_SHADER_DIR + shaders[5] + ".spv"};
+    std::array<VkDescriptorSet, 2> integrateSets;
+    vkb::DescriptorSetLayout integrateLayout = vkb::DescriptorSetLayout::Builder(device)
+            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pos
+            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // vel
+            .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // force
+            .addBinding({4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // density
+            .build();
+
     vkb::ComputeSystem calculateDensityPressureComputeSystem{device, COMPILED_SHADER_DIR + shaders[6] + ".spv"};
+    std::array<VkDescriptorSet, 2> densityPressureSets;
+    vkb::DescriptorSetLayout densityPressureLayout = vkb::DescriptorSetLayout::Builder(device)
+            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+            .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
+            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pos
+            .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // density
+            .addBinding({4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pressure
+            .addBinding({5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid idx
+            .build();
 
     vkb::GpuSpatialGridHandler gridHandler{
         device, 256,
@@ -163,11 +193,11 @@ private:
     float particleSpacing = cUbo.H;
     glm::vec4 initialPos = {cUbo.EPS, cUbo.EPS, cUbo.EPS, 0};
     float drawTime = 0, cpuTime = 0, computeTime = 0, gravityFactor = 50.0f;
-    bool activateTimer = false, controlMode = false;
+    bool activateTimer = false, controlMode = false, objectsInitialized = false;
 
     void onCreate() override;
     void initializeObjects(bool activateRandomOffsets);
-    void createComputeDescriptorSets(vkb::DescriptorSetLayout &layout);
+    void createComputeDescriptorSets();
     void createUniformBuffers();
     void mainLoop(float deltaTime) override;
     void renderObjects();

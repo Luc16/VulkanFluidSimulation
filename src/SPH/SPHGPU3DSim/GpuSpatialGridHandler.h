@@ -60,7 +60,6 @@ namespace vkb {
 
     private:
 
-        VkDescriptorSet createSingleDescriptorSet(const std::unique_ptr<vkb::DescriptorPool>& globalPool, vkb::DescriptorSetLayout &layout, std::vector<VkDescriptorBufferInfo> bufferInfos);
         void createScanData(const std::unique_ptr<vkb::DescriptorPool>& globalPool);
 
         const Device& m_deviceRef;

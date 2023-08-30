@@ -63,19 +63,19 @@ namespace vkb {
         m_gridUniformBuffer->write(&m_gridUbo);
         m_gridParticleUniformBuffer->write(&m_gridParticleUbo);
 
-        m_resetDescriptorSet = createSingleDescriptorSet(globalPool, m_resetDescriptorLayout, {
+        m_resetDescriptorSet = DescriptorWriter::createSingleDescriptorSet(globalPool, m_resetDescriptorLayout, {
                 {m_gridUniformBuffer->descriptorInfo()},
                 {m_gridBuffer->descriptorInfo()}
         });
 
         for (uint32_t i = 0; i < particlePosBuffers.size(); i++){
-            m_insertDescriptorSets[i] = createSingleDescriptorSet(globalPool, m_insertDescriptorLayout, {
+            m_insertDescriptorSets[i] = DescriptorWriter::createSingleDescriptorSet(globalPool, m_insertDescriptorLayout, {
                     {m_gridParticleUniformBuffer->descriptorInfo()},
                     {m_gridBuffer->descriptorInfo()},
                     {particlePosBuffers[i]->descriptorInfo()}
             });
 
-            m_sortDescriptorSets[i] = createSingleDescriptorSet(globalPool, m_sortDescriptorLayout, {
+            m_sortDescriptorSets[i] = DescriptorWriter::createSingleDescriptorSet(globalPool, m_sortDescriptorLayout, {
                     {m_gridParticleUniformBuffer->descriptorInfo()},
                     {m_gridBuffer->descriptorInfo()},
                     {particlePosBuffers[i]->descriptorInfo()},
@@ -103,7 +103,7 @@ namespace vkb {
         }
 
         m_scanDescriptorSets = {
-                createSingleDescriptorSet(globalPool, m_scanDescriptorLayout, {
+                DescriptorWriter::createSingleDescriptorSet(globalPool, m_scanDescriptorLayout, {
                         m_gridUniformBuffer->descriptorInfo(),
                         m_gridBuffer->descriptorInfo(),
                         m_partialSums[0]->descriptorInfo()
@@ -114,7 +114,7 @@ namespace vkb {
         m_scanBarrierData.resize(m_partialSums.size());
         for (uint32_t i = 0; i < m_partialSums.size(); i++){
             if (i > 0) {
-                m_scanDescriptorSets.emplace_back(createSingleDescriptorSet(globalPool, m_scanDescriptorLayout, {
+                m_scanDescriptorSets.emplace_back(DescriptorWriter::createSingleDescriptorSet(globalPool, m_scanDescriptorLayout, {
                         m_gridUniformBuffer->descriptorInfo(),
                         m_partialSums[i - 1]->descriptorInfo(),
                         m_partialSums[i]->descriptorInfo()
@@ -126,33 +126,6 @@ namespace vkb {
 
             m_scanBarrierData[i] = {b1, b2};
         }
-    }
-
-
-    VkDescriptorSet
-    GpuSpatialGridHandler::createSingleDescriptorSet(const std::unique_ptr<DescriptorPool> &globalPool,
-                                                     DescriptorSetLayout &layout,
-                                                     std::vector<VkDescriptorBufferInfo> bufferInfos) {
-        VkDescriptorSetLayout setLayout = layout.descriptorSetLayout();
-        VkDescriptorSetAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocInfo.descriptorPool = globalPool->descriptorPool();
-        allocInfo.descriptorSetCount = 1;
-        allocInfo.pSetLayouts = &setLayout;
-
-        VkDescriptorSet set;
-        if (vkAllocateDescriptorSets(m_deviceRef.device(), &allocInfo, &set) != VK_SUCCESS) {
-            throw std::runtime_error("failed to allocate descriptor sets!");
-        }
-
-        auto writer = DescriptorWriter(layout, *globalPool);
-        for (uint32_t i = 0; i < bufferInfos.size(); i++){
-            writer.writeBuffer(i, &bufferInfos[i]);
-        }
-
-        writer.build(set, false);
-
-        return set;
     }
 
     void GpuSpatialGridHandler::resetGrid(VkCommandBuffer commandBuffer) {

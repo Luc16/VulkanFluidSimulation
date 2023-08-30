@@ -7,12 +7,20 @@ layout (binding = 0) uniform ParameterUBO {
     computeUBO ubo;
 };
 
-layout(std430, binding = 1) readonly buffer GridSSBO {
-    uint grid[ ];
+layout(std430, binding = 1) buffer PositionSSBO {
+    vec3 pos[ ];
 };
 
-layout(std140, binding = 2) buffer ParticleSSBO {
-    Particle particles[ ];
+layout(std430, binding = 2) buffer VelocitySSBO {
+    vec3 vel[ ];
+};
+
+layout(std430, binding = 3) readonly buffer ForceSSBO {
+    vec3 forces[ ];
+};
+
+layout(std430, binding = 4) readonly buffer DensitySSBO {
+    float densities[ ];
 };
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
@@ -22,27 +30,27 @@ void main()
     uint i = gl_GlobalInvocationID.x;
     if (i >= ubo.numParticles) return;
 
-    particles[i].velocity += ubo.DT * particles[i].force / particles[i].density;
-    particles[i].position += ubo.DT * particles[i].velocity;
+    vel[i] += ubo.DT * forces[i] / densities[i];
+    pos[i] += ubo.DT * vel[i];
 
     // enforce boundary conditions
-    if (particles[i].position.x - ubo.EPS < 0.f) {
-        particles[i].velocity.x *= ubo.BOUND_DAMPING;
-        particles[i].position.x = ubo.EPS;
-    } else if (particles[i].position.x + ubo.EPS > ubo.BOUNDARY_SIZE.x) {
-        particles[i].velocity.x *= ubo.BOUND_DAMPING;
-        particles[i].position.x = ubo.BOUNDARY_SIZE.x - ubo.EPS;
+    if (pos[i].x - ubo.EPS < 0.f) {
+        vel[i].x *= ubo.BOUND_DAMPING;
+        pos[i].x = ubo.EPS;
+    } else if (pos[i].x + ubo.EPS > ubo.BOUNDARY_SIZE.x) {
+        vel[i].x *= ubo.BOUND_DAMPING;
+        pos[i].x = ubo.BOUNDARY_SIZE.x - ubo.EPS;
     }
-    if (particles[i].position.z - ubo.EPS < 0.f) {
-        particles[i].velocity.z *= ubo.BOUND_DAMPING;
-        particles[i].position.z = ubo.EPS;
-    } else if (particles[i].position.z + ubo.EPS > ubo.BOUNDARY_SIZE.z) {
-        particles[i].velocity.z *= ubo.BOUND_DAMPING;
-        particles[i].position.z = ubo.BOUNDARY_SIZE.z - ubo.EPS;
+    if (pos[i].z - ubo.EPS < 0.f) {
+        vel[i].z *= ubo.BOUND_DAMPING;
+        pos[i].z = ubo.EPS;
+    } else if (pos[i].z + ubo.EPS > ubo.BOUNDARY_SIZE.z) {
+        vel[i].z *= ubo.BOUND_DAMPING;
+        pos[i].z = ubo.BOUNDARY_SIZE.z - ubo.EPS;
     }
-    if (particles[i].position.y - ubo.EPS < ubo.planeY) {
-        particles[i].velocity.y *= ubo.BOUND_DAMPING;
-        particles[i].position.y = ubo.planeY + ubo.EPS;
+    if (pos[i].y - ubo.EPS < ubo.planeY) {
+        vel[i].y *= ubo.BOUND_DAMPING;
+        pos[i].y = ubo.planeY + ubo.EPS;
     }
 
 }
