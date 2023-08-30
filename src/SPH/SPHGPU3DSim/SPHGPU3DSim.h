@@ -38,7 +38,9 @@ private:
     const std::string COMPILED_SHADER_DIR = std::string("../src/SPH/SPHGPU3DSim/Shaders/bin/");
 
 
-    uint32_t INSTANCE_COUNT = 100000;
+    uint32_t INSTANCE_COUNT = 500'000;
+    static constexpr uint32_t MAX_PARTICLES = 1'000'000;
+    static constexpr float MAX_BOUND = 1000.0f;
 
     const std::vector<std::string> shaders = {
             "default.vert",
@@ -93,7 +95,7 @@ private:
 
     struct ComputeUniformBufferObject {
         float deltaTime = 1/60.0f;
-        alignas(16) glm::vec3 BOUNDARY_SIZE = glm::vec3(120.0f);
+        alignas(16) glm::vec3 BOUNDARY_SIZE = glm::vec3(200.0f);
         float planeY = 0.0f;
 
         alignas(16) glm::vec3 G{0.0f, -10.0f, 0.0f};   // external (gravitational) forces
@@ -144,7 +146,7 @@ private:
     vkb::ComputeShaderHandler computeHandler{device};
 
     vkb::ComputeSystem calculateForcesComputeSystem{device, COMPILED_SHADER_DIR + shaders[4] + ".spv"};
-    std::array<VkDescriptorSet, 2> forcesSets;
+    std::array<VkDescriptorSet, 2> forcesSets{};
     vkb::DescriptorSetLayout forcesLayout = vkb::DescriptorSetLayout::Builder(device)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
             .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
@@ -157,7 +159,7 @@ private:
             .build();
 
     vkb::ComputeSystem integrateComputeSystem{device, COMPILED_SHADER_DIR + shaders[5] + ".spv"};
-    std::array<VkDescriptorSet, 2> integrateSets;
+    std::array<VkDescriptorSet, 2> integrateSets{};
     vkb::DescriptorSetLayout integrateLayout = vkb::DescriptorSetLayout::Builder(device)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
             .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pos
@@ -167,7 +169,7 @@ private:
             .build();
 
     vkb::ComputeSystem calculateDensityPressureComputeSystem{device, COMPILED_SHADER_DIR + shaders[6] + ".spv"};
-    std::array<VkDescriptorSet, 2> densityPressureSets;
+    std::array<VkDescriptorSet, 2> densityPressureSets{};
     vkb::DescriptorSetLayout densityPressureLayout = vkb::DescriptorSetLayout::Builder(device)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
             .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid

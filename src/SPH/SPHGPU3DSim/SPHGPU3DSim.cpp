@@ -5,8 +5,8 @@
 #include "SPHGPU3DSim.h"
 
 void SPHGPU3DSim::onCreate() {
-    camera.m_translation = {-107.37f, 99.6999f, 112.698f};
-    camera.m_rotation = {0.416948f, 1.95856f, 3.14159};
+    camera.m_translation = {-174.012f, 194.745f, 193.005f};
+    camera.m_rotation = {0.569391f, 1.95856f, 3.14159f};
     camera.updateView();
     auto extent = window.extent();
     camera.setOrthographicProjection(0.0f, (float) extent.width, (float) extent.height, 0.0f, 0.1f, 1000.f);
@@ -343,7 +343,7 @@ void SPHGPU3DSim::showImGui(){
         };
 
         int temp = (int) INSTANCE_COUNT;
-        ImGui::SliderInt("Num Particles", &temp, 16, 500000);
+        ImGui::SliderInt("Num Particles", &temp, 16, MAX_PARTICLES);
 
 
         auto particleShapeSize = getParticleShapeSize();
@@ -360,7 +360,7 @@ void SPHGPU3DSim::showImGui(){
 
 
         glm::vec3 newBoundSize = cUbo.BOUNDARY_SIZE;
-        auto maxBound = glm::vec3(1000.0f);
+        auto maxBound = glm::vec3(MAX_BOUND);
 
         ImGui::CDragFloatRanged3("Boundary Size", &newBoundSize[0], 1, &particleShapeSize[0], &maxBound[0]);
         for (int i = 0; i < 3; i++){
@@ -414,10 +414,3 @@ void SPHGPU3DSim::compileShaders() {
         }
     }
 }
-
-/*
- *
-validation layer: Validation Error: [ VUID-vkCmdBindDescriptorSets-pDescriptorSets-06563 ] Object 0: VK_NULL_HANDLE, type = VK_OBJECT_TYPE_DESCRIPTOR_SET; | MessageID = 0x747d089 | vkCmdBindDescriptorSets(): Attempt to bind pDescriptorSets[0] (VkDescriptorSet 0x0[]) that does not exist, and VK_EXT_graphics_pipeline_library is not enabled. The Vulkan spec states: Each element of pDescriptorSets must be a valid VkDescriptorSet (https://vulkan.lunarg.com/doc/view/1.3.250.1/linux/1.3-extensions/vkspec.html#VUID-vkCmdBindDescriptorSets-pDescriptorSets-06563)
-validation layer: Validation Error: [ VUID-vkCmdDispatch-None-02697 ] Object 0: handle = 0x5624b9e94140, type = VK_OBJECT_TYPE_COMMAND_BUFFER; | MessageID = 0xfd9e3152 | vkCmdDispatch(): VkPipeline 0xcc25c90000000082[] uses set #0 but that set is not bound. The Vulkan spec states: For each set n that is statically used by a bound shader, a descriptor set must have been bound to n at the same pipeline bind point, with a VkPipelineLayout that is compatible for set n, with the VkPipelineLayout used to create the current VkPipeline, as described in Pipeline Layout Compatibility (https://vulkan.lunarg.com/doc/view/1.3.250.1/linux/1.3-extensions/vkspec.html#VUID-vkCmdDispatch-None-02697)
-
- * */
