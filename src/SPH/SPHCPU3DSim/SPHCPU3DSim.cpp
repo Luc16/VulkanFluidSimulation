@@ -126,9 +126,6 @@ void SPHCPU3DSim::mainLoop(float deltaTime) {
 
             defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
             plane.render(defaultSystem, commandBuffer);
-            plane.m_translation.y += BOUNDARY_SIZE.y;
-            plane.render(defaultSystem, commandBuffer);
-            plane.m_translation.y -= BOUNDARY_SIZE.y;
 
             particleSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
             VkBuffer vbPos = particlePosBuffer->getBuffer();

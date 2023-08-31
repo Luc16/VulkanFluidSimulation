@@ -24,10 +24,11 @@ void PBFCPU3DSim::onCreate() {
         particleSystem.createPipeline(renderer.renderPass(), particleShaderPaths, [this](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
             info.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
             info.bindingDescription.clear();
-            info.bindingDescription.push_back({0, sizeof(Particle), VK_VERTEX_INPUT_RATE_VERTEX});
+            info.bindingDescription.push_back({0, sizeof(glm::vec3), VK_VERTEX_INPUT_RATE_VERTEX});
+            info.bindingDescription.push_back({1, sizeof(glm::vec3), VK_VERTEX_INPUT_RATE_VERTEX});
             info.attributeDescription.clear();
-            info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Particle, position)});
-            info.attributeDescription.push_back({1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Particle, color)});
+            info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
+            info.attributeDescription.push_back({1, 1, VK_FORMAT_R32G32B32_SFLOAT, 0});
         });
     }
 
@@ -54,17 +55,16 @@ void PBFCPU3DSim::createInstances(bool activateRandomOffsets) {
     float step = H - 0.01f;
 
     uint32_t count = 0;
-    for (uint32_t i = 0; i < particles.size(); i++) {
-        auto& sphere = particles[i];
-        sphere.color = glm::vec3(0.2f, 0.6f, 1.0f);
-        sphere.position = accPos;
-        if (activateRandomOffsets) sphere.position += glm::vec3(
+    for (uint32_t i = 0; i < particles.position.size(); i++) {
+        particles.color[i] = glm::vec3(0.2f, 0.6f, 1.0f);
+        particles.position[i] = accPos;
+        if (activateRandomOffsets) particles.position[i] += glm::vec3(
                 randomFloat((accPos.x != EPS) ? -H/5 : 0.0f, H/5),
                 randomFloat((accPos.y != EPS) ? -H/5 : 0.0f, H/5),
                 randomFloat((accPos.z != EPS) ? -H/5 : 0.0f, H/5));
-        sphere.velocity = glm::vec3(0.0f);
-        sphere.predPos = sphere.position;
-        sphere.posCorrection = glm::vec3(0.0f);
+        particles.velocity[i] = glm::vec3(0.0f);
+        particles.predPos[i] = particles.position[i];
+        particles.posCorrection[i] = glm::vec3(0.0f);
         accPos.x += step;
 
         if (i % numParticlesXZ.x == numParticlesXZ.x - 1) {
@@ -79,10 +79,22 @@ void PBFCPU3DSim::createInstances(bool activateRandomOffsets) {
         }
     }
 
-    particleBuffer = std::make_unique<vkb::Buffer>(device, particles.size() * sizeof(Particle),
-                                                 VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    vkb::Buffer::writeVectorToBuffer(device, particleBuffer, particles);
+    particlePosBuffer = std::make_unique<vkb::Buffer>(device, particles.position.size() * sizeof(glm::vec3),
+                                                      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    vkb::Buffer::writeVectorToBuffer(device, particlePosBuffer, particles.position);
+
+    particleColBuffer = std::make_unique<vkb::Buffer>(device, particles.color.size() * sizeof(glm::vec3),
+                                                      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    vkb::Buffer::writeVectorToBuffer(device, particleColBuffer, particles.color);
+
+    std::vector<uint32_t> idxs(INSTANCE_COUNT);
+    std::iota(std::begin(idxs), std::end(idxs), 0);
+    idxBuffer = std::make_unique<vkb::Buffer>(device, idxs.size() * sizeof(uint32_t),
+                                              VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    vkb::Buffer::writeVectorToBuffer(device, idxBuffer, idxs);
 }
 
 void PBFCPU3DSim::createUniformBuffers() {
@@ -104,7 +116,8 @@ void PBFCPU3DSim::mainLoop(float deltaTime) {
 
     if (!controlMode) {
         updateParticles(deltaTime);
-        vkb::Buffer::writeVectorToBuffer(device, particleBuffer, particles);
+        vkb::Buffer::writeVectorToBuffer(device, particlePosBuffer, particles.position);
+        vkb::Buffer::writeVectorToBuffer(device, particleColBuffer, particles.color);
     } else {
         createInstances(false);
     }
@@ -122,15 +135,15 @@ void PBFCPU3DSim::mainLoop(float deltaTime) {
 
             defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
             plane.render(defaultSystem, commandBuffer);
-            plane.m_translation.y += BOUNDARY_SIZE.y;
-            plane.render(defaultSystem, commandBuffer);
-            plane.m_translation.y -= BOUNDARY_SIZE.y;
 
             particleSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
-            VkBuffer vb = particleBuffer->getBuffer();
+            VkBuffer vbPos = particlePosBuffer->getBuffer();
+            VkBuffer vbCol = particleColBuffer->getBuffer();
             VkDeviceSize offsets[] = {0};
-            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
-            vkCmdDraw(commandBuffer, INSTANCE_COUNT, 1, 0, 0);
+            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vbPos, offsets);
+            vkCmdBindVertexBuffers(commandBuffer, 1, 1, &vbCol, offsets);
+            vkCmdBindIndexBuffer(commandBuffer, idxBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+            vkCmdDrawIndexed(commandBuffer, INSTANCE_COUNT, 1, 0, 0, 0);
 
         });
     });
@@ -264,7 +277,7 @@ void PBFCPU3DSim::updateParticles(float deltaTime){
     threadedCall(predictPositionsThreaded)
 ;
     // find neighbor particles
-    grid.createAndSort(particles, sortedParticles);
+    grid.createAndSortVec(particles, sortedParticles);
     particles.swap(sortedParticles);
 
     for (uint32_t i = 0; i < jacobiIterations; i++) {
@@ -285,43 +298,38 @@ void PBFCPU3DSim::updateParticles(float deltaTime){
 void PBFCPU3DSim::createFunctions() {
     predictPositionsThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
-            auto& particle = particles[idx];
-
-            particle.velocity += DT*G;
-            particle.predPos = particle.position + DT*particle.velocity;
+            particles.velocity[idx] += DT*G;
+            particles.predPos[idx] = particles.position[idx] + DT*particles.velocity[idx];
         }
     };
 
     computeDensityThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
-            auto& particle = particles[idx];
-
             // enforce boundary conditions
             float nearEPS = EPS + 0.02;
-            if (particle.predPos.x - EPS < 0.0f) {
-                particle.predPos.x = nearEPS;
-            } else if (particle.predPos.x + EPS > BOUNDARY_SIZE.x) {
-                particle.predPos.x = BOUNDARY_SIZE.x - nearEPS;
+            if (particles.predPos[idx].x - EPS < 0.0f) {
+                particles.predPos[idx].x = nearEPS;
+            } else if (particles.predPos[idx].x + EPS > BOUNDARY_SIZE.x) {
+                particles.predPos[idx].x = BOUNDARY_SIZE.x - nearEPS;
             }
-            if (particle.predPos.z - EPS < 0.0f) {
-                particle.predPos.z = nearEPS;
-            } else if (particle.predPos.z + EPS > BOUNDARY_SIZE.z) {
-                particle.predPos.z = BOUNDARY_SIZE.z - nearEPS;
+            if (particles.predPos[idx].z - EPS < 0.0f) {
+                particles.predPos[idx].z = nearEPS;
+            } else if (particles.predPos[idx].z + EPS > BOUNDARY_SIZE.z) {
+                particles.predPos[idx].z = BOUNDARY_SIZE.z - nearEPS;
             }
-            if (particle.predPos.y - EPS < plane.m_translation.y) {
-                particle.predPos.y = plane.m_translation.y + nearEPS;
-            } else if (particle.predPos.y + EPS > BOUNDARY_SIZE.y) {
-                particle.predPos.y = BOUNDARY_SIZE.y - nearEPS;
+            if (particles.predPos[idx].y - EPS < plane.m_translation.y) {
+                particles.predPos[idx].y = plane.m_translation.y + nearEPS;
+            } else if (particles.predPos[idx].y + EPS > BOUNDARY_SIZE.y) {
+                particles.predPos[idx].y = BOUNDARY_SIZE.y - nearEPS;
             }
 
-            particle.density = 0.0f;
-            grid.query(particle.predPos, H, [this, &particle](uint32_t otherIdx) {
-                const auto& other = particles[otherIdx];
-                auto vec = particle.predPos - other.predPos;
+            particles.density[idx] = 0.0f;
+            grid.query(particles.predPos[idx], H, [this, idx](uint32_t otherIdx) {
+                auto vec = particles.predPos[idx] - particles.predPos[otherIdx];
                 auto dist2 = glm::dot(vec, vec);
                 if (dist2 < HSQ) {
                     float partialDensity = MASS * POLY6 * std::pow(HSQ - dist2, 3.f);
-                    particle.density += partialDensity;
+                    particles.density[idx] += partialDensity;
                 }
             });
         }
@@ -329,17 +337,15 @@ void PBFCPU3DSim::createFunctions() {
 
     computeLambdaThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
-            auto& particle = particles[idx];
             auto gradCiSum = glm::vec3(0.0f);
             float gradCsqSum = 0.0f;
 
-            grid.query(particle.predPos, H, [this, &particle, &gradCiSum, &gradCsqSum](uint32_t otherIdx) {
-                const auto& other = particles[otherIdx];
+            grid.query(particles.predPos[idx], H, [this, idx, &gradCiSum, &gradCsqSum](uint32_t otherIdx) {
 
-                auto vec = particle.predPos - other.predPos;
+                auto vec = particles.predPos[idx] - particles.predPos[otherIdx];
                 auto dist2 = glm::dot(vec, vec);
 
-                if (&particle == &other || dist2 < 0.0000001f) return;
+                if (idx == otherIdx || dist2 < 0.0000001f) return;
 
 
                 if (dist2 < HSQ) {
@@ -358,75 +364,69 @@ void PBFCPU3DSim::createFunctions() {
 
             float gradConstraintSqSum = (gradCsqSum + glm::dot(gradCiSum, gradCiSum))/(REST_DENS * REST_DENS);
 
-            float constraint = particle.density/REST_DENS - 1;
+            float constraint = particles.density[idx]/REST_DENS - 1;
 
-            particle.lambda = - constraint / (gradConstraintSqSum + CFM);
+            particles.lambda[idx] = - constraint / (gradConstraintSqSum + CFM);
 
         }
     };
 
     computePositionCorrectionThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
-            auto& particle = particles[idx];
-            particle.posCorrection = glm::vec3(0.0f);
+            particles.posCorrection[idx] = glm::vec3(0.0f);
 
-            grid.query(particle.predPos, H, [this, &particle](uint32_t otherIdx) {
-                const auto& other = particles[otherIdx];
+            grid.query(particles.predPos[idx], H, [this, idx](uint32_t otherIdx) {
 
-                auto vec = particle.predPos - other.predPos;
+                auto vec = particles.predPos[idx] - particles.predPos[otherIdx];
                 auto dist2 = glm::dot(vec, vec);
 
-                if (&other == &particle || dist2 < 0.0000001f) return;
+                if (idx == otherIdx || dist2 < 0.0000001f) return;
 
                 if (dist2 < HSQ) {
                     auto dist = glm::length(vec);
                     float sCorr = - ART_PRESSURE_COEF * std::pow(std::pow(HSQ - dist2, 3.f) / std::pow(HSQ*(1.0f - 0.09f), 3.f), 4.0f);
 
-                    particle.posCorrection += (vec / dist) * (particle.lambda + other.lambda + sCorr) * SPIKY_GRAD * (H - dist)*(H - dist);
+                    particles.posCorrection[idx] += (vec / dist) * (particles.lambda[idx] + particles.lambda[otherIdx] + sCorr) * SPIKY_GRAD * (H - dist)*(H - dist);
                 }
             });
 
-            particle.posCorrection /= REST_DENS;
+            particles.posCorrection[idx] /= REST_DENS;
         }
     };
 
     correctPositionThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
-            auto& particle = particles[idx];
-
-            particle.predPos += particle.posCorrection;
-
+            particles.predPos[idx] += particles.posCorrection[idx];
         }
     };
 
     updateVelocitiesThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
-            auto& particle = particles[idx];
 
             // enforce boundary conditions
             float nearEPS = EPS + 0.02;
-            if (particle.predPos.x - EPS < 0.0f) {
-                particle.predPos.x = nearEPS;
-            } else if (particle.predPos.x + EPS > BOUNDARY_SIZE.x) {
-                particle.predPos.x = BOUNDARY_SIZE.x - nearEPS;
+            if (particles.predPos[idx].x - EPS < 0.0f) {
+                particles.predPos[idx].x = nearEPS;
+            } else if (particles.predPos[idx].x + EPS > BOUNDARY_SIZE.x) {
+                particles.predPos[idx].x = BOUNDARY_SIZE.x - nearEPS;
             }
-            if (particle.predPos.z - EPS < 0.0f) {
-                particle.predPos.z = nearEPS;
-            } else if (particle.predPos.z + EPS > BOUNDARY_SIZE.z) {
-                particle.predPos.z = BOUNDARY_SIZE.z - nearEPS;
+            if (particles.predPos[idx].z - EPS < 0.0f) {
+                particles.predPos[idx].z = nearEPS;
+            } else if (particles.predPos[idx].z + EPS > BOUNDARY_SIZE.z) {
+                particles.predPos[idx].z = BOUNDARY_SIZE.z - nearEPS;
             }
-            if (particle.predPos.y - EPS < plane.m_translation.y) {
-                particle.predPos.y = plane.m_translation.y + nearEPS;
-            } else if (particle.predPos.y + EPS > BOUNDARY_SIZE.y) {
-                particle.predPos.y = BOUNDARY_SIZE.y - nearEPS;
+            if (particles.predPos[idx].y - EPS < plane.m_translation.y) {
+                particles.predPos[idx].y = plane.m_translation.y + nearEPS;
+            } else if (particles.predPos[idx].y + EPS > BOUNDARY_SIZE.y) {
+                particles.predPos[idx].y = BOUNDARY_SIZE.y - nearEPS;
             }
 
-            particle.velocity = (particle.predPos - particle.position)/DT;
+            particles.velocity[idx] = (particles.predPos[idx] - particles.position[idx])/DT;
 
-            if (particle.density >= REST_DENS) {
-                particle.color = {1.0f, 0.0f, 0.0f};
+            if (particles.density[idx] >= REST_DENS) {
+                particles.color[idx] = {1.0f, 0.0f, 0.0f};
             } else {
-                particle.color = glm::vec3(0.2f, 0.6f, 1.0f);
+                particles.color[idx] = glm::vec3(0.2f, 0.6f, 1.0f);
             }
 
         }
@@ -434,67 +434,60 @@ void PBFCPU3DSim::createFunctions() {
 
     applyXsphViscosityAndComputeVorticity = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
-            auto& particle = particles[idx];
 
             auto viscTerm = glm::vec3(0.0f);
-            particle.vorticity = glm::vec3(0.0f);
+            particles.vorticity[idx] = glm::vec3(0.0f);
 
 
-            grid.query(particle.predPos, H, [this, &particle, &viscTerm](uint32_t otherIdx) {
-                const auto& other = particles[otherIdx];
+            grid.query(particles.predPos[idx], H, [this, idx, &viscTerm](uint32_t otherIdx) {
 
-                auto vec = particle.predPos - other.predPos;
+                auto vec = particles.predPos[idx] - particles.predPos[otherIdx];
                 auto dist2 = glm::dot(vec, vec);
 
-                if (&other == &particle || dist2 < 0.0000001f) return;
+                if (idx == otherIdx || dist2 < 0.0000001f) return;
 
                 if (dist2 < HSQ) {
-                    auto vij = (other.velocity - particle.velocity);
+                    auto vij = (particles.velocity[otherIdx] - particles.velocity[idx]);
                     viscTerm += vij * POLY6 * std::pow(HSQ - dist2, 3.f);
 
                     float dist = std::sqrt(dist2);
-                    particle.vorticity += glm::cross(vij, (vec/dist) * SPIKY_GRAD * (H - dist) * (H - dist));
+                    particles.vorticity[idx] += glm::cross(vij, (vec/dist) * SPIKY_GRAD * (H - dist) * (H - dist));
                 }
             });
 
-            particle.posCorrection = viscTerm * VISC;
+            particles.posCorrection[idx] = viscTerm * VISC;
         }
     };
 
     applyVorticity = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
-            auto& particle = particles[idx];
-
             auto locationVector = glm::vec3(0.0f);
 
-            grid.query(particle.predPos, H, [this, &particle, &locationVector](uint32_t otherIdx) {
-                const auto& other = particles[otherIdx];
+            grid.query(particles.predPos[idx], H, [this, idx, &locationVector](uint32_t otherIdx) {
 
-                auto vec = particle.predPos - other.predPos;
+                auto vec = particles.predPos[idx] - particles.predPos[otherIdx];
                 auto dist2 = glm::dot(vec, vec);
 
-                if (&other == &particle || dist2 < 0.0000001f) return;
+                if (idx == otherIdx || dist2 < 0.0000001f) return;
 
                 if (dist2 < HSQ) {
                     float dist = std::sqrt(dist2);
-                    float lengthVort = glm::length(particle.vorticity);
+                    float lengthVort = glm::length(particles.vorticity[idx]);
                     if (lengthVort > 0.0f){
-                        locationVector += (particle.vorticity/lengthVort)*(vec/dist) * SPIKY_GRAD * (H - dist) * (H - dist);
+                        locationVector += (particles.vorticity[idx]/lengthVort)*(vec/dist) * SPIKY_GRAD * (H - dist) * (H - dist);
                     }
                 }
             });
 
-            particle.velocity += VORTICITY_COEF*glm::cross(locationVector, particle.vorticity)*DT/MASS;
+            particles.velocity[idx] += VORTICITY_COEF*glm::cross(locationVector, particles.vorticity[idx])*DT/MASS;
         }
     };
 
     updatePositionThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
-            auto& particle = particles[idx];
-
             // adding the viscosity term
-            particle.velocity += particle.posCorrection;
-            particle.position = particle.predPos;
+            particles.velocity[idx] += particles.posCorrection[idx];
+            particles.position[idx] = particles.predPos[idx];
         }
     };
 
