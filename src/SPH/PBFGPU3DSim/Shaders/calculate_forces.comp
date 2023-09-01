@@ -1,0 +1,86 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+
+#include "core.glsl"
+
+layout (binding = 0) uniform ParameterUBO {
+    computeUBO ubo;
+};
+
+layout(std430, binding = 1) readonly buffer GridSSBO {
+    uint grid[ ];
+};
+
+layout(std430, binding = 2) readonly buffer PositionSSBO {
+    vec3 pos[ ];
+};
+
+layout(std430, binding = 3) readonly buffer VelocitySSBO {
+    vec3 vel[ ];
+};
+
+layout(std430, binding = 4) buffer ForceSSBO {
+    vec3 forces[ ];
+};
+
+layout(std430, binding = 5) readonly buffer DensitySSBO {
+    float densities[ ];
+};
+
+layout(std430, binding = 6) readonly buffer PressureSSBO {
+    float pressures[ ];
+};
+
+layout(std430, binding = 7) readonly buffer ParticleIdxSSBO {
+    int gridIdx[ ];
+};
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+void main()
+{
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= ubo.numParticles) return;
+
+    int numCellsX = int(ubo.BOUNDARY_SIZE.x/ubo.H);
+    int numCellsZ = int(ubo.BOUNDARY_SIZE.z/ubo.H);
+
+    vec3 pForce = vec3(0);
+    vec3 vForce = vec3(0);
+    for (int y = -1; y <= 1; y++){
+        int idxy = y*numCellsX*numCellsZ;
+
+        float ypos = pos[i].y + ubo.H*y;
+        if (ypos >= ubo.BOUNDARY_SIZE.y || ypos < 0) continue;
+
+        for (int z = -1; z <= 1; z++){
+            float zpos = pos[i].z + ubo.H*z;
+
+            if (zpos >= ubo.BOUNDARY_SIZE.z || zpos < 0) continue;
+            int idxz = z*numCellsX;
+
+            for (int x = -1; x <= 1; x++){
+                float xpos = pos[i].x + ubo.H*x;
+                if (xpos > ubo.BOUNDARY_SIZE.x || xpos < 0) continue;
+
+                int idx = gridIdx[i] + x + idxz + idxy;
+
+                for (uint j = grid[idx]; j < grid[idx+1]; j++){
+                    if (i == j) continue;
+                    vec3 vec = pos[j] - pos[i];
+                    float dist = length(vec);
+
+                    if (dist < ubo.H) {
+                        pForce += (vec/dist) * ubo.MASS * (pressures[i] + pressures[j])/(2.f * densities[j]) * ubo.SPIKY_GRAD * pow(ubo.H - dist, 2.f);
+                        vForce += ubo.VISC * ubo.MASS * (vel[j] - vel[i]) / densities[j] * ubo.VISC_LAP * (ubo.H - dist);
+                    }
+                }
+
+            }
+
+        }
+    }
+
+    forces[i] = pForce + vForce + ubo.G*ubo.MASS/densities[i];
+
+}

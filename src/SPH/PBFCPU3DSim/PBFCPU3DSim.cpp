@@ -107,7 +107,7 @@ void PBFCPU3DSim::createUniformBuffers() {
 }
 
 void PBFCPU3DSim::mainLoop(float deltaTime) {
-    DT = std::clamp(deltaTime, 0.005f, 0.1f);
+    DT = std::clamp(deltaTime, 0.005f, 0.016f);
 
     auto currentTime = std::chrono::high_resolution_clock::now();
 

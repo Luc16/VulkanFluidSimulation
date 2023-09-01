@@ -1,0 +1,54 @@
+#version 450
+#extension GL_EXT_debug_printf : enable
+
+layout (binding = 0) uniform ParameterUBO {
+    uint numParticles;
+    float spacing;
+    vec3 boundSize;
+} ubo;
+
+layout(std430, binding = 1) buffer GridSSBO {
+    uint grid[ ];
+};
+
+layout(std430, binding = 2) readonly buffer PositionSSBO {
+    vec3 pos[ ];
+};
+
+layout(std430, binding = 3) buffer OutPositionSSBO {
+    vec3 outPos[ ];
+};
+
+layout(std430, binding = 4) readonly buffer VelocitySSBO {
+    vec3 vel[ ];
+};
+
+layout(std430, binding = 5) buffer OutVelocitySSBO {
+    vec3 outVel[ ];
+};
+
+layout(std430, binding = 6) buffer ParticleIdxSSBO {
+    uint gridIdx[ ];
+};
+
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+void main()
+{
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= ubo.numParticles) return;
+
+    int numCellsX = int(ubo.boundSize.x/ubo.spacing);
+    int numCellsZ = int(ubo.boundSize.z/ubo.spacing);
+
+    int gidx = int(pos[i].x/ubo.spacing) +
+                numCellsX*int(pos[i].z/ubo.spacing) +
+                numCellsX*numCellsZ*int(pos[i].y/ubo.spacing);
+
+    uint k = atomicAdd(grid[gidx], -1);
+    outPos[k-1] = pos[i];
+    outVel[k-1] = vel[i];
+    gridIdx[k-1] = gidx;
+
+}

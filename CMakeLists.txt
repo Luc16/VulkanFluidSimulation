@@ -32,7 +32,10 @@ add_library( VkFluidSim
         src/grid/Grid2DSim/Grid2D.cpp src/grid/Grid2DSim/Grid2D.h
         src/lib/ComputeSystem.cpp src/lib/ComputeSystem.h src/lib/ComputeShaderHandler.cpp src/lib/ComputeShaderHandler.h
         src/lib/graphicsDataStructures/Matrices.h src/lib/graphicsDataStructures/SpatialHash.h src/lib/graphicsDataStructures/SpatialHash.cpp
-        src/lib/graphicsDataStructures/SpatialGrid.h src/lib/graphicsDataStructures/SpatialGrid.cpp src/SPH/SPHGPU3DSim/GpuSpatialGridHandler.cpp src/SPH/SPHGPU3DSim/GpuSpatialGridHandler.h)
+        src/lib/graphicsDataStructures/SpatialGrid.h src/lib/graphicsDataStructures/SpatialGrid.cpp
+        src/SPH/SPHGPU3DSim/GpuSpatialGridHandler.cpp src/SPH/SPHGPU3DSim/GpuSpatialGridHandler.h
+        src/SPH/PBFGPU3DSim/PbfGpuSpatialGridHandler.cpp src/SPH/PBFGPU3DSim/PbfGpuSpatialGridHandler.h
+)
 
 set( GENERAL_APPS
         "Instancing"
@@ -63,6 +66,7 @@ set( SPH_APPS
         "SPHCPU3DSim"
         "SPHGPU3DSim"
         "PBFCPU3DSim"
+        "PBFGPU3DSim"
         )
 
 foreach( testsourcefolder ${SPH_APPS} )

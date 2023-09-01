@@ -106,12 +106,12 @@ public:
         void set(uint32_t i, const ParticleData& other, uint32_t j){
             position[i] = other.position[j];
             velocity[i] = other.velocity[j];
-            posCorrection[i] = other.posCorrection[j];
             predPos[i] = other.predPos[j];
-            vorticity[i] = other.vorticity[j];
-            density[i] = other.density[j];
-            lambda[i] = other.lambda[j];
-            color[i] = other.color[j];
+//            posCorrection[i] = other.posCorrection[j];
+//            vorticity[i] = other.vorticity[j];
+//            density[i] = other.density[j];
+//            lambda[i] = other.lambda[j];
+//            color[i] = other.color[j];
         }
     };
 
