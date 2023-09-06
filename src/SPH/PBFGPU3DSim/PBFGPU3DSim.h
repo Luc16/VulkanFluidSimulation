@@ -69,6 +69,19 @@ private:
             COMPILED_SHADER_DIR + shaders[3] + ".spv"
     };
 
+    struct SimulationKernel {
+        vkb::ComputeSystem computeSystem;
+        std::array<VkDescriptorSet, 2> descSets{};
+        vkb::DescriptorSetLayout layout;
+
+        void createPipeline(){
+            computeSystem.createPipelineWithLayout(layout.descriptorSetLayout());
+        }
+        void bindAndDispatch(VkCommandBuffer commandBuffer, uint32_t compFrameIdx, uint32_t x, uint32_t y, uint32_t z){
+            computeSystem.bindAndDispatch(commandBuffer, &descSets[compFrameIdx], x, y, z);
+        }
+    };
+
     // these vec4s can be read as vec3 in shader because of the 16 byte spacing
     struct ParticleData {
         std::vector<glm::vec4> position{}, velocity{}, posCorrection{}, predPos{}, vorticity{};
@@ -148,9 +161,9 @@ private:
     ComputeUniformBufferObject cUbo{};
     vkb::ComputeShaderHandler computeHandler{device};
 
-    vkb::ComputeSystem calculateForcesComputeSystem{device, COMPILED_SHADER_DIR + shaders[4] + ".spv"};
-    std::array<VkDescriptorSet, 2> forcesSets{};
-    vkb::DescriptorSetLayout forcesLayout = vkb::DescriptorSetLayout::Builder(device)
+    SimulationKernel forceKernel {
+            .computeSystem{device, COMPILED_SHADER_DIR + shaders[4] + ".spv"},
+            .layout = vkb::DescriptorSetLayout::Builder(device)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
             .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
             .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pos
@@ -159,28 +172,31 @@ private:
             .addBinding({5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // density
             .addBinding({6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pressure
             .addBinding({7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid idx
-            .build();
+            .build()
+    };
 
-    vkb::ComputeSystem integrateComputeSystem{device, COMPILED_SHADER_DIR + shaders[5] + ".spv"};
-    std::array<VkDescriptorSet, 2> integrateSets{};
-    vkb::DescriptorSetLayout integrateLayout = vkb::DescriptorSetLayout::Builder(device)
+    SimulationKernel integrateKernel {
+        .computeSystem{device, COMPILED_SHADER_DIR + shaders[5] + ".spv"},
+        .layout = vkb::DescriptorSetLayout::Builder(device)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
             .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pos
             .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // vel
             .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // force
             .addBinding({4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // density
-            .build();
+            .build()
+    };
 
-    vkb::ComputeSystem calculateDensityPressureComputeSystem{device, COMPILED_SHADER_DIR + shaders[6] + ".spv"};
-    std::array<VkDescriptorSet, 2> densityPressureSets{};
-    vkb::DescriptorSetLayout densityPressureLayout = vkb::DescriptorSetLayout::Builder(device)
+    SimulationKernel densityPressureKernel {
+        .computeSystem{device, COMPILED_SHADER_DIR + shaders[6] + ".spv"},
+        .layout = vkb::DescriptorSetLayout::Builder(device)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
             .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
             .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pos
             .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // density
             .addBinding({4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pressure
             .addBinding({5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid idx
-            .build();
+            .build()
+    };
 
     vkb::PbfGpuSpatialGridHandler gridHandler{
         device, 256,

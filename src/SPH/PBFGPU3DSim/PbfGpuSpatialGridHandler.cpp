@@ -74,7 +74,8 @@ namespace vkb {
             m_insertDescriptorSets[i] = DescriptorWriter::createSingleDescriptorSet(globalPool, m_insertDescriptorLayout, {
                     {m_gridParticleUniformBuffer->descriptorInfo()},
                     {m_gridBuffer->descriptorInfo()},
-                    {particlePredPosBuffers[i]->descriptorInfo()}
+//                    {particlePredPosBuffers[i]->descriptorInfo()}
+                    {particlePosBuffers[i]->descriptorInfo()} // TODO change later
             });
 
             m_sortDescriptorSets[i] = DescriptorWriter::createSingleDescriptorSet(globalPool, m_sortDescriptorLayout, {

@@ -37,16 +37,16 @@ void PBFGPU3DSim::onCreate() {
     }
 
     createComputeDescriptorSets();
-    calculateForcesComputeSystem.createPipelineWithLayout(forcesLayout.descriptorSetLayout());
-    integrateComputeSystem.createPipelineWithLayout(integrateLayout.descriptorSetLayout());
-    calculateDensityPressureComputeSystem.createPipelineWithLayout(densityPressureLayout.descriptorSetLayout());
+    forceKernel.createPipeline();
+    integrateKernel.createPipeline();
+    densityPressureKernel.createPipeline();
 
     gridHandler.createSystems();
 }
 
 void PBFGPU3DSim::createComputeDescriptorSets() {
-    for (uint32_t i = 0; i < densityPressureSets.size(); i++) {
-        densityPressureSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, densityPressureLayout, {
+    for (uint32_t i = 0; i < positionBuffers.size(); i++) {
+        densityPressureKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, densityPressureKernel.layout, {
                 {computeUniformBuffer->descriptorInfo()},
                 {gridHandler.gridDescriptorInfo()},
                 {positionBuffers[(i + 1) % positionBuffers.size()]->descriptorInfo()},
@@ -55,7 +55,7 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
                 {gridIdxBuffer->descriptorInfo()}
         });
 
-        forcesSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, forcesLayout, {
+        forceKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, forceKernel.layout, {
                 {computeUniformBuffer->descriptorInfo()},
                 {gridHandler.gridDescriptorInfo()},
                 {positionBuffers[(i + 1) % positionBuffers.size()]->descriptorInfo()},
@@ -66,7 +66,7 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
                 {gridIdxBuffer->descriptorInfo()}
         });
 
-        integrateSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, integrateLayout, {
+        integrateKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, integrateKernel.layout, {
                 {computeUniformBuffer->descriptorInfo()},
                 {positionBuffers[(i + 1) % positionBuffers.size()]->descriptorInfo()},
                 {velocityBuffers[(i + 1) % velocityBuffers.size()]->descriptorInfo()},
@@ -160,16 +160,17 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
                 {cUbo.numParticles, cUbo.H, cUbo.BOUNDARY_SIZE},
                 gridIdxBuffer,
                 positionBuffers,
-                velocityBuffers);
+                velocityBuffers,
+                predPosBuffers);
     }
 
     if (objectsInitialized) globalDescriptorPool->freeDescriptors({
-        densityPressureSets[0],
-        densityPressureSets[1],
-        forcesSets[0],
-        forcesSets[1],
-        integrateSets[0],
-        integrateSets[1]
+        densityPressureKernel.descSets[0],
+        densityPressureKernel.descSets[1],
+        forceKernel.descSets[0],
+        forceKernel.descSets[1],
+        integrateKernel.descSets[0],
+        integrateKernel.descSets[1]
     });
     createComputeDescriptorSets();
 
@@ -266,21 +267,15 @@ void PBFGPU3DSim::updateSimulation() {
 
         vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
 
-        calculateDensityPressureComputeSystem.bindAndDispatch(computeCommandBuffer,
-                                                              &densityPressureSets[computeFrameIdx],
-                                                              blockSize, 1, 1);
+        densityPressureKernel.bindAndDispatch(computeCommandBuffer,computeFrameIdx, blockSize, 1, 1);
 
         vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
 
-        calculateForcesComputeSystem.bindAndDispatch(computeCommandBuffer,
-                                                     &forcesSets[computeFrameIdx],
-                                                     blockSize, 1, 1);
+        forceKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
 
         vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
 
-        integrateComputeSystem.bindAndDispatch(computeCommandBuffer,
-                                               &integrateSets[computeFrameIdx],
-                                               blockSize, 1, 1);
+        integrateKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
 
     });
 
