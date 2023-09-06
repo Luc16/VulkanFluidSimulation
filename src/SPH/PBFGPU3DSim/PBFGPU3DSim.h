@@ -58,6 +58,7 @@ private:
     };
 
     const std::string planeModelPath = "../Models/quadXZ1.obj";
+    const std::string planeTexPath = "../textures/chess_tex.png";
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
             COMPILED_SHADER_DIR + shaders[0] + ".spv",
             COMPILED_SHADER_DIR + shaders[1] + ".spv"
@@ -120,7 +121,7 @@ private:
         uint32_t GRID_SIZE = 0;
     };
 
-    vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, planeModelPath)};
+    vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, planeModelPath), std::make_shared<vkb::Texture>(device, planeTexPath)};
 
     std::vector<std::unique_ptr<vkb::Buffer>> graphicsUniformBuffers;
     UniformBufferObject gUbo{};

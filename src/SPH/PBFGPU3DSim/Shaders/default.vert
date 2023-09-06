@@ -17,7 +17,7 @@ layout(push_constant) uniform Push {
 } push;
 
 
-layout(location = 0) out vec3 fragColor;
+layout(location = 0) out vec2 fragTexCoord;
 layout(location = 1) out vec3 fragPosWorld;
 layout(location = 2) out vec3 fragNormalWorld;
 
@@ -26,5 +26,5 @@ void main() {
     gl_Position = ubo.viewProj * posWorld;
     fragPosWorld = posWorld.xyz;
     fragNormalWorld = normalize(mat3(push.model) * inNormal);
-    fragColor = inColor;
+    fragTexCoord = inTexCoord;
 }

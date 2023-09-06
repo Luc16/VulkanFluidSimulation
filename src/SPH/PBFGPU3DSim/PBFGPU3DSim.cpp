@@ -15,9 +15,10 @@ void PBFGPU3DSim::onCreate() {
 
     auto defaultDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
+            .addBinding({1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
             .build();
     defaultDescriptorSets = createDescriptorSets(defaultDescriptorLayout,
-                                                 {graphicsUniformBuffers[0]->descriptorInfo()});
+                                                 {graphicsUniformBuffers[0]->descriptorInfo()}, {plane.textureInfo()});
     {
         defaultSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(),
                                            sizeof(vkb::DrawableObject::PushConstantData));
