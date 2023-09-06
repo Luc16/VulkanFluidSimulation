@@ -36,7 +36,9 @@ namespace vkb {
                                                             uint32_t gridSize, GridParticleUniformBufferObject uboData,
                                                             const std::unique_ptr<Buffer>& gridIdxBuffer,
                                                             const std::array<std::unique_ptr<Buffer>, 2>& particlePosBuffers,
-                                                            const std::array<std::unique_ptr<Buffer>, 2>& particleVelBuffers) {
+                                                            const std::array<std::unique_ptr<Buffer>, 2>& particleVelBuffers,
+                                                            const std::array<std::unique_ptr<Buffer>, 2>& particlePredPosBuffers
+                                                            ) {
         if (!m_created){
             m_gridUniformBuffer = std::make_unique<Buffer>(m_deviceRef, sizeof(GridUniformBufferObject), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -72,7 +74,7 @@ namespace vkb {
             m_insertDescriptorSets[i] = DescriptorWriter::createSingleDescriptorSet(globalPool, m_insertDescriptorLayout, {
                     {m_gridParticleUniformBuffer->descriptorInfo()},
                     {m_gridBuffer->descriptorInfo()},
-                    {particlePosBuffers[i]->descriptorInfo()}
+                    {particlePredPosBuffers[i]->descriptorInfo()}
             });
 
             m_sortDescriptorSets[i] = DescriptorWriter::createSingleDescriptorSet(globalPool, m_sortDescriptorLayout, {
@@ -82,6 +84,8 @@ namespace vkb {
                     {particlePosBuffers[(i + 1) % particlePosBuffers.size()]->descriptorInfo()},
                     {particleVelBuffers[i]->descriptorInfo()},
                     {particleVelBuffers[(i + 1) % particleVelBuffers.size()]->descriptorInfo()},
+                    {particlePredPosBuffers[i]->descriptorInfo()},
+                    {particlePredPosBuffers[(i + 1) % particlePredPosBuffers.size()]->descriptorInfo()},
                     {gridIdxBuffer->descriptorInfo()}
             });
         }

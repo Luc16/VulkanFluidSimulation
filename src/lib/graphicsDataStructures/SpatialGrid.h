@@ -61,15 +61,15 @@ namespace vkb {
     void SpatialGrid::createAndSortVec(const Entity& entities, Entity& sortedEntities) {
         std::fill(m_grid.begin(), m_grid.end(), 0);
 
-        for (uint32_t i = 0; i < entities.position.size(); i++) {
-            m_grid[vecToGrid(entities.position[i])]++;
+        for (uint32_t i = 0; i < entities.predPos.size(); i++) {
+            m_grid[vecToGrid(entities.predPos[i])]++;
         }
 
         // prefix sum
         std::inclusive_scan(m_grid.begin(), m_grid.end(), m_grid.begin());
 
-        for (uint32_t i = 0; i < entities.position.size(); i++) {
-            auto h = vecToGrid(entities.position[i]);
+        for (uint32_t i = 0; i < entities.predPos.size(); i++) {
+            auto h = vecToGrid(entities.predPos[i]);
             m_grid[h]--;
             sortedEntities.set(m_grid[h], entities, i);
         }

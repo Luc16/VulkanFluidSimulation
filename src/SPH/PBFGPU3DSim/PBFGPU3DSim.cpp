@@ -51,7 +51,7 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
                 {gridHandler.gridDescriptorInfo()},
                 {positionBuffers[(i + 1) % positionBuffers.size()]->descriptorInfo()},
                 {densityBuffer->descriptorInfo()},
-                {pressureBuffer->descriptorInfo()},
+                {lambdaBuffer->descriptorInfo()},
                 {gridIdxBuffer->descriptorInfo()}
         });
 
@@ -60,9 +60,9 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
                 {gridHandler.gridDescriptorInfo()},
                 {positionBuffers[(i + 1) % positionBuffers.size()]->descriptorInfo()},
                 {velocityBuffers[(i + 1) % velocityBuffers.size()]->descriptorInfo()},
-                {forceBuffer->descriptorInfo()},
+                {vorticityBuffer->descriptorInfo()},
                 {densityBuffer->descriptorInfo()},
-                {pressureBuffer->descriptorInfo()},
+                {lambdaBuffer->descriptorInfo()},
                 {gridIdxBuffer->descriptorInfo()}
         });
 
@@ -70,7 +70,7 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
                 {computeUniformBuffer->descriptorInfo()},
                 {positionBuffers[(i + 1) % positionBuffers.size()]->descriptorInfo()},
                 {velocityBuffers[(i + 1) % velocityBuffers.size()]->descriptorInfo()},
-                {forceBuffer->descriptorInfo()},
+                {vorticityBuffer->descriptorInfo()},
                 {densityBuffer->descriptorInfo()},
         });
     }
@@ -95,9 +95,12 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     uint32_t count = 0;
     for (uint32_t i = 0; i < particles.position.size(); i++) {
         particles.position[i] = accPos;
-        if (activateRandomOffsets) particles.position[i] += glm::vec4(randomFloat(-cUbo.H/5, cUbo.H/5), randomFloat(-cUbo.H/5, cUbo.H/5), randomFloat(-cUbo.H/5, cUbo.H/5), 0.0f);
+        if (activateRandomOffsets) particles.position[i] += glm::vec4(
+                    randomFloat((accPos.x != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
+                    randomFloat((accPos.y != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
+                    randomFloat((accPos.z != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
+                    0.0f);
         particles.velocity[i] = glm::vec4(0.0f);
-        particles.force[i] = glm::vec4(0.0f);
         accPos.x += particleSpacing;
 
         if (i % numParticlesXZ.x == numParticlesXZ.x - 1) {
@@ -125,28 +128,27 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
                                                           VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
         velocityBuffers[i] = makeBuffer(particles.velocity.size() * sizeof(glm::vec4));
+        predPosBuffers[i] = makeBuffer(particles.predPos.size() * sizeof(glm::vec4));
         if (i == 0) {
             vkb::Buffer::writeVectorToBuffer(device, positionBuffers[i], particles.position);
             vkb::Buffer::writeVectorToBuffer(device, velocityBuffers[i], particles.velocity);
         }
 
     }
-
-    forceBuffer = makeBuffer(particles.force.size()*sizeof(glm::vec4));
-    vkb::Buffer::writeVectorToBuffer(device, forceBuffer, particles.force);
-
+    posCorrectionBuffer = makeBuffer(particles.posCorrection.size()*sizeof(glm::vec4));
+    vorticityBuffer = makeBuffer(particles.vorticity.size()*sizeof(glm::vec4));
     densityBuffer = makeBuffer(particles.density.size()*sizeof(float));
-    pressureBuffer = makeBuffer(particles.pressure.size()*sizeof(float));
-
+    lambdaBuffer = makeBuffer(particles.lambda.size()*sizeof(float));
     gridIdxBuffer = makeBuffer(particles.idx.size() * sizeof(uint32_t));
 
     for (uint32_t i = 0; i < particleBarrierData.size(); i++){
         particleBarrierData[i] = {
                 positionBuffers[i]->getBarrierData(),
                 velocityBuffers[i]->getBarrierData(),
-                forceBuffer->getBarrierData(),
+                posCorrectionBuffer->getBarrierData(),
+                vorticityBuffer->getBarrierData(),
                 densityBuffer->getBarrierData(),
-                pressureBuffer->getBarrierData(),
+                lambdaBuffer->getBarrierData(),
         };
     }
 
@@ -244,14 +246,6 @@ void PBFGPU3DSim::renderObjects() {
 }
 
 void PBFGPU3DSim::updateSimulation() {
-    /* Compute Pipeline:
-     *  1. reset grid
-     *  2. insert particle in grid (atomic_add on the grid pos)
-     *  3. prefix sum
-     *  4. sort particles based on grid position
-     *  5. perform SPH using the nn search with grid
-    */
-
 
     computeHandler.runCompute(renderer.currentFrame(), [this](VkCommandBuffer computeCommandBuffer){
         uint32_t blockSize = INSTANCE_COUNT/256 + (1 - (INSTANCE_COUNT%256 == 0));

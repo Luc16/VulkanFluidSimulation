@@ -69,21 +69,21 @@ private:
             COMPILED_SHADER_DIR + shaders[3] + ".spv"
     };
 
-    // these vec4s is read as vec3 in shader because of the 16 byte spacing
+    // these vec4s can be read as vec3 in shader because of the 16 byte spacing
     struct ParticleData {
-        std::vector<glm::vec4> position{};
-        std::vector<glm::vec4> velocity{};
-        std::vector<glm::vec4> force{};
+        std::vector<glm::vec4> position{}, velocity{}, posCorrection{}, predPos{}, vorticity{};
+        std::vector<float> density{}, lambda{};
         std::vector<uint32_t> idx{};
-        std::vector<float> density{}, pressure{};
 
         void resize(size_t newSize) {
             position.resize(newSize);
             velocity.resize(newSize);
-            force.resize(newSize);
-            idx.resize(newSize);
+            posCorrection.resize(newSize);
+            predPos.resize(newSize);
+            vorticity.resize(newSize);
             density.resize(newSize);
-            pressure.resize(newSize);
+            lambda.resize(newSize);
+            idx.resize(newSize);
         }
     };
 
@@ -133,9 +133,11 @@ private:
     ParticleData particles{};
     std::array<std::unique_ptr<vkb::Buffer>, 2> positionBuffers;
     std::array<std::unique_ptr<vkb::Buffer>, 2> velocityBuffers;
-    std::unique_ptr<vkb::Buffer> forceBuffer;
+    std::array<std::unique_ptr<vkb::Buffer>, 2> predPosBuffers;
+    std::unique_ptr<vkb::Buffer> posCorrectionBuffer;
+    std::unique_ptr<vkb::Buffer> vorticityBuffer;
     std::unique_ptr<vkb::Buffer> densityBuffer;
-    std::unique_ptr<vkb::Buffer> pressureBuffer;
+    std::unique_ptr<vkb::Buffer> lambdaBuffer;
     std::unique_ptr<vkb::Buffer> gridIdxBuffer;
 
     std::array<std::vector<std::pair<VkBuffer, VkDeviceSize>>, 2> particleBarrierData;

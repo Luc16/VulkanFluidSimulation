@@ -63,8 +63,6 @@ void PBFCPU3DSim::createInstances(bool activateRandomOffsets) {
                 randomFloat((accPos.y != EPS) ? -H/5 : 0.0f, H/5),
                 randomFloat((accPos.z != EPS) ? -H/5 : 0.0f, H/5));
         particles.velocity[i] = glm::vec3(0.0f);
-        particles.predPos[i] = particles.position[i];
-        particles.posCorrection[i] = glm::vec3(0.0f);
         accPos.x += step;
 
         if (i % numParticlesXZ.x == numParticlesXZ.x - 1) {

@@ -132,11 +132,8 @@ void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     }
 
     forceBuffer = makeBuffer(particles.force.size()*sizeof(glm::vec4));
-    vkb::Buffer::writeVectorToBuffer(device, forceBuffer, particles.force);
-
     densityBuffer = makeBuffer(particles.density.size()*sizeof(float));
     pressureBuffer = makeBuffer(particles.pressure.size()*sizeof(float));
-
     gridIdxBuffer = makeBuffer(particles.idx.size() * sizeof(uint32_t));
 
     for (uint32_t i = 0; i < particleBarrierData.size(); i++){
