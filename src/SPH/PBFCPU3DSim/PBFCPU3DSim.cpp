@@ -178,6 +178,7 @@ void PBFCPU3DSim::showImGui(){
     ImGui::DragFloat("Mass", &MASS, 0.5f, 1.0f, 40.0f, "%.1f");
     ImGui::DragFloat("CFM", &CFM, 1.0f, 1.0f, 1000.0f, "%.1f");
     ImGui::DragFloat("ARTIFICIAL PRESSURE", &ART_PRESSURE_COEF, 0.01f, 0.01f, 10.0f, "%.2f");
+    ImGui::DragFloat("VORTICITY COEF", &VORTICITY_COEF, 0.000001f, 0.000001f, 0.1f, "%.6f");
 //    ImGui::DragFloat("Color upate", &colorUpdate, 0.0005f, 0.0f, 1.0f);
 //    ImGui::DragFloat("Color thresh", &densColorThreshold, 0.005f, 0.5f, 10.0f);
 
@@ -379,7 +380,7 @@ void PBFCPU3DSim::createFunctions() {
                 if (idx == otherIdx || dist2 < 0.0000001f) return;
 
                 if (dist2 < HSQ) {
-                    auto dist = glm::length(vec);
+                    auto dist = std::sqrt(dist2);
                     float sCorr = - ART_PRESSURE_COEF * std::pow(std::pow(HSQ - dist2, 3.f) / std::pow(HSQ*(1.0f - 0.09f), 3.f), 4.0f);
 
                     particles.posCorrection[idx] += (vec / dist) * (particles.lambda[idx] + particles.lambda[otherIdx] + sCorr) * SPIKY_GRAD * (H - dist)*(H - dist);
@@ -467,15 +468,28 @@ void PBFCPU3DSim::createFunctions() {
                 if (idx == otherIdx || dist2 < 0.0000001f) return;
 
                 if (dist2 < HSQ) {
+//                    float dist = std::sqrt(dist2);
+//                    float lengthVort = glm::length(particles.vorticity[idx] - particles.vorticity[otherIdx]);
+//
+//                    locationVector += glm::vec3(
+//                            float(std::abs(vec.x) > 0.0f) * lengthVort/vec.x,
+//                            float(std::abs(vec.y) > 0.0f) * lengthVort/vec.y,
+//                            float(std::abs(vec.z) > 0.0f) * lengthVort/vec.z
+//                            );
                     float dist = std::sqrt(dist2);
+                    float delta = H - dist;
                     float lengthVort = glm::length(particles.vorticity[idx]);
-                    if (lengthVort > 0.0f){
-                        locationVector += (particles.vorticity[idx]/lengthVort)*(vec/dist) * SPIKY_GRAD * (H - dist) * (H - dist);
-                    }
+                    locationVector += lengthVort * (vec/dist) * SPIKY_GRAD * delta * delta;
+
                 }
             });
 
-            particles.velocity[idx] += VORTICITY_COEF*glm::cross(locationVector, particles.vorticity[idx])*DT/MASS + particles.posCorrection[idx];
+            float lengthLocVec = glm::length(locationVector);
+            if (lengthLocVec > 0.000001f){
+                particles.velocity[idx] += VORTICITY_COEF*glm::cross(locationVector/lengthLocVec, particles.vorticity[idx])*DT/MASS;
+            }
+            // viscosity
+            particles.velocity[idx] += particles.posCorrection[idx];
             particles.position[idx] = particles.predPos[idx];
 
         }

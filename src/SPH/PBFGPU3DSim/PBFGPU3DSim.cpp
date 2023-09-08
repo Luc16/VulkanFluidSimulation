@@ -41,7 +41,11 @@ void PBFGPU3DSim::onCreate() {
     predictPositionKernel.createPipeline();
     densityKernel.createPipeline();
     lambdaKernel.createPipeline();
+    posCorrectionKernel.createPipeline();
     correctPositionsKernel.createPipeline();
+    updateVelocitiesKernel.createPipeline();
+    applyViscAndComputeVortKernel.createPipeline();
+    applyVortAndUpdatePos.createPipeline();
 
     gridHandler.createSystems();
 }
@@ -72,10 +76,47 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
                 {gridIdxBuffer->descriptorInfo()},
         });
 
+        posCorrectionKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, posCorrectionKernel.layout, {
+                {computeUniformBuffer->descriptorInfo()},
+                {gridHandler.gridDescriptorInfo()},
+                {predPosBuffers[(i + 1) % predPosBuffers.size()]->descriptorInfo()},
+                {correctionBuffer->descriptorInfo()},
+                {lambdaBuffer->descriptorInfo()},
+                {gridIdxBuffer->descriptorInfo()},
+        });
+
         correctPositionsKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, correctPositionsKernel.layout, {
                 {computeUniformBuffer->descriptorInfo()},
                 {predPosBuffers[(i + 1) % predPosBuffers.size()]->descriptorInfo()},
                 {correctionBuffer->descriptorInfo()},
+        });
+
+        updateVelocitiesKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, updateVelocitiesKernel.layout, {
+                {computeUniformBuffer->descriptorInfo()},
+                {positionBuffers[(i + 1) % positionBuffers.size()]->descriptorInfo()},
+                {velocityBuffers[(i + 1) % velocityBuffers.size()]->descriptorInfo()},
+                {predPosBuffers[(i + 1) % predPosBuffers.size()]->descriptorInfo()},
+        });
+
+        applyViscAndComputeVortKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, applyViscAndComputeVortKernel.layout, {
+                {computeUniformBuffer->descriptorInfo()},
+                {gridHandler.gridDescriptorInfo()},
+                {predPosBuffers[(i + 1) % predPosBuffers.size()]->descriptorInfo()},
+                {velocityBuffers[(i + 1) % velocityBuffers.size()]->descriptorInfo()},
+                {correctionBuffer->descriptorInfo()},
+                {vorticityBuffer->descriptorInfo()},
+                {gridIdxBuffer->descriptorInfo()},
+        });
+
+        applyVortAndUpdatePos.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, applyVortAndUpdatePos.layout, {
+                {computeUniformBuffer->descriptorInfo()},
+                {gridHandler.gridDescriptorInfo()},
+                {predPosBuffers[(i + 1) % predPosBuffers.size()]->descriptorInfo()},
+                {positionBuffers[(i + 1) % positionBuffers.size()]->descriptorInfo()},
+                {velocityBuffers[(i + 1) % velocityBuffers.size()]->descriptorInfo()},
+                {correctionBuffer->descriptorInfo()},
+                {vorticityBuffer->descriptorInfo()},
+                {gridIdxBuffer->descriptorInfo()},
         });
     }
 }
@@ -175,8 +216,16 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
             densityKernel.descSets[1],
             lambdaKernel.descSets[0],
             lambdaKernel.descSets[1],
+            posCorrectionKernel.descSets[0],
+            posCorrectionKernel.descSets[1],
             correctPositionsKernel.descSets[0],
             correctPositionsKernel.descSets[1],
+            updateVelocitiesKernel.descSets[0],
+            updateVelocitiesKernel.descSets[1],
+            applyViscAndComputeVortKernel.descSets[0],
+            applyViscAndComputeVortKernel.descSets[1],
+            applyVortAndUpdatePos.descSets[0],
+            applyVortAndUpdatePos.descSets[1],
     });
     createComputeDescriptorSets();
 
@@ -274,9 +323,26 @@ void PBFGPU3DSim::updateSimulation() {
 
             vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
 
+            posCorrectionKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
+
+            vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+
             correctPositionsKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
+
+            vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
         }
 
+        updateVelocitiesKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
+
+        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+
+        applyViscAndComputeVortKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
+
+        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+
+        applyVortAndUpdatePos.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
+
+        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
 
     });
 
@@ -311,10 +377,12 @@ void PBFGPU3DSim::showImGui(){
     ImGui::SliderFloat("Gravity", &gravityFactor, 1.f, 1000.f);
     ImGui::DragFloat("Viscosity", &cUbo.VISC, 0.001f, 0.001f, 5.0f);
     ImGui::DragFloat("DeltaTime", &cUbo.DT, 0.00005f, 0.0005f, 0.02f, "%.5f");
-    ImGui::DragFloat("Rest Density", &cUbo.REST_DENS, 1.0f, 4.0f, 1000.0f, "%.0f");
+    ImGui::DragFloat("Rest Density", &cUbo.REST_DENS, 0.1f, 0.1f, 1000.0f, "%.4f");
+    if (cUbo.REST_DENS == 0) cUbo.REST_DENS = 0.1f;
     ImGui::DragFloat("Mass", &cUbo.MASS, 0.5f, 1.0f, 40.0f, "%.1f");
     ImGui::DragFloat("CFM", &cUbo.CFM, 1.0f, 1.0f, 1000.0f, "%.1f");
     ImGui::DragFloat("ARTIFICIAL PRESSURE", &cUbo.ART_PRESSURE_COEF, 0.01f, 0.01f, 10.0f, "%.2f");
+    ImGui::DragFloat("VORTICITY COEF", &cUbo.VORTICITY_COEF, 0.000001f, 0.000001f, 0.1f, "%.6f");
 
     ImGui::SliderFloat("Plane Y", &plane.m_translation.y, -100.0f, 100.0f);
 
