@@ -374,7 +374,9 @@ void PBFGPU3DSim::showImGui(){
 
     if (ImGui::Button("Reset and enter control mode")) controlMode = true;
 
-    ImGui::SliderFloat("Gravity", &gravityFactor, 1.f, 1000.f);
+    int temp = int(jacobiIterations);
+    ImGui::DragInt("Num iterations", &temp, 1, 1, 5);
+    jacobiIterations = temp;
     ImGui::DragFloat("Viscosity", &cUbo.VISC, 0.001f, 0.001f, 5.0f);
     ImGui::DragFloat("DeltaTime", &cUbo.DT, 0.00005f, 0.0005f, 0.02f, "%.5f");
     ImGui::DragFloat("Rest Density", &cUbo.REST_DENS, 0.1f, 0.1f, 1000.0f, "%.4f");
