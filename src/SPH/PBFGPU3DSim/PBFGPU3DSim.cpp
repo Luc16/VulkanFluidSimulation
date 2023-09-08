@@ -335,7 +335,7 @@ void PBFGPU3DSim::updateSimulation() {
         updateVelocitiesKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
 
         vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
-
+//
         applyViscAndComputeVortKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
 
         vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
@@ -379,7 +379,7 @@ void PBFGPU3DSim::showImGui(){
     ImGui::DragFloat("DeltaTime", &cUbo.DT, 0.00005f, 0.0005f, 0.02f, "%.5f");
     ImGui::DragFloat("Rest Density", &cUbo.REST_DENS, 0.1f, 0.1f, 1000.0f, "%.4f");
     if (cUbo.REST_DENS == 0) cUbo.REST_DENS = 0.1f;
-    ImGui::DragFloat("Mass", &cUbo.MASS, 0.5f, 1.0f, 40.0f, "%.1f");
+    ImGui::DragFloat("Mass", &cUbo.MASS, 0.001f, 0.001f, 40.0f, "%.1f");
     ImGui::DragFloat("CFM", &cUbo.CFM, 1.0f, 1.0f, 1000.0f, "%.1f");
     ImGui::DragFloat("ARTIFICIAL PRESSURE", &cUbo.ART_PRESSURE_COEF, 0.01f, 0.01f, 10.0f, "%.2f");
     ImGui::DragFloat("VORTICITY COEF", &cUbo.VORTICITY_COEF, 0.000001f, 0.000001f, 0.1f, "%.6f");

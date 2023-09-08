@@ -291,6 +291,7 @@ void PBFCPU3DSim::updateParticles(float deltaTime){
     threadedCall(updateVelocitiesThreaded);
     threadedCall(applyXsphViscosityAndComputeVorticity);
     threadedCall(applyVorticity);
+
 }
 
 void PBFCPU3DSim::createFunctions() {
@@ -478,7 +479,7 @@ void PBFCPU3DSim::createFunctions() {
 //                            );
                     float dist = std::sqrt(dist2);
                     float delta = H - dist;
-                    float lengthVort = glm::length(particles.vorticity[idx]);
+                    float lengthVort = glm::length(particles.vorticity[otherIdx]);
                     locationVector += lengthVort * (vec/dist) * SPIKY_GRAD * delta * delta;
 
                 }

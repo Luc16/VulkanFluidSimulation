@@ -43,7 +43,6 @@ void main()
     if (i >= ubo.numParticles) return;
 
     vec3 locationVector = vec3(0.0f);
-    float lengthVort = length(vorticities[i]);
 
     // For each neighbor
     int numCellsX = int(ubo.BOUNDARY_SIZE.x/ubo.H);
@@ -77,6 +76,7 @@ void main()
                     if (dist2 < ubo.HSQ) {
                         float dist = sqrt(dist2);
                         float delta = ubo.H - dist;
+                        float lengthVort = length(vorticities[j]);
                         locationVector += lengthVort * (vec/dist) * ubo.SPIKY_GRAD * delta * delta;
 
                     }

@@ -41,7 +41,7 @@ private:
     const std::string COMPILED_SHADER_DIR = std::string("../src/SPH/PBFGPU3DSim/Shaders/bin/");
 
 
-    uint32_t INSTANCE_COUNT = 100'000;
+    uint32_t INSTANCE_COUNT = 200'000;
     static constexpr uint32_t MAX_PARTICLES = 1'000'000;
     static constexpr float MAX_BOUND = 1000.0f;
     uint32_t jacobiIterations = 3;
@@ -118,10 +118,10 @@ private:
 
     struct ComputeUniformBufferObject {
         alignas(16) glm::vec3 BOUNDARY_SIZE = glm::vec3(150.0f);
-        alignas(16) glm::vec3 G = glm::vec3(0.0f, -10.0f, 0.0f);
+        alignas(16) glm::vec3 G = glm::vec3(0.0f, -9.8f, 0.0f);
 
         float planeY = 0.0f;
-        float REST_DENS = 8.0f;  // rest density
+        float REST_DENS = 16.0f;  // rest density
         float H = 1.5f;           // kernel radius
         float HSQ = H * H;        // radius^2 for optimization
         float MASS = 5.0f;        // assume all particles have the same mass
@@ -275,7 +275,7 @@ private:
     glm::ivec2 numParticlesXZ = glm::ivec2(int(std::cbrt(INSTANCE_COUNT)));
     float particleSpacing = cUbo.H;
     glm::vec4 initialPos = {cUbo.EPS, cUbo.EPS, cUbo.EPS, 0};
-    float drawTime = 0, cpuTime = 0, computeTime = 0, gravityFactor = 50.0f;
+    float drawTime = 0, cpuTime = 0, computeTime = 0, gravityFactor = 1.0f;
     bool activateTimer = false, controlMode = false, objectsInitialized = false;
 
     void onCreate() override;

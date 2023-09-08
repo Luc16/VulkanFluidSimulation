@@ -33,7 +33,7 @@ public:
 public:
     std::string DIR = std::string("../src/SPH/PBFCPU3DSim/");
 
-    uint32_t INSTANCE_COUNT = 10000;
+    uint32_t INSTANCE_COUNT = 10'000;
     static constexpr glm::vec3 G{0.0f, -9.8f, 0.0f};   // external (gravitational) forces
     float REST_DENS = 8.0f;  // rest density
     static constexpr float H = 1.5f;           // kernel radius
@@ -43,7 +43,7 @@ public:
     float DT = 0.010f;       // integration timestep
     float ART_PRESSURE_COEF = 0.1f;
     float VORTICITY_COEF = 0.0004f;
-    uint32_t jacobiIterations = 2;
+    uint32_t jacobiIterations = 3;
 
     // smoothing kernels defined in Müller and their gradients
     static constexpr float POLY6 = 315.0f / (64.0f * glm::pi<float>() *H*H*H *H*H*H *H*H*H);
