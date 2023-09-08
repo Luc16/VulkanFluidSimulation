@@ -137,7 +137,7 @@ public:
     std::array<std::jthread, numThreads> threads;
 
     // simulation functions
-    std::function<void(uint32_t,uint32_t)> predictPositionsThreaded;
+    std::function<void(uint32_t,uint32_t)> predictPositionsThreaded; // ok
     std::function<void(uint32_t,uint32_t)> computeDensityThreaded;
     std::function<void(uint32_t,uint32_t)> computeLambdaThreaded;
     std::function<void(uint32_t,uint32_t)> computePositionCorrectionThreaded;
@@ -145,7 +145,6 @@ public:
     std::function<void(uint32_t,uint32_t)> updateVelocitiesThreaded;
     std::function<void(uint32_t,uint32_t)> applyXsphViscosityAndComputeVorticity;
     std::function<void(uint32_t,uint32_t)> applyVorticity;
-    std::function<void(uint32_t,uint32_t)> updatePositionThreaded;
 
     glm::vec3 initialPos = {EPS, EPS, EPS};
     float gravityFactor = 40.f;

@@ -290,7 +290,6 @@ void PBFCPU3DSim::updateParticles(float deltaTime){
     threadedCall(updateVelocitiesThreaded);
     threadedCall(applyXsphViscosityAndComputeVorticity);
     threadedCall(applyVorticity);
-    threadedCall(updatePositionThreaded);
 }
 
 void PBFCPU3DSim::createFunctions() {
@@ -298,11 +297,7 @@ void PBFCPU3DSim::createFunctions() {
         for (uint32_t idx = start; idx < end; idx++) {
             particles.velocity[idx] += DT*G;
             particles.predPos[idx] = particles.position[idx] + DT*particles.velocity[idx];
-        }
-    };
 
-    computeDensityThreaded = [this](uint32_t start, uint32_t end) {
-        for (uint32_t idx = start; idx < end; idx++) {
             // enforce boundary conditions
             float nearEPS = EPS + 0.02;
             if (particles.predPos[idx].x - EPS < 0.0f) {
@@ -320,14 +315,18 @@ void PBFCPU3DSim::createFunctions() {
             } else if (particles.predPos[idx].y + EPS > BOUNDARY_SIZE.y) {
                 particles.predPos[idx].y = BOUNDARY_SIZE.y - nearEPS;
             }
+        }
+    };
+
+    computeDensityThreaded = [this](uint32_t start, uint32_t end) {
+        for (uint32_t idx = start; idx < end; idx++) {
 
             particles.density[idx] = 0.0f;
             grid.query(particles.predPos[idx], H, [this, idx](uint32_t otherIdx) {
                 auto vec = particles.predPos[idx] - particles.predPos[otherIdx];
                 auto dist2 = glm::dot(vec, vec);
                 if (dist2 < HSQ) {
-                    float partialDensity = MASS * POLY6 * std::pow(HSQ - dist2, 3.f);
-                    particles.density[idx] += partialDensity;
+                    particles.density[idx] += MASS * POLY6 * std::pow(HSQ - dist2, 3.f);
                 }
             });
         }
@@ -344,7 +343,6 @@ void PBFCPU3DSim::createFunctions() {
                 auto dist2 = glm::dot(vec, vec);
 
                 if (idx == otherIdx || dist2 < 0.0000001f) return;
-
 
                 if (dist2 < HSQ) {
                     float dist = std::sqrt(dist2);
@@ -395,11 +393,6 @@ void PBFCPU3DSim::createFunctions() {
     correctPositionThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
             particles.predPos[idx] += particles.posCorrection[idx];
-        }
-    };
-
-    updateVelocitiesThreaded = [this](uint32_t start, uint32_t end) {
-        for (uint32_t idx = start; idx < end; idx++) {
 
             // enforce boundary conditions
             float nearEPS = EPS + 0.02;
@@ -418,6 +411,11 @@ void PBFCPU3DSim::createFunctions() {
             } else if (particles.predPos[idx].y + EPS > BOUNDARY_SIZE.y) {
                 particles.predPos[idx].y = BOUNDARY_SIZE.y - nearEPS;
             }
+        }
+    };
+
+    updateVelocitiesThreaded = [this](uint32_t start, uint32_t end) {
+        for (uint32_t idx = start; idx < end; idx++) {
 
             particles.velocity[idx] = (particles.predPos[idx] - particles.position[idx])/DT;
 
@@ -477,15 +475,9 @@ void PBFCPU3DSim::createFunctions() {
                 }
             });
 
-            particles.velocity[idx] += VORTICITY_COEF*glm::cross(locationVector, particles.vorticity[idx])*DT/MASS;
-        }
-    };
-
-    updatePositionThreaded = [this](uint32_t start, uint32_t end) {
-        for (uint32_t idx = start; idx < end; idx++) {
-            // adding the viscosity term
-            particles.velocity[idx] += particles.posCorrection[idx];
+            particles.velocity[idx] += VORTICITY_COEF*glm::cross(locationVector, particles.vorticity[idx])*DT/MASS + particles.posCorrection[idx];
             particles.position[idx] = particles.predPos[idx];
+
         }
     };
 

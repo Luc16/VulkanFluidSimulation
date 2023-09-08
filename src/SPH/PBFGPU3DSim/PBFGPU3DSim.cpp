@@ -37,41 +37,45 @@ void PBFGPU3DSim::onCreate() {
     }
 
     createComputeDescriptorSets();
-    forceKernel.createPipeline();
-    integrateKernel.createPipeline();
-    densityPressureKernel.createPipeline();
+
+    predictPositionKernel.createPipeline();
+    densityKernel.createPipeline();
+    lambdaKernel.createPipeline();
+    correctPositionsKernel.createPipeline();
 
     gridHandler.createSystems();
 }
 
 void PBFGPU3DSim::createComputeDescriptorSets() {
     for (uint32_t i = 0; i < positionBuffers.size(); i++) {
-        densityPressureKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, densityPressureKernel.layout, {
+        predictPositionKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, predictPositionKernel.layout, {
+                {computeUniformBuffer->descriptorInfo()},
+                {positionBuffers[i]->descriptorInfo()},
+                {velocityBuffers[i]->descriptorInfo()},
+                {predPosBuffers[i]->descriptorInfo()},
+        });
+
+        densityKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, densityKernel.layout, {
                 {computeUniformBuffer->descriptorInfo()},
                 {gridHandler.gridDescriptorInfo()},
-                {positionBuffers[(i + 1) % positionBuffers.size()]->descriptorInfo()},
+                {predPosBuffers[(i + 1) % predPosBuffers.size()]->descriptorInfo()},
                 {densityBuffer->descriptorInfo()},
-                {lambdaBuffer->descriptorInfo()},
                 {gridIdxBuffer->descriptorInfo()}
         });
 
-        forceKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, forceKernel.layout, {
+        lambdaKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, lambdaKernel.layout, {
                 {computeUniformBuffer->descriptorInfo()},
                 {gridHandler.gridDescriptorInfo()},
-                {positionBuffers[(i + 1) % positionBuffers.size()]->descriptorInfo()},
-                {velocityBuffers[(i + 1) % velocityBuffers.size()]->descriptorInfo()},
-                {vorticityBuffer->descriptorInfo()},
-                {densityBuffer->descriptorInfo()},
+                {predPosBuffers[(i + 1) % predPosBuffers.size()]->descriptorInfo()},
                 {lambdaBuffer->descriptorInfo()},
-                {gridIdxBuffer->descriptorInfo()}
+                {densityBuffer->descriptorInfo()},
+                {gridIdxBuffer->descriptorInfo()},
         });
 
-        integrateKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, integrateKernel.layout, {
+        correctPositionsKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, correctPositionsKernel.layout, {
                 {computeUniformBuffer->descriptorInfo()},
-                {positionBuffers[(i + 1) % positionBuffers.size()]->descriptorInfo()},
-                {velocityBuffers[(i + 1) % velocityBuffers.size()]->descriptorInfo()},
-                {vorticityBuffer->descriptorInfo()},
-                {densityBuffer->descriptorInfo()},
+                {predPosBuffers[(i + 1) % predPosBuffers.size()]->descriptorInfo()},
+                {correctionBuffer->descriptorInfo()},
         });
     }
 }
@@ -135,7 +139,7 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
         }
 
     }
-    posCorrectionBuffer = makeBuffer(particles.posCorrection.size()*sizeof(glm::vec4));
+    correctionBuffer = makeBuffer(particles.correction.size() * sizeof(glm::vec4));
     vorticityBuffer = makeBuffer(particles.vorticity.size()*sizeof(glm::vec4));
     densityBuffer = makeBuffer(particles.density.size()*sizeof(float));
     lambdaBuffer = makeBuffer(particles.lambda.size()*sizeof(float));
@@ -145,7 +149,7 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
         particleBarrierData[i] = {
                 positionBuffers[i]->getBarrierData(),
                 velocityBuffers[i]->getBarrierData(),
-                posCorrectionBuffer->getBarrierData(),
+                correctionBuffer->getBarrierData(),
                 vorticityBuffer->getBarrierData(),
                 densityBuffer->getBarrierData(),
                 lambdaBuffer->getBarrierData(),
@@ -165,12 +169,14 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     }
 
     if (objectsInitialized) globalDescriptorPool->freeDescriptors({
-        densityPressureKernel.descSets[0],
-        densityPressureKernel.descSets[1],
-        forceKernel.descSets[0],
-        forceKernel.descSets[1],
-        integrateKernel.descSets[0],
-        integrateKernel.descSets[1]
+            predictPositionKernel.descSets[0],
+            predictPositionKernel.descSets[1],
+            densityKernel.descSets[0],
+            densityKernel.descSets[1],
+            lambdaKernel.descSets[0],
+            lambdaKernel.descSets[1],
+            correctPositionsKernel.descSets[0],
+            correctPositionsKernel.descSets[1],
     });
     createComputeDescriptorSets();
 
@@ -251,31 +257,26 @@ void PBFGPU3DSim::updateSimulation() {
     computeHandler.runCompute(renderer.currentFrame(), [this](VkCommandBuffer computeCommandBuffer){
         uint32_t blockSize = INSTANCE_COUNT/256 + (1 - (INSTANCE_COUNT%256 == 0));
 
-        gridHandler.resetGrid(computeCommandBuffer);
-
-        gridHandler.gridBarrier(computeCommandBuffer);
-
-        gridHandler.insertParticles(computeFrameIdx, computeCommandBuffer);
-
-        gridHandler.gridBarrier(computeCommandBuffer);
-
-        gridHandler.prefixSum(computeCommandBuffer);
-
-        gridHandler.gridBarrier(computeCommandBuffer);
-
-        gridHandler.countingSort(computeFrameIdx, computeCommandBuffer);
+        predictPositionKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
 
         vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
 
-        densityPressureKernel.bindAndDispatch(computeCommandBuffer,computeFrameIdx, blockSize, 1, 1);
+        gridHandler.createGrid(computeCommandBuffer, computeFrameIdx);
 
         vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
 
-        forceKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
+        for (uint32_t i = 0; i < jacobiIterations; i++){
+            densityKernel.bindAndDispatch(computeCommandBuffer,computeFrameIdx, blockSize, 1, 1);
 
-        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+            vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
 
-        integrateKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
+            lambdaKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
+
+            vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+
+            correctPositionsKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
+        }
+
 
     });
 
@@ -288,7 +289,6 @@ void PBFGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){
     gUbo.cameraPos = camera.m_translation;
     graphicsUniformBuffers[frameIndex]->write(&gUbo);
 
-    cUbo.deltaTime = deltaTime;
     cUbo.planeY = plane.m_translation.y;
     cUbo.G = gravityFactor*glm::vec3(0.0f, -10.0f, 0.0f);
     computeUniformBuffer->write(&cUbo);
@@ -308,9 +308,13 @@ void PBFGPU3DSim::showImGui(){
 
     if (ImGui::Button("Reset and enter control mode")) controlMode = true;
 
-    ImGui::DragFloat("Gravity", &gravityFactor, 1.f, 1.f, 1000.f);
-    ImGui::DragFloat("Viscosity", &cUbo.VISC, 1.f, 10.0f, 500.f);
-    ImGui::DragFloat("DeltaTime", &cUbo.DT, 0.00005f, 0.0005f, 0.002f, "%.5f");
+    ImGui::SliderFloat("Gravity", &gravityFactor, 1.f, 1000.f);
+    ImGui::DragFloat("Viscosity", &cUbo.VISC, 0.001f, 0.001f, 5.0f);
+    ImGui::DragFloat("DeltaTime", &cUbo.DT, 0.00005f, 0.0005f, 0.02f, "%.5f");
+    ImGui::DragFloat("Rest Density", &cUbo.REST_DENS, 1.0f, 4.0f, 1000.0f, "%.0f");
+    ImGui::DragFloat("Mass", &cUbo.MASS, 0.5f, 1.0f, 40.0f, "%.1f");
+    ImGui::DragFloat("CFM", &cUbo.CFM, 1.0f, 1.0f, 1000.0f, "%.1f");
+    ImGui::DragFloat("ARTIFICIAL PRESSURE", &cUbo.ART_PRESSURE_COEF, 0.01f, 0.01f, 10.0f, "%.2f");
 
     ImGui::SliderFloat("Plane Y", &plane.m_translation.y, -100.0f, 100.0f);
 
@@ -389,18 +393,24 @@ void PBFGPU3DSim::showImGui(){
 }
 
 void PBFGPU3DSim::compileShaders() {
-    for (auto& shaderName : shaders) {
+    for (uint32_t i = 0; i < shaders.size(); i++) {
         std::string command{"glslc "};
-        command += SHADER_DIR;
-        command += shaderName;
+        if (i < 4) {
+            command += RENDER_SHADER_DIR;
+        } else if (i < 9) {
+            command += GRID_SHADER_DIR;
+        } else {
+            command += SIMULATIONS_SHADER_DIR;
+        }
+        command += shaders[i];
         command += " --target-env=vulkan1.1 ";
         command += " -o ";
         command += COMPILED_SHADER_DIR;
-        command += shaderName;
+        command += shaders[i];
         command += ".spv";
         int status = system(command.c_str());
         if (status != 0) {
-            throw std::runtime_error("Error compiling shader " + shaderName);
+            throw std::runtime_error("Error compiling shader " + shaders[i]);
         }
     }
 }

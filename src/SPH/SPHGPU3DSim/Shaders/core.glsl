@@ -1,12 +1,6 @@
 #ifndef CORE_SHADER_H
 #define CORE_SHADER_H
 
-
-struct Particle {
-    vec3 position, velocity, force;
-    float density, pressure;
-};
-
 struct computeUBO {
     float deltaTime;
     vec3 BOUNDARY_SIZE;

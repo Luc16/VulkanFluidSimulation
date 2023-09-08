@@ -74,8 +74,7 @@ namespace vkb {
             m_insertDescriptorSets[i] = DescriptorWriter::createSingleDescriptorSet(globalPool, m_insertDescriptorLayout, {
                     {m_gridParticleUniformBuffer->descriptorInfo()},
                     {m_gridBuffer->descriptorInfo()},
-//                    {particlePredPosBuffers[i]->descriptorInfo()}
-                    {particlePosBuffers[i]->descriptorInfo()} // TODO change later
+                    {particlePredPosBuffers[i]->descriptorInfo()}
             });
 
             m_sortDescriptorSets[i] = DescriptorWriter::createSingleDescriptorSet(globalPool, m_sortDescriptorLayout, {
@@ -170,5 +169,21 @@ namespace vkb {
 
     void PbfGpuSpatialGridHandler::gridBarrier(VkCommandBuffer commandBuffer) {
         ComputeShaderHandler::computeBarrier(commandBuffer, m_gridBuffer);
+    }
+
+    void PbfGpuSpatialGridHandler::createGrid(VkCommandBuffer commandBuffer, u_char frameIdx) {
+        resetGrid(commandBuffer);
+
+        gridBarrier(commandBuffer);
+
+        insertParticles(frameIdx, commandBuffer);
+
+        gridBarrier(commandBuffer);
+
+        prefixSum(commandBuffer);
+
+        gridBarrier(commandBuffer);
+
+        countingSort(frameIdx, commandBuffer);
     }
 } // vkb

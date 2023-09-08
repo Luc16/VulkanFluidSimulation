@@ -2,31 +2,27 @@
 #define CORE_SHADER_H
 
 
-struct Particle {
-    vec3 position, velocity, force;
-    float density, pressure;
-};
-
 struct computeUBO {
-    float deltaTime;
     vec3 BOUNDARY_SIZE;
+    vec3 G;
     float planeY;
 
-    vec3 G;   // external (gravitational) forces
     float REST_DENS;  // rest density
-    float GAS_CONST; // const for equation of state
     float H;           // kernel radius
     float HSQ;        // radius^2 for optimization
     float MASS;        // assume all particles have the same mass
     float VISC;       // viscosity constant
     float DT;       // integration timestep
+    float ART_PRESSURE_COEF;
+    float VORTICITY_COEF;
+    uint numParticles;
     float POLY6;
     float SPIKY_GRAD;
-    float VISC_LAP;
-    float EPS;
-    float BOUND_DAMPING;
-    uint numParticles;
+
+    float CFM;
+    float EPS; // boundary epsilon
     uint GRID_SIZE;
 };
+
 
 #endif //CORE_SHADER_H

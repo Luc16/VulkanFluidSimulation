@@ -35,26 +35,31 @@ public:
 
 private:
     const std::string SHADER_DIR = std::string("../src/SPH/PBFGPU3DSim/Shaders/");
+    const std::string RENDER_SHADER_DIR = SHADER_DIR + "/rendering/";
+    const std::string GRID_SHADER_DIR = SHADER_DIR + "/grid/";
+    const std::string SIMULATIONS_SHADER_DIR = SHADER_DIR + "/simulation/";
     const std::string COMPILED_SHADER_DIR = std::string("../src/SPH/PBFGPU3DSim/Shaders/bin/");
 
 
-    uint32_t INSTANCE_COUNT = 500'000;
+    uint32_t INSTANCE_COUNT = 100'000;
     static constexpr uint32_t MAX_PARTICLES = 1'000'000;
     static constexpr float MAX_BOUND = 1000.0f;
+    uint32_t jacobiIterations = 3;
 
     const std::vector<std::string> shaders = {
             "default.vert",
             "default.frag",
             "point_particle.vert",
             "point_particle.frag",
-            "calculate_forces.comp",
-            "integrate.comp",
-            "calculate_density_pressure.comp",
             "reset_grid.comp",
             "insert_particles.comp",
             "scan.comp",
             "scan_add.comp",
             "sort_particles.comp",
+            "predict_positions.comp",
+            "compute_density.comp",
+            "compute_lambda.comp",
+            "correct_positions.comp",
     };
 
     const std::string planeModelPath = "../Models/quadXZ1.obj";
@@ -84,14 +89,14 @@ private:
 
     // these vec4s can be read as vec3 in shader because of the 16 byte spacing
     struct ParticleData {
-        std::vector<glm::vec4> position{}, velocity{}, posCorrection{}, predPos{}, vorticity{};
+        std::vector<glm::vec4> position{}, velocity{}, correction{}, predPos{}, vorticity{};
         std::vector<float> density{}, lambda{};
         std::vector<uint32_t> idx{};
 
         void resize(size_t newSize) {
             position.resize(newSize);
             velocity.resize(newSize);
-            posCorrection.resize(newSize);
+            correction.resize(newSize);
             predPos.resize(newSize);
             vorticity.resize(newSize);
             density.resize(newSize);
@@ -108,29 +113,25 @@ private:
     };
 
     struct ComputeUniformBufferObject {
-        float deltaTime = 1/60.0f;
-        alignas(16) glm::vec3 BOUNDARY_SIZE = glm::vec3(200.0f);
-        float planeY = 0.0f;
+        alignas(16) glm::vec3 BOUNDARY_SIZE = glm::vec3(150.0f);
+        alignas(16) glm::vec3 G = glm::vec3(0.0f, -10.0f, 0.0f);
 
-        alignas(16) glm::vec3 G{0.0f, -10.0f, 0.0f};   // external (gravitational) forces
-        float REST_DENS = 300.f;  // rest density
-        float GAS_CONST = 2000.f; // const for equation of state
+        float planeY = 0.0f;
+        float REST_DENS = 8.0f;  // rest density
         float H = 1.5f;           // kernel radius
         float HSQ = H * H;        // radius^2 for optimization
-        float MASS = 2.5f;        // assume all particles have the same mass
-        float VISC = 250.f;       // viscosity constant
-        float DT = 0.001f;       // integration timestep
-
-        // smoothing kernels defined in Müller and their gradients
+        float MASS = 5.0f;        // assume all particles have the same mass
+        float VISC = 0.8f;       // viscosity constant
+        float DT = 0.010f;       // integration timestep
+        float ART_PRESSURE_COEF = 0.1f;
+        float VORTICITY_COEF = 0.0004f;
+        uint numParticles = 0;
         float POLY6 = 315.0f / (64.0f * glm::pi<float>() *H*H*H *H*H*H *H*H*H);
         float SPIKY_GRAD = 45.0f / (glm::pi<float>() * H*H*H *H*H*H);
-        float VISC_LAP = 45.0f / (glm::pi<float>() * H*H*H *H*H*H);
 
-        // simulation parameters
+        float CFM = 4.0f;
+
         float EPS = H; // boundary epsilon
-
-        float BOUND_DAMPING = -0.5f;
-        uint numParticles = 0;
         uint32_t GRID_SIZE = 0;
     };
 
@@ -147,7 +148,7 @@ private:
     std::array<std::unique_ptr<vkb::Buffer>, 2> positionBuffers;
     std::array<std::unique_ptr<vkb::Buffer>, 2> velocityBuffers;
     std::array<std::unique_ptr<vkb::Buffer>, 2> predPosBuffers;
-    std::unique_ptr<vkb::Buffer> posCorrectionBuffer;
+    std::unique_ptr<vkb::Buffer> correctionBuffer;
     std::unique_ptr<vkb::Buffer> vorticityBuffer;
     std::unique_ptr<vkb::Buffer> densityBuffer;
     std::unique_ptr<vkb::Buffer> lambdaBuffer;
@@ -155,57 +156,64 @@ private:
 
     std::array<std::vector<std::pair<VkBuffer, VkDeviceSize>>, 2> particleBarrierData;
 
+    vkb::PbfGpuSpatialGridHandler gridHandler{
+            device, 256,
+            COMPILED_SHADER_DIR + shaders[4] + ".spv",
+            COMPILED_SHADER_DIR + shaders[5] + ".spv",
+            COMPILED_SHADER_DIR + shaders[6] + ".spv",
+            COMPILED_SHADER_DIR + shaders[7] + ".spv",
+            COMPILED_SHADER_DIR + shaders[8] + ".spv"
+    };
+
     u_char computeFrameIdx = 0;
 
     std::unique_ptr<vkb::Buffer> computeUniformBuffer;
     ComputeUniformBufferObject cUbo{};
     vkb::ComputeShaderHandler computeHandler{device};
 
-    SimulationKernel forceKernel {
-            .computeSystem{device, COMPILED_SHADER_DIR + shaders[4] + ".spv"},
+    SimulationKernel predictPositionKernel {
+            .computeSystem{device, COMPILED_SHADER_DIR + shaders[9] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
-            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
-            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pos
-            .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // vel
-            .addBinding({4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // forces
-            .addBinding({5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // density
-            .addBinding({6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pressure
-            .addBinding({7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid idx
-            .build()
+                    .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+                    .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pos
+                    .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // vel
+                    .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // predPos
+                    .build()
     };
 
-    SimulationKernel integrateKernel {
-        .computeSystem{device, COMPILED_SHADER_DIR + shaders[5] + ".spv"},
+    SimulationKernel densityKernel {
+            .computeSystem{device, COMPILED_SHADER_DIR + shaders[10] + ".spv"},
+            .layout = vkb::DescriptorSetLayout::Builder(device)
+                    .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+                    .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
+                    .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // predPos
+                    .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // density
+                    .addBinding({4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid idx
+                    .build()
+    };
+
+    SimulationKernel lambdaKernel {
+            .computeSystem{device, COMPILED_SHADER_DIR + shaders[11] + ".spv"},
+            .layout = vkb::DescriptorSetLayout::Builder(device)
+                    .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+                    .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
+                    .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // predPos
+                    .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // lambda
+                    .addBinding({4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // density
+                    .addBinding({5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid idx
+                    .build()
+    };
+
+    SimulationKernel correctPositionsKernel {
+        .computeSystem{device, COMPILED_SHADER_DIR + shaders[12] + ".spv"},
         .layout = vkb::DescriptorSetLayout::Builder(device)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pos
-            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // vel
-            .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // force
-            .addBinding({4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // density
+            .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // predPos
+            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // correction
             .build()
     };
 
-    SimulationKernel densityPressureKernel {
-        .computeSystem{device, COMPILED_SHADER_DIR + shaders[6] + ".spv"},
-        .layout = vkb::DescriptorSetLayout::Builder(device)
-            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
-            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pos
-            .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // density
-            .addBinding({4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pressure
-            .addBinding({5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid idx
-            .build()
-    };
 
-    vkb::PbfGpuSpatialGridHandler gridHandler{
-        device, 256,
-        COMPILED_SHADER_DIR + shaders[7] + ".spv",
-        COMPILED_SHADER_DIR + shaders[8] + ".spv",
-        COMPILED_SHADER_DIR + shaders[9] + ".spv",
-        COMPILED_SHADER_DIR + shaders[10] + ".spv",
-        COMPILED_SHADER_DIR + shaders[11] + ".spv"
-        };
 
     vkb::Camera camera{};
     vkb::CameraMovementController cameraController{};
