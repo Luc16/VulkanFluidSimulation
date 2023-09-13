@@ -5,8 +5,8 @@
 struct computeUBO {
     vec3 BOUNDARY_SIZE;
     vec3 G;
-    float planeY;
 
+    float planeY;
     float REST_DENS;  // rest density
     float H;           // kernel radius
     float HSQ;        // radius^2 for optimization
@@ -21,7 +21,6 @@ struct computeUBO {
 
     float CFM;
     float EPS; // boundary epsilon
-    uint GRID_SIZE;
 };
 
 

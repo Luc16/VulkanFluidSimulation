@@ -7,6 +7,8 @@
 void PBFGPU3DSim::onCreate() {
     camera.m_translation = {-174.012f, 194.745f, 193.005f};
     camera.m_rotation = {0.569391f, 1.95856f, 3.14159f};
+//    camera.m_translation = {-9.31845f, 14.2878f, 15.5649f};
+//    camera.m_rotation = {0.569391f, 2.26887f, 3.14159f};
     camera.updateView();
     auto extent = window.extent();
     camera.setOrthographicProjection(0.0f, (float) extent.width, (float) extent.height, 0.0f, 0.1f, 1000.f);
@@ -126,7 +128,7 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     gUbo.cameraPos = camera.m_translation;
     gUbo.radius = cUbo.H;
     cUbo.numParticles = INSTANCE_COUNT;
-    cUbo.GRID_SIZE = uint32_t(cUbo.BOUNDARY_SIZE.x/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.y/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.z/cUbo.H) + 1;
+    GRID_SIZE = uint32_t(cUbo.BOUNDARY_SIZE.x/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.y/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.z/cUbo.H) + 1;
 
     vkDeviceWaitIdle(device.device());
 
@@ -135,7 +137,6 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     plane.setScale(cUbo.BOUNDARY_SIZE);
 
     auto accPos = initialPos;
-    particleSpacing = cUbo.H + 0.2f;
 
     uint32_t count = 0;
     for (uint32_t i = 0; i < particles.position.size(); i++) {
@@ -154,7 +155,7 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
             accPos.x = initialPos.x;
             if (count == numParticlesXZ.y) {
                 count = 0;
-                accPos.y += particleSpacing;
+                accPos.y += particleVerticalSpacing;
                 accPos.z = initialPos.z;
             }
         }
@@ -162,34 +163,39 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
 
     computeFrameIdx = 0;
 
-    auto makeBuffer = [this](size_t size) {
-        return std::make_unique<vkb::Buffer>(device, size,
-                                             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    };
+    //create buffers
+    {
+        auto makeBuffer = [this](size_t size) {
+            return std::make_unique<vkb::Buffer>(device, size,
+                                                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        };
 
-    for (uint32_t i = 0; i < positionBuffers.size(); i++){
-        positionBuffers[i] = std::make_unique<vkb::Buffer>(device, particles.position.size() * sizeof(glm::vec4),
-                                                          VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                                           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        velocityBuffers[i] = makeBuffer(particles.velocity.size() * sizeof(glm::vec4));
-        predPosBuffers[i] = makeBuffer(particles.predPos.size() * sizeof(glm::vec4));
-        if (i == 0) {
-            vkb::Buffer::writeVectorToBuffer(device, positionBuffers[i], particles.position);
-            vkb::Buffer::writeVectorToBuffer(device, velocityBuffers[i], particles.velocity);
+        for (uint32_t i = 0; i < positionBuffers.size(); i++){
+            positionBuffers[i] = std::make_unique<vkb::Buffer>(device, particles.position.size() * sizeof(glm::vec4),
+                                                               VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                                               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+            velocityBuffers[i] = makeBuffer(particles.velocity.size() * sizeof(glm::vec4));
+            predPosBuffers[i] = makeBuffer(particles.predPos.size() * sizeof(glm::vec4));
+            if (i == 0) {
+                vkb::Buffer::writeVectorToBuffer(device, positionBuffers[i], particles.position);
+                vkb::Buffer::writeVectorToBuffer(device, velocityBuffers[i], particles.velocity);
+            }
+
         }
-
+        correctionBuffer = makeBuffer(particles.correction.size() * sizeof(glm::vec4));
+        vorticityBuffer = makeBuffer(particles.vorticity.size()*sizeof(glm::vec4));
+        densityBuffer = makeBuffer(particles.density.size()*sizeof(float));
+        lambdaBuffer = makeBuffer(particles.lambda.size()*sizeof(float));
+        gridIdxBuffer = makeBuffer(particles.idx.size() * sizeof(uint32_t));
     }
-    correctionBuffer = makeBuffer(particles.correction.size() * sizeof(glm::vec4));
-    vorticityBuffer = makeBuffer(particles.vorticity.size()*sizeof(glm::vec4));
-    densityBuffer = makeBuffer(particles.density.size()*sizeof(float));
-    lambdaBuffer = makeBuffer(particles.lambda.size()*sizeof(float));
-    gridIdxBuffer = makeBuffer(particles.idx.size() * sizeof(uint32_t));
 
+    // create barriers
     for (uint32_t i = 0; i < particleBarrierData.size(); i++){
         particleBarrierData[i] = {
-                positionBuffers[i]->getBarrierData(),
-                velocityBuffers[i]->getBarrierData(),
+                positionBuffers[(i+1) % positionBuffers.size()]->getBarrierData(),
+                velocityBuffers[(i+1) % velocityBuffers.size()]->getBarrierData(),
+                predPosBuffers[(i+1) % predPosBuffers.size()]->getBarrierData(),
                 correctionBuffer->getBarrierData(),
                 vorticityBuffer->getBarrierData(),
                 densityBuffer->getBarrierData(),
@@ -201,7 +207,7 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     if (activateRandomOffsets){
         gridHandler.createDescriptorsAndBuffers(
                 globalDescriptorPool,
-                cUbo.GRID_SIZE,
+                GRID_SIZE,
                 {cUbo.numParticles, cUbo.H, cUbo.BOUNDARY_SIZE},
                 gridIdxBuffer,
                 positionBuffers,
@@ -209,7 +215,9 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
                 predPosBuffers);
     }
 
-    if (objectsInitialized) globalDescriptorPool->freeDescriptors({
+    //free descriptor sets
+    if (objectsInitialized) {
+        globalDescriptorPool->freeDescriptors({
             predictPositionKernel.descSets[0],
             predictPositionKernel.descSets[1],
             densityKernel.descSets[0],
@@ -226,7 +234,8 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
             applyViscAndComputeVortKernel.descSets[1],
             applyVortAndUpdatePos.descSets[0],
             applyVortAndUpdatePos.descSets[1],
-    });
+        });
+    }
     createComputeDescriptorSets();
 
     objectsInitialized = true;
@@ -308,7 +317,7 @@ void PBFGPU3DSim::updateSimulation() {
 
         predictPositionKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
 
-        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[(computeFrameIdx + 1) % 2]);
 
         gridHandler.createGrid(computeCommandBuffer, computeFrameIdx);
 
@@ -335,7 +344,7 @@ void PBFGPU3DSim::updateSimulation() {
         updateVelocitiesKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
 
         vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
-//
+
         applyViscAndComputeVortKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
 
         vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
@@ -356,6 +365,7 @@ void PBFGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){
     graphicsUniformBuffers[frameIndex]->write(&gUbo);
 
     cUbo.planeY = plane.m_translation.y;
+//    cUbo.DT = std::clamp(deltaTime, 0.001f, 0.016f);
     cUbo.G = gravityFactor*glm::vec3(0.0f, -10.0f, 0.0f);
     computeUniformBuffer->write(&cUbo);
 }
@@ -364,7 +374,7 @@ void PBFGPU3DSim::showImGui(){
     ImGui::Begin("Control Panel");
 
     ImGui::Text("Rendering %d instances", INSTANCE_COUNT);
-    ImGui::Text("Grid size: %d", cUbo.GRID_SIZE);
+    ImGui::Text("Grid size: %d", GRID_SIZE);
     ImGui::Checkbox("Display time", &activateTimer);
     if(activateTimer){
         ImGui::Text("Cpu time: %f ms", cpuTime);
@@ -374,16 +384,18 @@ void PBFGPU3DSim::showImGui(){
 
     if (ImGui::Button("Reset and enter control mode")) controlMode = true;
 
-    int temp = int(jacobiIterations);
-    ImGui::DragInt("Num iterations", &temp, 1, 1, 5);
-    jacobiIterations = temp;
+    int iJac = int(jacobiIterations);
+    ImGui::DragInt("Num iterations", &iJac, 1, 1, 5);
+    jacobiIterations = iJac;
+    ImGui::DragFloat("Gravity Factor", &gravityFactor, 0.001f, 0.001f, 5.0f);
     ImGui::DragFloat("Viscosity", &cUbo.VISC, 0.001f, 0.001f, 5.0f);
     ImGui::DragFloat("DeltaTime", &cUbo.DT, 0.00005f, 0.0005f, 0.02f, "%.5f");
     ImGui::DragFloat("Rest Density", &cUbo.REST_DENS, 0.1f, 0.1f, 1000.0f, "%.4f");
     if (cUbo.REST_DENS == 0) cUbo.REST_DENS = 0.1f;
     ImGui::DragFloat("Mass", &cUbo.MASS, 0.001f, 0.001f, 40.0f, "%.1f");
-    ImGui::DragFloat("CFM", &cUbo.CFM, 1.0f, 1.0f, 1000.0f, "%.1f");
-    ImGui::DragFloat("ARTIFICIAL PRESSURE", &cUbo.ART_PRESSURE_COEF, 0.01f, 0.01f, 10.0f, "%.2f");
+    ImGui::DragFloat("CFM", &cUbo.CFM, 0.005f, 0.005f, 10.0f, "%.4f");
+    if (cUbo.CFM == 0) cUbo.CFM = 0.1;
+    ImGui::DragFloat("ARTIFICIAL PRESSURE", &cUbo.ART_PRESSURE_COEF, 0.0001f, 0.0001f, 10.0f, "%.4f");
     ImGui::DragFloat("VORTICITY COEF", &cUbo.VORTICITY_COEF, 0.000001f, 0.000001f, 0.1f, "%.6f");
 
     ImGui::SliderFloat("Plane Y", &plane.m_translation.y, -100.0f, 100.0f);
@@ -394,6 +406,11 @@ void PBFGPU3DSim::showImGui(){
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                 ImGui::GetIO().Framerate);
     ImGui::End();
+
+//    if (glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_PRESS) {
+//        std::cout << "camera.m_translation = {" << camera.m_translation.x << "f, " << camera.m_translation.y << "f, " << camera.m_translation.z << "f};\n";
+//        std::cout << "camera.m_rotation = {" << camera.m_rotation.x << "f, " << camera.m_rotation.y << "f, " << camera.m_rotation.z << "f};\n";
+//    }
 
 
     if (controlMode) {
@@ -409,6 +426,8 @@ void PBFGPU3DSim::showImGui(){
         int temp = (int) INSTANCE_COUNT;
         ImGui::SliderInt("Num Particles", &temp, 16, MAX_PARTICLES);
 
+        ImGui::SliderFloat("Spacing", &particleSpacing, cUbo.H, 2*cUbo.H);
+        ImGui::SliderFloat("Spacing vert", &particleVerticalSpacing, cUbo.H, 2 * cUbo.H);
 
         auto particleShapeSize = getParticleShapeSize();
 

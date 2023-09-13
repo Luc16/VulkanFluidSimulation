@@ -45,6 +45,7 @@ private:
     static constexpr uint32_t MAX_PARTICLES = 1'000'000;
     static constexpr float MAX_BOUND = 1000.0f;
     uint32_t jacobiIterations = 3;
+    uint32_t GRID_SIZE = 0;
 
     const std::vector<std::string> shaders = {
             "default.vert",
@@ -121,7 +122,7 @@ private:
         alignas(16) glm::vec3 G = glm::vec3(0.0f, -9.8f, 0.0f);
 
         float planeY = 0.0f;
-        float REST_DENS = 16.0f;  // rest density
+        float REST_DENS = 20.0f;  // rest density
         float H = 1.5f;           // kernel radius
         float HSQ = H * H;        // radius^2 for optimization
         float MASS = 5.0f;        // assume all particles have the same mass
@@ -133,11 +134,32 @@ private:
         float POLY6 = 315.0f / (64.0f * glm::pi<float>() *H*H*H *H*H*H *H*H*H);
         float SPIKY_GRAD = 45.0f / (glm::pi<float>() * H*H*H *H*H*H);
 
-        float CFM = 4.0f;
-
+        float CFM = 0.5f;
         float EPS = H; // boundary epsilon
         uint32_t GRID_SIZE = 0;
     };
+//    struct ComputeUniformBufferObject {
+//        alignas(16) glm::vec3 BOUNDARY_SIZE = glm::vec3(8.0f);
+//        alignas(16) glm::vec3 G = glm::vec3(0.0f, -9.8f, 0.0f);
+//
+//        float planeY = 0.0f;
+//        float REST_DENS = 6378.0f;  // rest density
+//        float H = 0.1f;           // kernel radius
+//        float HSQ = H * H;        // radius^2 for optimization
+//        float MASS = 1.0f;        // assume all particles have the same mass
+//        float VISC = 0.01f;       // viscosity constant
+////        float DT = 0.0083f;       // integration timestep
+//        float DT = 0.00005f;       // integration timestep
+//        float ART_PRESSURE_COEF = 0.0001f;
+//        float VORTICITY_COEF = 0.0004f;
+//        uint numParticles = 0;
+//        float POLY6 = 315.0f / (64.0f * glm::pi<float>() *H*H*H *H*H*H *H*H*H);
+//        float SPIKY_GRAD = 45.0f / (glm::pi<float>() * H*H*H *H*H*H);
+//
+//        float CFM = 600.0f;
+//        float EPS = H; // boundary epsilon
+//        uint32_t GRID_SIZE = 0;
+//    };
 
     vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, planeModelPath), std::make_shared<vkb::Texture>(device, planeTexPath)};
 
@@ -273,7 +295,8 @@ private:
     vkb::CameraMovementController cameraController{};
 
     glm::ivec2 numParticlesXZ = glm::ivec2(int(std::cbrt(INSTANCE_COUNT)));
-    float particleSpacing = cUbo.H;
+    float particleSpacing = cUbo.H*(1 + 0.13333f);
+    float particleVerticalSpacing = cUbo.H*(1 + 0.13333f);
     glm::vec4 initialPos = {cUbo.EPS, cUbo.EPS, cUbo.EPS, 0};
     float drawTime = 0, cpuTime = 0, computeTime = 0, gravityFactor = 1.0f;
     bool activateTimer = false, controlMode = false, objectsInitialized = false;
