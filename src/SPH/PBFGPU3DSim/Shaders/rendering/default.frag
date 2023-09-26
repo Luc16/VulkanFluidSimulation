@@ -7,7 +7,8 @@ layout(location = 1) in vec3 fragPosWorld;
 layout(location = 2) in vec3 fragNormalWorld;
 
 layout(binding = 0) uniform UniformBufferObject {
-    mat4 viewProj;
+    mat4 view;
+    mat4 proj;
     vec3 cameraPos;
     vec3 lightDir;
     float radius;

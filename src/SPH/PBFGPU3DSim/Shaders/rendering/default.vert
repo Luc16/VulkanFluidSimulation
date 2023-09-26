@@ -6,7 +6,8 @@ layout(location = 2) in vec3 inNormal;
 layout(location = 3) in vec2 inTexCoord;
 
 layout(binding = 0) uniform UniformBufferObject {
-    mat4 viewProj;
+    mat4 view;
+    mat4 proj;
     vec3 cameraPos;
     vec3 lightDir;
     float radius;
@@ -23,7 +24,7 @@ layout(location = 2) out vec3 fragNormalWorld;
 
 void main() {
     vec4 posWorld = push.model * vec4(inPosition, 1.0);
-    gl_Position = ubo.viewProj * posWorld;
+    gl_Position = ubo.proj * ubo.view * posWorld;
     fragPosWorld = posWorld.xyz;
     fragNormalWorld = normalize(mat3(push.model) * inNormal);
     fragTexCoord = inTexCoord;

@@ -124,7 +124,8 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
 }
 
 void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
-    gUbo.viewProj = camera.getProjection()*camera.getView();
+    gUbo.view = camera.getView();
+    gUbo.proj = camera.getProjection();
     gUbo.cameraPos = camera.m_translation;
     gUbo.radius = cUbo.H;
     cUbo.numParticles = INSTANCE_COUNT;
@@ -272,7 +273,7 @@ void PBFGPU3DSim::mainLoop(float deltaTime) {
         currentTime = time;
     }
 
-    if (!controlMode) {
+    if (!pausedSimulation) {
         updateSimulation();
         if (activateTimer) {
             auto time = std::chrono::high_resolution_clock::now();
@@ -284,7 +285,7 @@ void PBFGPU3DSim::mainLoop(float deltaTime) {
             renderObjects();
         }, computeHandler.currentSemaphore(renderer.currentFrame()), vkb::ComputeShaderHandler::waitStages());
     } else {
-        initializeObjects(false);
+        if (controlMode) initializeObjects(false);
         renderer.runFrame([this](VkCommandBuffer commandBuffer){
             renderObjects();
         });
@@ -359,8 +360,9 @@ void PBFGPU3DSim::updateSimulation() {
 }
 
 void PBFGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){
-    camera.setPerspectiveProjection(glm::radians(50.f), renderer.getSwapChainAspectRatio(), 0.1f, 1000.f);
-    gUbo.viewProj = camera.getProjection()*camera.getView();
+    camera.setPerspectiveProjection(glm::radians(50.f), renderer.getSwapChainAspectRatio(), 0.1f, 500.f);
+    gUbo.view = camera.getView();
+    gUbo.proj = camera.getProjection();
     gUbo.cameraPos = camera.m_translation;
     graphicsUniformBuffers[frameIndex]->write(&gUbo);
 
@@ -382,35 +384,71 @@ void PBFGPU3DSim::showImGui(){
         ImGui::Text("Draw time: %f ms", drawTime);
     }
 
-    if (ImGui::Button("Reset and enter control mode")) controlMode = true;
+    if (ImGui::Button("Reset and enter control mode")) {
+        pausedSimulation = true;
+        controlMode = true;
+    }
 
-    int iJac = int(jacobiIterations);
-    ImGui::DragInt("Num iterations", &iJac, 1, 1, 5);
-    jacobiIterations = iJac;
-    ImGui::DragFloat("Gravity Factor", &gravityFactor, 0.001f, 0.001f, 5.0f);
-    ImGui::DragFloat("Viscosity", &cUbo.VISC, 0.001f, 0.001f, 5.0f);
-    ImGui::DragFloat("DeltaTime", &cUbo.DT, 0.00005f, 0.0005f, 0.02f, "%.5f");
-    ImGui::DragFloat("Rest Density", &cUbo.REST_DENS, 0.1f, 0.1f, 1000.0f, "%.4f");
-    if (cUbo.REST_DENS == 0) cUbo.REST_DENS = 0.1f;
-    ImGui::DragFloat("Mass", &cUbo.MASS, 0.001f, 0.001f, 40.0f, "%.1f");
-    ImGui::DragFloat("CFM", &cUbo.CFM, 0.005f, 0.005f, 10.0f, "%.4f");
-    if (cUbo.CFM == 0) cUbo.CFM = 0.1;
-    ImGui::DragFloat("ARTIFICIAL PRESSURE", &cUbo.ART_PRESSURE_COEF, 0.0001f, 0.0001f, 10.0f, "%.4f");
-    ImGui::DragFloat("VORTICITY COEF", &cUbo.VORTICITY_COEF, 0.000001f, 0.000001f, 0.1f, "%.6f");
+    if (ImGui::CollapsingHeader("Simulation constants", ImGuiTreeNodeFlags_DefaultOpen)) {
+        int iJac = int(jacobiIterations);
+        ImGui::DragInt("Num iterations", &iJac, 1, 1, 5);
+        jacobiIterations = iJac;
+        ImGui::DragFloat("Gravity Factor", &gravityFactor, 0.001f, 0.001f, 5.0f);
+        ImGui::DragFloat("Viscosity", &cUbo.VISC, 0.001f, 0.001f, 5.0f);
+        ImGui::DragFloat("DeltaTime", &cUbo.DT, 0.00005f, 0.0005f, 0.02f, "%.5f");
+        ImGui::DragFloat("Rest Density", &cUbo.REST_DENS, 0.1f, 0.1f, 1000.0f, "%.4f");
+        if (cUbo.REST_DENS == 0) cUbo.REST_DENS = 0.1f;
+        ImGui::DragFloat("Mass", &cUbo.MASS, 0.001f, 0.001f, 40.0f, "%.1f");
+        ImGui::DragFloat("CFM", &cUbo.CFM, 0.005f, 0.005f, 10.0f, "%.4f");
+        if (cUbo.CFM == 0) cUbo.CFM = 0.1;
+        ImGui::DragFloat("ARTIFICIAL PRESSURE", &cUbo.ART_PRESSURE_COEF, 0.0001f, 0.0001f, 10.0f, "%.4f");
+        ImGui::DragFloat("VORTICITY COEF", &cUbo.VORTICITY_COEF, 0.000001f, 0.000001f, 0.1f, "%.6f");
+    }
 
-    ImGui::SliderFloat("Plane Y", &plane.m_translation.y, -100.0f, 100.0f);
+    if (ImGui::CollapsingHeader("Boundaries", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::SliderFloat("Plane Y", &plane.m_translation.y, -100.0f, 100.0f);
+    }
 
-    if (ImGui::Button("Reset")) initializeObjects(true);
+    if (ImGui::CollapsingHeader("Rendering", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::DragFloat("Particle Radius", &gUbo.radius, 0.1f, 0.1f, 100.0f);
+        static std::array<std::string, 2> renderTypes = {"Normal", "Depth"};
+        std::string curItem = renderTypes[gUbo.renderType];
+        if (ImGui::BeginCombo("##combo", curItem.c_str())) {
+            for (uint32_t i = 0; i < renderTypes.size(); i++){
+                bool is_selected = (curItem == renderTypes[i]);
+                if (ImGui::Selectable(renderTypes[i].c_str(), is_selected)) {
+                    gUbo.renderType = i;
+                }
+                if (is_selected)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+
+
+    }
+
+
+    if (ImGui::Button("Reset")) {
+        initializeObjects(true);
+        controlMode = false;
+        pausedSimulation = false;
+    }
 
     ImGui::Text("Using %s", device.getPhysicalDeviceName().c_str());
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                 ImGui::GetIO().Framerate);
     ImGui::End();
 
-//    if (glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_PRESS) {
+    static bool wasReleased = false;
+    if (wasReleased && glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_PRESS) {
+        pausedSimulation = !pausedSimulation;
+        wasReleased = false;
 //        std::cout << "camera.m_translation = {" << camera.m_translation.x << "f, " << camera.m_translation.y << "f, " << camera.m_translation.z << "f};\n";
 //        std::cout << "camera.m_rotation = {" << camera.m_rotation.x << "f, " << camera.m_rotation.y << "f, " << camera.m_rotation.z << "f};\n";
-//    }
+    } else if (glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_RELEASE){
+        wasReleased = true;
+    }
 
 
     if (controlMode) {
@@ -475,6 +513,7 @@ void PBFGPU3DSim::showImGui(){
         if (ImGui::Button("Launch and close")){
             initializeObjects(true);
             controlMode = false;
+            pausedSimulation = false;
         }
         ImGui::End();
     }

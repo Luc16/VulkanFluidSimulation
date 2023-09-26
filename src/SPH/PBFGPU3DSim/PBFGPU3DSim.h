@@ -111,10 +111,12 @@ private:
     };
 
     struct UniformBufferObject {
-        alignas(16) glm::mat4 viewProj;
+        alignas(16) glm::mat4 view;
+        alignas(16) glm::mat4 proj;
         alignas(16) glm::vec3 cameraPos;
         alignas(16) glm::vec3 lightDir = glm::vec3(1.0f, -1.0f, 0.0f);
         float radius;
+        uint32_t renderType = 0;
     };
 
     struct ComputeUniformBufferObject {
@@ -127,7 +129,7 @@ private:
         float HSQ = H * H;        // radius^2 for optimization
         float MASS = 5.0f;        // assume all particles have the same mass
         float VISC = 0.8f;       // viscosity constant
-        float DT = 0.010f;       // integration timestep
+        float DT = 0.01666f/2;       // integration timestep
         float ART_PRESSURE_COEF = 0.1f;
         float VORTICITY_COEF = 0.0004f;
         uint numParticles = 0;
@@ -299,7 +301,7 @@ private:
     float particleVerticalSpacing = cUbo.H*(1 + 0.13333f);
     glm::vec4 initialPos = {cUbo.EPS, cUbo.EPS, cUbo.EPS, 0};
     float drawTime = 0, cpuTime = 0, computeTime = 0, gravityFactor = 1.0f;
-    bool activateTimer = false, controlMode = false, objectsInitialized = false;
+    bool activateTimer = false, controlMode = false, objectsInitialized = false, pausedSimulation = false;
 
     void onCreate() override;
     void initializeObjects(bool activateRandomOffsets);
