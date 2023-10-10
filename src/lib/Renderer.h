@@ -25,6 +25,7 @@ namespace vkb {
         [[nodiscard]] uint32_t currentFrame() const { return m_currentFrame; }
         [[nodiscard]] VkRenderPass renderPass() const { return m_swapChain->renderPass(); }
         [[nodiscard]] float getSwapChainAspectRatio() const {return (float) m_swapChain->width() / (float) m_swapChain->height(); }
+        [[nodiscard]] VkExtent2D getSwapChainExtent() const {return m_swapChain->extent(); }
         [[nodiscard]] VkCommandBuffer getCurrentCommandBuffer() const {
             if (!m_isFrameStarted) throw std::runtime_error("Cannot getBuffer command buffer when frame not in progress");
             return m_commandBuffers[m_currentFrame];

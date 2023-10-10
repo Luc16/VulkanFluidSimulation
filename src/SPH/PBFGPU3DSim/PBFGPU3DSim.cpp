@@ -38,18 +38,47 @@ void PBFGPU3DSim::onCreate() {
         });
     }
 
-    createComputeDescriptorSets();
+    {
+        depthPass.createFrameBuffer();
+        depthPassSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
+        depthPassSystem.createPipeline(depthPass.renderPass(), depthShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
+            info.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+            info.bindingDescription.clear();
+            info.bindingDescription.push_back({0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX});
+            info.attributeDescription.clear();
+            info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
+            info.multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+            info.shaderStageCount = 1;
+            info.colorBlending.attachmentCount = 0;
+            info.rasterizer.cullMode = VK_CULL_MODE_NONE;
+            info.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+            // Enable depth bias
+            info.rasterizer.depthBiasEnable = VK_TRUE;
+            // Add depth bias to dynamic state, so we can change it at runtime
+            info.dynamicStateEnables.push_back(VK_DYNAMIC_STATE_DEPTH_BIAS);
+            info.dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+            info.dynamicState.dynamicStateCount = static_cast<uint32_t>(info.dynamicStateEnables.size());
+            info.dynamicState.pDynamicStates = info.dynamicStateEnables.data();
+        });
 
-    predictPositionKernel.createPipeline();
-    densityKernel.createPipeline();
-    lambdaKernel.createPipeline();
-    posCorrectionKernel.createPipeline();
-    correctPositionsKernel.createPipeline();
-    updateVelocitiesKernel.createPipeline();
-    applyViscAndComputeVortKernel.createPipeline();
-    applyVortAndUpdatePos.createPipeline();
+    }
 
-    gridHandler.createSystems();
+    // create compute systems and descriptors
+    {
+        createComputeDescriptorSets();
+
+        predictPositionKernel.createPipeline();
+        densityKernel.createPipeline();
+        lambdaKernel.createPipeline();
+        posCorrectionKernel.createPipeline();
+        correctPositionsKernel.createPipeline();
+        updateVelocitiesKernel.createPipeline();
+        applyViscAndComputeVortKernel.createPipeline();
+        applyVortAndUpdatePos.createPipeline();
+
+        gridHandler.createSystems();
+    }
+
 }
 
 void PBFGPU3DSim::createComputeDescriptorSets() {
@@ -282,29 +311,35 @@ void PBFGPU3DSim::mainLoop(float deltaTime) {
         }
 
         renderer.runFrame([this](VkCommandBuffer commandBuffer){
-            renderObjects();
+            renderObjects(commandBuffer);
         }, computeHandler.currentSemaphore(renderer.currentFrame()), vkb::ComputeShaderHandler::waitStages());
     } else {
         if (controlMode) initializeObjects(false);
         renderer.runFrame([this](VkCommandBuffer commandBuffer){
-            renderObjects();
+            renderObjects(commandBuffer);
         });
     }
 
     if (activateTimer) drawTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
 }
 
-void PBFGPU3DSim::renderObjects() {
+void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
     showImGui();
+    VkBuffer vb = positionBuffers[computeFrameIdx]->getBuffer();
+    VkDeviceSize offsets[] = {0};
 
-    renderer.runRenderPass([this](VkCommandBuffer& commandBuffer){
+    depthPass.runRenderPass(commandBuffer, [this, &vb, &offsets](VkCommandBuffer& commandBuffer){
+        depthPassSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
+        vkCmdDraw(commandBuffer, INSTANCE_COUNT, 1, 0, 0);
+    });
+
+    renderer.runRenderPass([this, &vb, &offsets](VkCommandBuffer& commandBuffer){
 
         defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
         plane.render(defaultSystem, commandBuffer);
 
-        particleSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
-        VkBuffer vb = positionBuffers[computeFrameIdx]->getBuffer();
-        VkDeviceSize offsets[] = {0};
+        particleSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);;
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
         vkCmdDraw(commandBuffer, INSTANCE_COUNT, 1, 0, 0);
 
@@ -523,9 +558,9 @@ void PBFGPU3DSim::showImGui(){
 void PBFGPU3DSim::compileShaders() {
     for (uint32_t i = 0; i < shaders.size(); i++) {
         std::string command{"glslc "};
-        if (i < 4) {
+        if (i < gridShaderStartIdx) {
             command += RENDER_SHADER_DIR;
-        } else if (i < 9) {
+        } else if (i < computeShaderStartIdx) {
             command += GRID_SHADER_DIR;
         } else {
             command += SIMULATIONS_SHADER_DIR;

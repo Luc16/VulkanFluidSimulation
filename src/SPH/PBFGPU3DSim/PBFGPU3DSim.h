@@ -24,6 +24,7 @@
 #include "../../lib/ComputeSystem.h"
 #include "../../lib/ComputeShaderHandler.h"
 #include "PbfGpuSpatialGridHandler.h"
+#include "OffscreenPass.h"
 
 
 class PBFGPU3DSim: public vkb::VulkanApp {
@@ -47,11 +48,15 @@ private:
     uint32_t jacobiIterations = 3;
     uint32_t GRID_SIZE = 0;
 
+    static constexpr uint32_t gridShaderStartIdx = 6;
+    static constexpr uint32_t computeShaderStartIdx = 11;
     const std::vector<std::string> shaders = {
             "default.vert",
             "default.frag",
             "point_particle.vert",
             "point_particle.frag",
+            "depth.vert",
+            "depth.frag",
             "reset_grid.comp",
             "insert_particles.comp",
             "scan.comp",
@@ -77,6 +82,11 @@ private:
     const vkb::RenderSystem::ShaderPaths particleShaderPaths = vkb::RenderSystem::ShaderPaths {
             COMPILED_SHADER_DIR + shaders[2] + ".spv",
             COMPILED_SHADER_DIR + shaders[3] + ".spv"
+    };
+
+    const vkb::RenderSystem::ShaderPaths depthShaderPaths = vkb::RenderSystem::ShaderPaths {
+            COMPILED_SHADER_DIR + shaders[4] + ".spv",
+            COMPILED_SHADER_DIR + shaders[5] + ".spv",
     };
 
     struct SimulationKernel {
@@ -170,6 +180,9 @@ private:
     vkb::RenderSystem defaultSystem{device};
     std::vector<VkDescriptorSet> defaultDescriptorSets;
     vkb::RenderSystem particleSystem{device};
+    // rendering
+    vkb::OffscreenPass depthPass{device, renderer.getSwapChainExtent()};
+    vkb::RenderSystem depthPassSystem{device};
 
 
     ParticleData particles{};
@@ -186,11 +199,11 @@ private:
 
     vkb::PbfGpuSpatialGridHandler gridHandler{
             device, 256,
-            COMPILED_SHADER_DIR + shaders[4] + ".spv",
-            COMPILED_SHADER_DIR + shaders[5] + ".spv",
-            COMPILED_SHADER_DIR + shaders[6] + ".spv",
-            COMPILED_SHADER_DIR + shaders[7] + ".spv",
-            COMPILED_SHADER_DIR + shaders[8] + ".spv"
+            COMPILED_SHADER_DIR + shaders[gridShaderStartIdx] + ".spv",
+            COMPILED_SHADER_DIR + shaders[gridShaderStartIdx + 1] + ".spv",
+            COMPILED_SHADER_DIR + shaders[gridShaderStartIdx + 2] + ".spv",
+            COMPILED_SHADER_DIR + shaders[gridShaderStartIdx + 3] + ".spv",
+            COMPILED_SHADER_DIR + shaders[gridShaderStartIdx + 4] + ".spv"
     };
 
     u_char computeFrameIdx = 0;
@@ -200,7 +213,7 @@ private:
     vkb::ComputeShaderHandler computeHandler{device};
 
     SimulationKernel predictPositionKernel {
-            .computeSystem{device, COMPILED_SHADER_DIR + shaders[9] + ".spv"},
+            .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pos
@@ -210,7 +223,7 @@ private:
     };
 
     SimulationKernel densityKernel {
-            .computeSystem{device, COMPILED_SHADER_DIR + shaders[10] + ".spv"},
+            .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 1] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
@@ -221,7 +234,7 @@ private:
     };
 
     SimulationKernel lambdaKernel {
-            .computeSystem{device, COMPILED_SHADER_DIR + shaders[11] + ".spv"},
+            .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 2] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
@@ -233,7 +246,7 @@ private:
     };
 
     SimulationKernel posCorrectionKernel {
-            .computeSystem{device, COMPILED_SHADER_DIR + shaders[12] + ".spv"},
+            .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 3] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
@@ -245,7 +258,7 @@ private:
     };
 
     SimulationKernel correctPositionsKernel {
-        .computeSystem{device, COMPILED_SHADER_DIR + shaders[13] + ".spv"},
+        .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 4] + ".spv"},
         .layout = vkb::DescriptorSetLayout::Builder(device)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
             .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // predPos
@@ -254,7 +267,7 @@ private:
     };
 
     SimulationKernel updateVelocitiesKernel {
-            .computeSystem{device, COMPILED_SHADER_DIR + shaders[14] + ".spv"},
+            .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 5] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pos
@@ -264,7 +277,7 @@ private:
     };
 
     SimulationKernel applyViscAndComputeVortKernel {
-            .computeSystem{device, COMPILED_SHADER_DIR + shaders[15] + ".spv"},
+            .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 6] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
@@ -277,7 +290,7 @@ private:
     };
 
     SimulationKernel applyVortAndUpdatePos {
-            .computeSystem{device, COMPILED_SHADER_DIR + shaders[16] + ".spv"},
+            .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 7] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
@@ -308,7 +321,7 @@ private:
     void createComputeDescriptorSets();
     void createUniformBuffers();
     void mainLoop(float deltaTime) override;
-    void renderObjects();
+    void renderObjects(VkCommandBuffer commandBuffer);
     void updateSimulation();
     void updateUniformBuffers(uint32_t frameIndex, float deltaTime);
     void showImGui();

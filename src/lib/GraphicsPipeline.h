@@ -30,6 +30,7 @@ namespace vkb {
             VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
             VkRenderPass renderPass = VK_NULL_HANDLE;
             uint32_t subpass = 0;
+            uint32_t shaderStageCount = 2;
 
             void setPipelineLayout(VkPipelineLayout layout) { pipelineLayout = layout; }
             void setRenderPass(VkRenderPass vkRenderPass) { renderPass = vkRenderPass; }

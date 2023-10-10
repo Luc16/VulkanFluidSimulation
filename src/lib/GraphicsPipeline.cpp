@@ -52,11 +52,13 @@ namespace vkb {
         vertexInputInfo.pVertexAttributeDescriptions = configInfo.attributeDescription.data();
 
         // inicializa o multisampling
-        configInfo.multisampling.rasterizationSamples = m_deviceRef.msaaSamples();
+        if (configInfo.multisampling.rasterizationSamples == 0) {
+            configInfo.multisampling.rasterizationSamples = m_deviceRef.msaaSamples();
+        }
 
         VkGraphicsPipelineCreateInfo pipelineInfo{};
         pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-        pipelineInfo.stageCount = 2;
+        pipelineInfo.stageCount = configInfo.shaderStageCount;
         pipelineInfo.pStages = shaderStages;
         pipelineInfo.pVertexInputState = &vertexInputInfo;
         pipelineInfo.pInputAssemblyState = &configInfo.inputAssembly;
