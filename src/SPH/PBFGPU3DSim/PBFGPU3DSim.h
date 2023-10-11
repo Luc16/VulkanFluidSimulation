@@ -179,6 +179,7 @@ private:
     UniformBufferObject gUbo{};
     vkb::RenderSystem defaultSystem{device};
     std::vector<VkDescriptorSet> defaultDescriptorSets;
+    std::vector<VkDescriptorSet> simulationDescriptorSets;
     vkb::RenderSystem particleSystem{device};
     // rendering
     vkb::OffscreenPass depthPass{device, renderer.getSwapChainExtent()};

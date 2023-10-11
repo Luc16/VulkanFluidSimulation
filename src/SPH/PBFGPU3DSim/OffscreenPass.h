@@ -18,7 +18,10 @@ namespace vkb {
 
 
         [[nodiscard]] VkRenderPass renderPass() const { return m_renderPass; }
-
+        [[nodiscard]] VkDescriptorImageInfo descriptorInfo() const { return VkDescriptorImageInfo {
+                    m_depthSampler, m_depthImage->view(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL
+            };
+        }
 
         void createRenderPass();
         void createFrameBuffer();

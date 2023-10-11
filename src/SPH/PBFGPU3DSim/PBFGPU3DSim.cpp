@@ -63,6 +63,9 @@ void PBFGPU3DSim::onCreate() {
 
     }
 
+    simulationDescriptorSets = createDescriptorSets(defaultDescriptorLayout,
+                                                    {graphicsUniformBuffers[0]->descriptorInfo()}, {depthPass.descriptorInfo()});
+
     // create compute systems and descriptors
     {
         createComputeDescriptorSets();
@@ -329,7 +332,7 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
     VkDeviceSize offsets[] = {0};
 
     depthPass.runRenderPass(commandBuffer, [this, &vb, &offsets](VkCommandBuffer& commandBuffer){
-        depthPassSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
+        depthPassSystem.bind(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()]);
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
         vkCmdDraw(commandBuffer, INSTANCE_COUNT, 1, 0, 0);
     });
@@ -339,7 +342,7 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
         defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
         plane.render(defaultSystem, commandBuffer);
 
-        particleSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);;
+        particleSystem.bind(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()]);;
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
         vkCmdDraw(commandBuffer, INSTANCE_COUNT, 1, 0, 0);
 

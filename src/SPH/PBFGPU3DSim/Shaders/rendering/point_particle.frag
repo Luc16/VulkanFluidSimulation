@@ -1,6 +1,8 @@
 #version 450
 #extension GL_EXT_debug_printf : enable
 
+layout(binding = 1) uniform sampler2D depthSampler;
+
 layout(location = 0) in vec3 worldPos;
 layout(location = 1) in vec4 fragColor;
 
@@ -34,9 +36,7 @@ void main() {
 
     float fragDepth = clipSpacePos.z / 500;
 
-//    float depth = (((1000-0.1) * fragDepth) + 0.1 + 1000) / 2000.0;
-
-//    debugPrintfEXT("eye: (%f, %f, %f, %f) -> normal: (%f, %f, %f) -> pixel: (%f, %f, %f)\n", eyePos.x, eyePos.y, eyePos.z, eyePos.w, no.x, no.y, no.z, pixelPos.x, pixelPos.y, pixelPos.z);
+    debugPrintfEXT("depth center: %f", texture(depthSampler, vec2(0, 0)).r);
 
     // calculate lighting
     float diffuse = AMBIENT + max(0.0, dot(normal, ubo.lightDir));
