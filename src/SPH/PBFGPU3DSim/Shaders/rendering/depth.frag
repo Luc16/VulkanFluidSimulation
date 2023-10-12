@@ -1,8 +1,10 @@
 #version 450
 
-layout(location = 0) out vec4 color;
 
 void main()
 {
-    color = vec4(1.0, 0.0, 0.0, 1.0);
+    vec3 normal;
+    normal.xy = gl_PointCoord*2.0 - vec2(1.0);
+    float mag = dot(normal.xy, normal.xy);
+    if (mag > 1.0) discard;
 }

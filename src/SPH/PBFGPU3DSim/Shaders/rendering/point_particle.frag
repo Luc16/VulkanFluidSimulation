@@ -15,6 +15,8 @@ layout(binding = 0) uniform UniformBufferObject {
     vec3 lightDir;
     float radius;
     uint renderType;
+    float zNear;
+    float zFar;
 } ubo;
 
 const float AMBIENT = 0.05;
@@ -35,8 +37,6 @@ void main() {
     vec4 clipSpacePos = ubo.proj * eyePos;
 
     float fragDepth = clipSpacePos.z / 500;
-
-    debugPrintfEXT("depth center: %f", texture(depthSampler, vec2(0, 0)).r);
 
     // calculate lighting
     float diffuse = AMBIENT + max(0.0, dot(normal, ubo.lightDir));

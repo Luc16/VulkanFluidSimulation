@@ -11,7 +11,7 @@ void PBFGPU3DSim::onCreate() {
 //    camera.m_rotation = {0.569391f, 2.26887f, 3.14159f};
     camera.updateView();
     auto extent = window.extent();
-    camera.setOrthographicProjection(0.0f, (float) extent.width, (float) extent.height, 0.0f, 0.1f, 1000.f);
+    camera.setOrthographicProjection(0.0f, (float) extent.width, (float) extent.height, 0.0f, gUbo.zNear, gUbo.zFar);
     createUniformBuffers();
     initializeObjects(true);
 
@@ -48,7 +48,6 @@ void PBFGPU3DSim::onCreate() {
             info.attributeDescription.clear();
             info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
             info.multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-            info.shaderStageCount = 1;
             info.colorBlending.attachmentCount = 0;
             info.rasterizer.cullMode = VK_CULL_MODE_NONE;
             info.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
@@ -59,6 +58,16 @@ void PBFGPU3DSim::onCreate() {
             info.dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
             info.dynamicState.dynamicStateCount = static_cast<uint32_t>(info.dynamicStateEnables.size());
             info.dynamicState.pDynamicStates = info.dynamicStateEnables.data();
+        });
+
+    }
+
+    {
+        debugRenderSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
+        debugRenderSystem.createPipeline(renderer.renderPass(), quadShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
+            info.bindingDescription.clear();
+            info.attributeDescription.clear();
+            info.rasterizer.cullMode = VK_CULL_MODE_NONE;
         });
 
     }
@@ -339,14 +348,21 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
 
     renderer.runRenderPass([this, &vb, &offsets](VkCommandBuffer& commandBuffer){
 
-        defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
-        plane.render(defaultSystem, commandBuffer);
+        if (debugScene) {
+            debugRenderSystem.bind(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()]);
+            vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
-        particleSystem.bind(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()]);;
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
-        vkCmdDraw(commandBuffer, INSTANCE_COUNT, 1, 0, 0);
+        } else {
+            defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
+            plane.render(defaultSystem, commandBuffer);
+
+            particleSystem.bind(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()]);
+            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
+            vkCmdDraw(commandBuffer, INSTANCE_COUNT, 1, 0, 0);
+        }
 
     });
+
 }
 
 void PBFGPU3DSim::updateSimulation() {
@@ -448,19 +464,27 @@ void PBFGPU3DSim::showImGui(){
     }
 
     if (ImGui::CollapsingHeader("Rendering", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Checkbox("Debug mode", &debugScene);
+
         ImGui::DragFloat("Particle Radius", &gUbo.radius, 0.1f, 0.1f, 100.0f);
         static std::array<std::string, 2> renderTypes = {"Normal", "Depth"};
         std::string curItem = renderTypes[gUbo.renderType];
         if (ImGui::BeginCombo("##combo", curItem.c_str())) {
             for (uint32_t i = 0; i < renderTypes.size(); i++){
-                bool is_selected = (curItem == renderTypes[i]);
-                if (ImGui::Selectable(renderTypes[i].c_str(), is_selected)) {
+                bool isSelected = (curItem == renderTypes[i]);
+                if (ImGui::Selectable(renderTypes[i].c_str(), isSelected)) {
                     gUbo.renderType = i;
                 }
-                if (is_selected)
+                if (isSelected)
                     ImGui::SetItemDefaultFocus();
             }
             ImGui::EndCombo();
+            if (gUbo.renderType == 1) {
+                debugScene = true;
+                gUbo.renderType = 0;
+            } else {
+                debugScene = false;
+            }
         }
 
 

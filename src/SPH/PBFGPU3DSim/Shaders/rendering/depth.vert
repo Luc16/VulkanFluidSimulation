@@ -9,6 +9,8 @@ layout(binding = 0) uniform UniformBufferObject {
     vec3 lightDir;
     float radius;
     uint renderType;
+    float zNear;
+    float zFar;
 } ubo;
 
 out gl_PerVertex

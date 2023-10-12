@@ -48,8 +48,8 @@ private:
     uint32_t jacobiIterations = 3;
     uint32_t GRID_SIZE = 0;
 
-    static constexpr uint32_t gridShaderStartIdx = 6;
-    static constexpr uint32_t computeShaderStartIdx = 11;
+    static constexpr uint32_t gridShaderStartIdx = 8;
+    static constexpr uint32_t computeShaderStartIdx = 13;
     const std::vector<std::string> shaders = {
             "default.vert",
             "default.frag",
@@ -57,6 +57,8 @@ private:
             "point_particle.frag",
             "depth.vert",
             "depth.frag",
+            "quad.vert",
+            "quad.frag",
             "reset_grid.comp",
             "insert_particles.comp",
             "scan.comp",
@@ -89,6 +91,10 @@ private:
             COMPILED_SHADER_DIR + shaders[5] + ".spv",
     };
 
+    const vkb::RenderSystem::ShaderPaths quadShaderPaths = vkb::RenderSystem::ShaderPaths {
+            COMPILED_SHADER_DIR + shaders[6] + ".spv",
+            COMPILED_SHADER_DIR + shaders[7] + ".spv",
+    };
     struct SimulationKernel {
         vkb::ComputeSystem computeSystem;
         std::array<VkDescriptorSet, 2> descSets{};
@@ -127,6 +133,8 @@ private:
         alignas(16) glm::vec3 lightDir = glm::vec3(1.0f, -1.0f, 0.0f);
         float radius;
         uint32_t renderType = 0;
+        float zNear = 0.1f;
+        float zFar = 500.0f;
     };
 
     struct ComputeUniformBufferObject {
@@ -184,6 +192,7 @@ private:
     // rendering
     vkb::OffscreenPass depthPass{device, renderer.getSwapChainExtent()};
     vkb::RenderSystem depthPassSystem{device};
+    vkb::RenderSystem debugRenderSystem{device};
 
 
     ParticleData particles{};
@@ -315,7 +324,7 @@ private:
     float particleVerticalSpacing = cUbo.H*(1 + 0.13333f);
     glm::vec4 initialPos = {cUbo.EPS, cUbo.EPS, cUbo.EPS, 0};
     float drawTime = 0, cpuTime = 0, computeTime = 0, gravityFactor = 1.0f;
-    bool activateTimer = false, controlMode = false, objectsInitialized = false, pausedSimulation = false;
+    bool activateTimer = false, controlMode = false, objectsInitialized = false, pausedSimulation = false, debugScene = false;
 
     void onCreate() override;
     void initializeObjects(bool activateRandomOffsets);
