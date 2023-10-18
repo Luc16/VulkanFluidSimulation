@@ -8,7 +8,8 @@ void PBFGPU3DSim::onCreate() {
     camera.m_translation = {-174.012f, 194.745f, 193.005f};
     camera.m_rotation = {0.569391f, 1.95856f, 3.14159f};
     gUbo.radius = cUbo.H;
-    gUbo.screenHeight = window.height();
+    gUbo.screenHeight = (float) window.height();
+    gUbo.screenWidth = (float) window.width();
 //    camera.m_translation = {-9.31845f, 14.2878f, 15.5649f};
 //    camera.m_rotation = {0.569391f, 2.26887f, 3.14159f};
     camera.updateView();
@@ -69,6 +70,7 @@ void PBFGPU3DSim::onCreate() {
             info.multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
             info.rasterizer.cullMode = VK_CULL_MODE_NONE;
             info.enableAlphaBlending();
+            // additive blending
 //            info.colorBlendAttachment.blendEnable = VK_TRUE;
 //            info.colorBlendAttachment.colorWriteMask =
 //                    VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
@@ -81,6 +83,13 @@ void PBFGPU3DSim::onCreate() {
 //            info.colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
 
         });
+
+        normalsPass.createPass(defaultDescriptorLayout.descriptorSetLayout(), normalsShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
+            info.bindingDescription.clear();
+            info.attributeDescription.clear();
+            info.multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+            info.rasterizer.cullMode = VK_CULL_MODE_NONE;
+        });
     }
     // debug render system
     {
@@ -88,6 +97,7 @@ void PBFGPU3DSim::onCreate() {
                 .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
                 .addBinding({1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
                 .addBinding({2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
+                .addBinding({3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
                 .build();
 
         debugRenderSystem.createPipelineLayout(debugDescriptorLayout.descriptorSetLayout(), 0);
@@ -99,7 +109,7 @@ void PBFGPU3DSim::onCreate() {
         debugDescriptorSets = createDescriptorSets(
                 debugDescriptorLayout,
                 {graphicsUniformBuffers[0]->descriptorInfo()},
-                {depthPass.descriptorInfo(), thicknessPass.descriptorInfo()}
+                {depthPass.descriptorInfo(), thicknessPass.descriptorInfo(), normalsPass.descriptorInfo()}
         );
 
     }
@@ -384,6 +394,11 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
         vkCmdDraw(commandBuffer, INSTANCE_COUNT, 1, 0, 0);
     });
 
+    normalsPass.run(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()],
+                    [](VkCommandBuffer &commandBuffer) {
+        vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+    });
+
     renderer.runRenderPass([this, &vb, &offsets](VkCommandBuffer& commandBuffer){
 
         if (debugScene) {
@@ -454,7 +469,6 @@ void PBFGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){
     camera.setPerspectiveProjection(glm::radians(50.f), renderer.getSwapChainAspectRatio(), 0.1f, 500.f);
     gUbo.view = camera.getView();
     gUbo.proj = camera.getProjection();
-    gUbo.screenHeight = window.height();
     graphicsUniformBuffers[frameIndex]->write(&gUbo);
 
     cUbo.planeY = plane.m_translation.y;
@@ -504,7 +518,7 @@ void PBFGPU3DSim::showImGui(){
         ImGui::DragFloat("Particle Radius", &gUbo.radius, 0.1f, 0.1f, 100.0f);
 
         ImGui::Text("View mode");
-        static std::array<std::string, 3> renderTypes = {"Particles", "Depth", "Thickness"};
+        static std::array<std::string, 4> renderTypes = {"Particles", "Depth", "Thickness", "Normals"};
         std::string curItem = renderTypes[gUbo.renderType];
         if (ImGui::BeginCombo("##combo", curItem.c_str())) {
             for (uint32_t i = 0; i < renderTypes.size(); i++){
@@ -516,12 +530,9 @@ void PBFGPU3DSim::showImGui(){
                     ImGui::SetItemDefaultFocus();
             }
             ImGui::EndCombo();
-            debugScene = gUbo.renderType != 0;
         }
-
-
+        debugScene = gUbo.renderType != 0;
     }
-
 
     if (ImGui::Button("Reset")) {
         initializeObjects(true);
@@ -614,6 +625,11 @@ void PBFGPU3DSim::showImGui(){
 
 }
 
+void PBFGPU3DSim::onResize(int width, int height) {
+    gUbo.screenHeight = (float) height;
+    gUbo.screenWidth = (float) width;
+}
+
 void PBFGPU3DSim::compileShaders() {
     for (uint32_t i = 0; i < shaders.size(); i++) {
         std::string command{"glslc "};
@@ -636,3 +652,5 @@ void PBFGPU3DSim::compileShaders() {
         }
     }
 }
+
+

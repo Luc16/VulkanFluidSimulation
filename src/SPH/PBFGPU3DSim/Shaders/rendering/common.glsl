@@ -6,7 +6,8 @@ struct UniformBufferObject {
     mat4 proj;
     vec3 lightDir;
     float radius;
-    uint screenHeight;
+    float screenHeight;
+    float screenWidth;
     float tanHalfFov;
     uint renderType;
     float zNear;

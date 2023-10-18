@@ -48,8 +48,8 @@ private:
     uint32_t jacobiIterations = 3;
     uint32_t GRID_SIZE = 0;
 
-    static constexpr uint32_t gridShaderStartIdx = 10;
-    static constexpr uint32_t computeShaderStartIdx = 15;
+    static constexpr uint32_t gridShaderStartIdx = 12;
+    static constexpr uint32_t computeShaderStartIdx = 17;
     const std::vector<std::string> shaders = {
             "default.vert",
             "default.frag",
@@ -59,6 +59,8 @@ private:
             "ssf_depth.frag",
             "ssf_thickness.vert",
             "ssf_thickness.frag",
+            "ssf_calculate_normals.vert",
+            "ssf_calculate_normals.frag",
             "quad.vert",
             "quad.frag",
             "reset_grid.comp",
@@ -98,10 +100,16 @@ private:
             COMPILED_SHADER_DIR + shaders[7] + ".spv",
     };
 
-    const vkb::RenderSystem::ShaderPaths quadShaderPaths = vkb::RenderSystem::ShaderPaths {
+    const vkb::RenderSystem::ShaderPaths normalsShaderPaths = vkb::RenderSystem::ShaderPaths {
             COMPILED_SHADER_DIR + shaders[8] + ".spv",
             COMPILED_SHADER_DIR + shaders[9] + ".spv",
     };
+
+    const vkb::RenderSystem::ShaderPaths quadShaderPaths = vkb::RenderSystem::ShaderPaths {
+            COMPILED_SHADER_DIR + shaders[10] + ".spv",
+            COMPILED_SHADER_DIR + shaders[11] + ".spv",
+    };
+
     struct SimulationKernel {
         vkb::ComputeSystem computeSystem;
         std::array<VkDescriptorSet, 2> descSets{};
@@ -138,9 +146,10 @@ private:
         alignas(16) glm::mat4 proj;
         alignas(16) glm::vec3 lightDir = glm::vec3(1.0f, -1.0f, 0.0f);
         float radius;
-        uint32_t screenHeight;
+        float screenHeight;
+        float screenWidth;
         float tanHalfFov = std::tan(glm::radians(50.0f)/2);
-        uint32_t renderType = 0;
+        uint32_t renderType = 3;
         float zNear = 0.1f;
         float zFar = 500.0f;
     };
@@ -201,6 +210,7 @@ private:
     // rendering
     vkb::OffscreenPass depthPass{device, renderer.getSwapChainExtent(), true};
     vkb::OffscreenPass thicknessPass{device, renderer.getSwapChainExtent()};
+    vkb::OffscreenPass normalsPass{device, renderer.getSwapChainExtent()};
 
     vkb::RenderSystem debugRenderSystem{device};
 
@@ -340,6 +350,7 @@ private:
     void initializeObjects(bool activateRandomOffsets);
     void createComputeDescriptorSets();
     void createUniformBuffers();
+    void onResize(int width, int height) override;
     void mainLoop(float deltaTime) override;
     void renderObjects(VkCommandBuffer commandBuffer);
     void updateSimulation();

@@ -1,5 +1,15 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_debug_printf : enable
 
+
+#include "common.glsl"
+
+layout(location = 0) in vec4 viewPos;
+
+layout(binding = 0) uniform UBO {
+    UniformBufferObject ubo;
+};
 
 void main()
 {
@@ -7,4 +17,11 @@ void main()
     normal.xy = gl_PointCoord*2.0 - vec2(1.0);
     float mag = dot(normal.xy, normal.xy);
     if (mag > 1.0) discard;
+
+    normal.z = sqrt(mag);
+
+    vec4 nviewPos = vec4(viewPos.xyz + normal*ubo.radius, 1.0);
+    vec4 nclipPos = ubo.proj*nviewPos;
+    float depth = nclipPos.z / nclipPos.w;
+    gl_FragDepth = depth;
 }

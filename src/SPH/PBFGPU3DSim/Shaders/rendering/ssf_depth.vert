@@ -9,6 +9,8 @@ layout(binding = 0) uniform UBO {
     UniformBufferObject ubo;
 };
 
+layout(location = 0) out vec4 viewPos;
+
 out gl_PerVertex
 {
     vec4 gl_Position;
@@ -19,7 +21,7 @@ out gl_PerVertex
 void main()
 {
     vec4 posWorld = vec4(inPos, 1.0);
-    vec4 viewPos = ubo.view * posWorld;
+    viewPos = ubo.view * posWorld;
 
     gl_PointSize = ubo.screenHeight*ubo.radius/(viewPos.z*ubo.tanHalfFov);
     gl_Position = ubo.proj * viewPos;
