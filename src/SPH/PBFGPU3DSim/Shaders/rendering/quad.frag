@@ -1,21 +1,21 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_debug_printf : enable
 
-layout (binding = 1) uniform sampler2D samplerColor;
+
+#include "common.glsl"
 
 layout (location = 0) in vec2 inUV;
 
-layout (location = 0) out vec4 outFragColor;
+layout(binding = 0) uniform UBO {
+    UniformBufferObject ubo;
+};
 
-layout(binding = 0) uniform UniformBufferObject {
-    mat4 view;
-    mat4 proj;
-    vec3 cameraPos;
-    vec3 lightDir;
-    float radius;
-    uint renderType;
-    float zNear;
-    float zFar;
-} ubo;
+layout (binding = 1) uniform sampler2D samplerDepth;
+layout (binding = 2) uniform sampler2D samplerThick;
+
+
+layout (location = 0) out vec4 outFragColor;
 
 float LinearizeDepth(float depth)
 {
@@ -27,6 +27,17 @@ float LinearizeDepth(float depth)
 
 void main()
 {
-    float depth = texture(samplerColor, inUV).r;
-    outFragColor = vec4(vec3(1.0-LinearizeDepth(depth)), 1.0);
+    if (ubo.renderType == 1) {
+        float depth = texture(samplerDepth, inUV).r;
+        if (depth == 1) {
+            discard;
+        }
+        outFragColor = vec4(vec3(LinearizeDepth(depth)), 1.0);
+    } else if (ubo.renderType == 2) {
+        vec4 thickColor = vec4(texture(samplerThick, inUV).r);
+        if (thickColor.r == 1) {
+            discard;
+        }
+        outFragColor = vec4(vec3(thickColor), 1.0 - thickColor.r);
+    }
 }

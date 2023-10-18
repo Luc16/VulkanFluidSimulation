@@ -3,23 +3,24 @@
 
 #include "common.glsl"
 
-layout(location = 0) in vec3 inPosition;
+layout (location = 0) in vec3 inPos;
 
 layout(binding = 0) uniform UBO {
     UniformBufferObject ubo;
 };
 
-layout(location = 0) out vec3 worldPos;
-layout(location = 1) out vec4 fragColor;
+out gl_PerVertex
+{
+    vec4 gl_Position;
+    float gl_PointSize;
+};
 
-void main() {
 
-    vec4 posWorld = vec4(inPosition, 1.0);
+void main()
+{
+    vec4 posWorld = vec4(inPos, 1.0);
     vec4 viewPos = ubo.view * posWorld;
 
     gl_PointSize = ubo.screenHeight*ubo.radius/(viewPos.z*ubo.tanHalfFov);
     gl_Position = ubo.proj * viewPos;
-
-    worldPos = inPosition;
-    fragColor = vec4(0.2f, 0.6f, 1.0f, 1.0f);
 }

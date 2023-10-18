@@ -1,5 +1,8 @@
 #version 450
 #extension GL_EXT_debug_printf : enable
+#extension GL_GOOGLE_include_directive : require
+
+#include "common.glsl"
 
 layout(binding = 1) uniform sampler2D depthSampler;
 
@@ -8,20 +11,21 @@ layout(location = 1) in vec4 fragColor;
 
 layout(location = 0) out vec4 outColor;
 
-layout(binding = 0) uniform UniformBufferObject {
-    mat4 view;
-    mat4 proj;
-    vec3 cameraPos;
-    vec3 lightDir;
-    float radius;
-    uint renderType;
-    float zNear;
-    float zFar;
-} ubo;
+layout(binding = 0) uniform UBO {
+    UniformBufferObject ubo;
+};
 
 const float AMBIENT = 0.05;
 
 const uint RENDER_DEPTH = 0x1;
+
+float LinearizeDepth(float depth)
+{
+    float n = ubo.zNear;
+    float f = ubo.zFar;
+    float z = depth;
+    return (2.0 * n) / (f + n - z * (f - n));
+}
 
 void main() {
     vec3 normal;
@@ -31,21 +35,10 @@ void main() {
 
     normal.z = -sqrt(1.0-mag);
 
-    vec4 eyePos = ubo.view * vec4(worldPos, 1);
-    vec3 no = 100*normal*ubo.radius;
-    vec4 pixelPos = vec4(eyePos.xyz + no, 1.0);
-    vec4 clipSpacePos = ubo.proj * eyePos;
-
-    float fragDepth = clipSpacePos.z / 500;
-
     // calculate lighting
     float diffuse = AMBIENT + max(0.0, dot(normal, ubo.lightDir));
 
-    if (ubo.renderType == RENDER_DEPTH) {
-        outColor = vec4(vec3(fragDepth), 1);
-    }
-    else {
-        outColor = fragColor*diffuse;
-    }
+    outColor = fragColor*diffuse;
+
 
 }

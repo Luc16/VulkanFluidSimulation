@@ -27,7 +27,7 @@ namespace vkb {
 
         [[nodiscard]] VkPipelineLayout pipelineLayout() { return m_pipelineLayout; }
         [[nodiscard]] uint32_t pushConstantSize() const { return m_pushConstantSize; }
-        void bind(VkCommandBuffer commandBuffer, VkDescriptorSet* descriptorSet);
+        void bind(VkCommandBuffer commandBuffer, VkDescriptorSet* descriptorSet) const;
 
         void createPipelineLayout(VkDescriptorSetLayout globalSetLayout, uint32_t pushConstantSize = 0);
         void createPipeline(VkRenderPass renderPass, const ShaderPaths& shaderPaths, const std::function<void(GraphicsPipeline::PipelineConfigInfo&)>& configurePipeline = {});

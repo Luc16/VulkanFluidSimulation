@@ -7,6 +7,8 @@
 void PBFGPU3DSim::onCreate() {
     camera.m_translation = {-174.012f, 194.745f, 193.005f};
     camera.m_rotation = {0.569391f, 1.95856f, 3.14159f};
+    gUbo.radius = cUbo.H;
+    gUbo.screenHeight = window.height();
 //    camera.m_translation = {-9.31845f, 14.2878f, 15.5649f};
 //    camera.m_rotation = {0.569391f, 2.26887f, 3.14159f};
     camera.updateView();
@@ -39,9 +41,7 @@ void PBFGPU3DSim::onCreate() {
     }
 
     {
-        depthPass.createFrameBuffer();
-        depthPassSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
-        depthPassSystem.createPipeline(depthPass.renderPass(), depthShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
+        depthPass.createPass(defaultDescriptorLayout.descriptorSetLayout(), depthShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
             info.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
             info.bindingDescription.clear();
             info.bindingDescription.push_back({0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX});
@@ -60,20 +60,54 @@ void PBFGPU3DSim::onCreate() {
             info.dynamicState.pDynamicStates = info.dynamicStateEnables.data();
         });
 
-    }
+        thicknessPass.createPass(defaultDescriptorLayout.descriptorSetLayout(), thicknessShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
+            info.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+            info.bindingDescription.clear();
+            info.bindingDescription.push_back({0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX});
+            info.attributeDescription.clear();
+            info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
+            info.multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+            info.rasterizer.cullMode = VK_CULL_MODE_NONE;
+            info.enableAlphaBlending();
+//            info.colorBlendAttachment.blendEnable = VK_TRUE;
+//            info.colorBlendAttachment.colorWriteMask =
+//                    VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
+//                    VK_COLOR_COMPONENT_A_BIT;
+//            info.colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+//            info.colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+//            info.colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+//            info.colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+//            info.colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+//            info.colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
 
+        });
+    }
+    // debug render system
     {
-        debugRenderSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
+        auto debugDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
+                .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
+                .addBinding({1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
+                .addBinding({2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
+                .build();
+
+        debugRenderSystem.createPipelineLayout(debugDescriptorLayout.descriptorSetLayout(), 0);
         debugRenderSystem.createPipeline(renderer.renderPass(), quadShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
             info.bindingDescription.clear();
             info.attributeDescription.clear();
             info.rasterizer.cullMode = VK_CULL_MODE_NONE;
         });
+        debugDescriptorSets = createDescriptorSets(
+                debugDescriptorLayout,
+                {graphicsUniformBuffers[0]->descriptorInfo()},
+                {depthPass.descriptorInfo(), thicknessPass.descriptorInfo()}
+        );
 
     }
 
+
     simulationDescriptorSets = createDescriptorSets(defaultDescriptorLayout,
                                                     {graphicsUniformBuffers[0]->descriptorInfo()}, {depthPass.descriptorInfo()});
+
 
     // create compute systems and descriptors
     {
@@ -167,8 +201,6 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
 void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     gUbo.view = camera.getView();
     gUbo.proj = camera.getProjection();
-    gUbo.cameraPos = camera.m_translation;
-    gUbo.radius = cUbo.H;
     cUbo.numParticles = INSTANCE_COUNT;
     GRID_SIZE = uint32_t(cUbo.BOUNDARY_SIZE.x/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.y/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.z/cUbo.H) + 1;
 
@@ -340,8 +372,14 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
     VkBuffer vb = positionBuffers[computeFrameIdx]->getBuffer();
     VkDeviceSize offsets[] = {0};
 
-    depthPass.runRenderPass(commandBuffer, [this, &vb, &offsets](VkCommandBuffer& commandBuffer){
-        depthPassSystem.bind(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()]);
+    depthPass.run(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()],
+                  [this, &vb, &offsets](VkCommandBuffer &commandBuffer) {
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
+        vkCmdDraw(commandBuffer, INSTANCE_COUNT, 1, 0, 0);
+    });
+
+    thicknessPass.run(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()],
+                  [this, &vb, &offsets](VkCommandBuffer &commandBuffer) {
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
         vkCmdDraw(commandBuffer, INSTANCE_COUNT, 1, 0, 0);
     });
@@ -349,18 +387,17 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
     renderer.runRenderPass([this, &vb, &offsets](VkCommandBuffer& commandBuffer){
 
         if (debugScene) {
-            debugRenderSystem.bind(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()]);
+            debugRenderSystem.bind(commandBuffer, &debugDescriptorSets[renderer.currentFrame()]);
             vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
         } else {
-            defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
-            plane.render(defaultSystem, commandBuffer);
-
             particleSystem.bind(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()]);
             vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
             vkCmdDraw(commandBuffer, INSTANCE_COUNT, 1, 0, 0);
         }
 
+        defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
+        plane.render(defaultSystem, commandBuffer);
     });
 
 }
@@ -417,7 +454,7 @@ void PBFGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){
     camera.setPerspectiveProjection(glm::radians(50.f), renderer.getSwapChainAspectRatio(), 0.1f, 500.f);
     gUbo.view = camera.getView();
     gUbo.proj = camera.getProjection();
-    gUbo.cameraPos = camera.m_translation;
+    gUbo.screenHeight = window.height();
     graphicsUniformBuffers[frameIndex]->write(&gUbo);
 
     cUbo.planeY = plane.m_translation.y;
@@ -464,10 +501,10 @@ void PBFGPU3DSim::showImGui(){
     }
 
     if (ImGui::CollapsingHeader("Rendering", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::Checkbox("Debug mode", &debugScene);
-
         ImGui::DragFloat("Particle Radius", &gUbo.radius, 0.1f, 0.1f, 100.0f);
-        static std::array<std::string, 2> renderTypes = {"Normal", "Depth"};
+
+        ImGui::Text("View mode");
+        static std::array<std::string, 3> renderTypes = {"Particles", "Depth", "Thickness"};
         std::string curItem = renderTypes[gUbo.renderType];
         if (ImGui::BeginCombo("##combo", curItem.c_str())) {
             for (uint32_t i = 0; i < renderTypes.size(); i++){
@@ -479,12 +516,7 @@ void PBFGPU3DSim::showImGui(){
                     ImGui::SetItemDefaultFocus();
             }
             ImGui::EndCombo();
-            if (gUbo.renderType == 1) {
-                debugScene = true;
-                gUbo.renderType = 0;
-            } else {
-                debugScene = false;
-            }
+            debugScene = gUbo.renderType != 0;
         }
 
 

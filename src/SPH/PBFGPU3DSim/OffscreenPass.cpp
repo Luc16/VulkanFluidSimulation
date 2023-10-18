@@ -6,15 +6,138 @@
 
 
 namespace vkb {
-    OffscreenPass::OffscreenPass(const vkb::Device &device, VkExtent2D extent): m_deviceRef(device), m_extent(extent) {}
+    OffscreenPass::OffscreenPass(const vkb::Device &device, VkExtent2D extent, bool isDepthOnly):
+            m_deviceRef(device),
+            m_extent(extent),
+            m_renderSystem(device),
+            m_isDepthOnly(isDepthOnly) {}
 
     OffscreenPass::~OffscreenPass() {
         vkDestroyFramebuffer(m_deviceRef.device(), m_frameBuffer, nullptr);
         vkDestroyRenderPass(m_deviceRef.device(), m_renderPass, nullptr);
-        vkDestroySampler(m_deviceRef.device(), m_depthSampler, nullptr);
+        vkDestroySampler(m_deviceRef.device(), m_sampler, nullptr);
+    }
+
+    void OffscreenPass::createPass(VkDescriptorSetLayout descriptorSetLayout, const RenderSystem::ShaderPaths &shaderPaths,
+                                   const std::function<void(GraphicsPipeline::PipelineConfigInfo &)> &configurePipeline) {
+        if (m_isDepthOnly) createDepthFrameBuffer();
+        else createFrameBuffer();
+
+        m_renderSystem.createPipelineLayout(descriptorSetLayout, 0);
+        m_renderSystem.createPipeline(m_renderPass, shaderPaths, configurePipeline);
     }
 
     void OffscreenPass::createRenderPass() {
+        VkAttachmentDescription colorAttachment{};
+        colorAttachment.format = VK_FORMAT_R8G8B8A8_UNORM;
+        colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+        VkAttachmentReference colorReference = {};
+        colorReference.attachment = 0;
+        colorReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+        VkSubpassDescription subpass = {};
+        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        subpass.colorAttachmentCount = 1;                                                    // No color attachments
+        subpass.pColorAttachments = &colorReference;                                    // Reference to our depth attachment
+
+        // Use subpass dependencies for layout transitions
+        std::array<VkSubpassDependency, 2> dependencies{};
+
+        dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+        dependencies[0].dstSubpass = 0;
+        dependencies[0].srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dependencies[0].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+        dependencies[1].srcSubpass = 0;
+        dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+        dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dependencies[1].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        dependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+        VkRenderPassCreateInfo renderPassCreateInfo{};
+        renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+        renderPassCreateInfo.attachmentCount = 1;
+        renderPassCreateInfo.pAttachments = &colorAttachment;
+        renderPassCreateInfo.subpassCount = 1;
+        renderPassCreateInfo.pSubpasses = &subpass;
+        renderPassCreateInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
+        renderPassCreateInfo.pDependencies = dependencies.data();
+
+        if (vkCreateRenderPass(m_deviceRef.device(), &renderPassCreateInfo, nullptr, &m_renderPass) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create render pass!");
+        }
+    }
+
+    void OffscreenPass::createFrameBuffer() {
+        m_image = std::make_unique<Image>(
+                m_deviceRef,
+                m_extent.width,
+                m_extent.height,
+                1,
+                VK_SAMPLE_COUNT_1_BIT,
+                VK_FORMAT_R8G8B8A8_UNORM,
+                VK_IMAGE_TILING_OPTIMAL,
+                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                VK_IMAGE_ASPECT_COLOR_BIT
+        );
+
+
+        VkFormatProperties formatProps;
+        vkGetPhysicalDeviceFormatProperties(m_deviceRef.physicalDevice(), VK_FORMAT_D16_UNORM, &formatProps);
+
+        VkFilter shadowmap_filter = formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT ?
+                                    VK_FILTER_LINEAR :
+                                    VK_FILTER_NEAREST;
+        VkSamplerCreateInfo samplerInfo{};
+        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        samplerInfo.maxAnisotropy = 1.0f;
+        samplerInfo.magFilter = shadowmap_filter;
+        samplerInfo.minFilter = shadowmap_filter;
+        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerInfo.addressModeV = samplerInfo.addressModeU;
+        samplerInfo.addressModeW = samplerInfo.addressModeU;
+        samplerInfo.mipLodBias = 0.0f;
+        samplerInfo.maxAnisotropy = 1.0f;
+        samplerInfo.minLod = 0.0f;
+        samplerInfo.maxLod = 1.0f;
+        samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+        if (vkCreateSampler(m_deviceRef.device(), &samplerInfo, nullptr, &m_sampler) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create texture sampler!");
+        }
+
+        createRenderPass();
+
+        // Create frame buffer
+        VkImageView imageView = m_image->view();
+        VkFramebufferCreateInfo fbufCreateInfo{};
+        fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        fbufCreateInfo.renderPass = m_renderPass;
+        fbufCreateInfo.attachmentCount = 1;
+        fbufCreateInfo.pAttachments = &imageView;
+        fbufCreateInfo.width = m_extent.width;
+        fbufCreateInfo.height = m_extent.height;
+        fbufCreateInfo.layers = 1;
+
+        if (vkCreateFramebuffer(m_deviceRef.device(), &fbufCreateInfo, nullptr, &m_frameBuffer) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create framebuffer!");
+        }
+    }
+
+    void OffscreenPass::createDepthRenderPass() {
         VkAttachmentDescription attachmentDescription{};
         attachmentDescription.format = VK_FORMAT_D16_UNORM;
         attachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -67,9 +190,9 @@ namespace vkb {
         }
     }
 
-    void OffscreenPass::createFrameBuffer() {
+    void OffscreenPass::createDepthFrameBuffer() {
         // For shadow mapping we only need a depth attachment
-        m_depthImage = std::make_unique<Image>(
+        m_image = std::make_unique<Image>(
                 m_deviceRef,
                 m_extent.width,
                 m_extent.height,
@@ -105,14 +228,14 @@ namespace vkb {
         samplerInfo.minLod = 0.0f;
         samplerInfo.maxLod = 1.0f;
         samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-        if (vkCreateSampler(m_deviceRef.device(), &samplerInfo, nullptr, &m_depthSampler) != VK_SUCCESS) {
+        if (vkCreateSampler(m_deviceRef.device(), &samplerInfo, nullptr, &m_sampler) != VK_SUCCESS) {
             throw std::runtime_error("failed to create texture sampler!");
         }
 
-        createRenderPass();
+        createDepthRenderPass();
 
         // Create frame buffer
-        VkImageView depthImageView = m_depthImage->view();
+        VkImageView depthImageView = m_image->view();
         VkFramebufferCreateInfo fbufCreateInfo{};
         fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         fbufCreateInfo.renderPass = m_renderPass;
@@ -127,7 +250,8 @@ namespace vkb {
         }
     }
 
-    void OffscreenPass::runRenderPass(VkCommandBuffer commandBuffer, const std::function<void(VkCommandBuffer&)> &function) const {
+    void OffscreenPass::run(VkCommandBuffer commandBuffer, VkDescriptorSet *descriptorSet,
+                            const std::function<void(VkCommandBuffer &)> &function) const {
         VkRenderPassBeginInfo renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
         renderPassInfo.renderPass = m_renderPass;
@@ -156,14 +280,17 @@ namespace vkb {
         scissor.extent = m_extent;
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-        // Set depth bias (aka "Polygon offset")
-        // Required to avoid shadow mapping artifacts
-        vkCmdSetDepthBias(
-                commandBuffer,
-                DEPTH_BIAS_CONSTANT,
-                0.0f,
-                DEPTH_BIAS_SLOPE);
+        if (m_isDepthOnly) {
+            // Set depth bias (aka "Polygon offset")
+            // Required to avoid shadow mapping artifacts
+            vkCmdSetDepthBias(
+                    commandBuffer,
+                    DEPTH_BIAS_CONSTANT,
+                    0.0f,
+                    DEPTH_BIAS_SLOPE);
+        }
 
+        m_renderSystem.bind(commandBuffer, descriptorSet);
         function(commandBuffer);
 
         vkCmdEndRenderPass(commandBuffer);

@@ -48,15 +48,17 @@ private:
     uint32_t jacobiIterations = 3;
     uint32_t GRID_SIZE = 0;
 
-    static constexpr uint32_t gridShaderStartIdx = 8;
-    static constexpr uint32_t computeShaderStartIdx = 13;
+    static constexpr uint32_t gridShaderStartIdx = 10;
+    static constexpr uint32_t computeShaderStartIdx = 15;
     const std::vector<std::string> shaders = {
             "default.vert",
             "default.frag",
             "point_particle.vert",
             "point_particle.frag",
-            "depth.vert",
-            "depth.frag",
+            "ssf_depth.vert",
+            "ssf_depth.frag",
+            "ssf_thickness.vert",
+            "ssf_thickness.frag",
             "quad.vert",
             "quad.frag",
             "reset_grid.comp",
@@ -91,9 +93,14 @@ private:
             COMPILED_SHADER_DIR + shaders[5] + ".spv",
     };
 
-    const vkb::RenderSystem::ShaderPaths quadShaderPaths = vkb::RenderSystem::ShaderPaths {
+    const vkb::RenderSystem::ShaderPaths thicknessShaderPaths = vkb::RenderSystem::ShaderPaths {
             COMPILED_SHADER_DIR + shaders[6] + ".spv",
             COMPILED_SHADER_DIR + shaders[7] + ".spv",
+    };
+
+    const vkb::RenderSystem::ShaderPaths quadShaderPaths = vkb::RenderSystem::ShaderPaths {
+            COMPILED_SHADER_DIR + shaders[8] + ".spv",
+            COMPILED_SHADER_DIR + shaders[9] + ".spv",
     };
     struct SimulationKernel {
         vkb::ComputeSystem computeSystem;
@@ -129,9 +136,10 @@ private:
     struct UniformBufferObject {
         alignas(16) glm::mat4 view;
         alignas(16) glm::mat4 proj;
-        alignas(16) glm::vec3 cameraPos;
         alignas(16) glm::vec3 lightDir = glm::vec3(1.0f, -1.0f, 0.0f);
         float radius;
+        uint32_t screenHeight;
+        float tanHalfFov = std::tan(glm::radians(50.0f)/2);
         uint32_t renderType = 0;
         float zNear = 0.1f;
         float zFar = 500.0f;
@@ -188,10 +196,12 @@ private:
     vkb::RenderSystem defaultSystem{device};
     std::vector<VkDescriptorSet> defaultDescriptorSets;
     std::vector<VkDescriptorSet> simulationDescriptorSets;
+    std::vector<VkDescriptorSet> debugDescriptorSets;
     vkb::RenderSystem particleSystem{device};
     // rendering
-    vkb::OffscreenPass depthPass{device, renderer.getSwapChainExtent()};
-    vkb::RenderSystem depthPassSystem{device};
+    vkb::OffscreenPass depthPass{device, renderer.getSwapChainExtent(), true};
+    vkb::OffscreenPass thicknessPass{device, renderer.getSwapChainExtent()};
+
     vkb::RenderSystem debugRenderSystem{device};
 
 

@@ -10,7 +10,7 @@ namespace vkb {
         vkDestroyPipelineLayout(m_deviceRef.device(), m_pipelineLayout, nullptr);
     }
 
-    void RenderSystem::bind(VkCommandBuffer commandBuffer, VkDescriptorSet* descriptorSet) {
+    void RenderSystem::bind(VkCommandBuffer commandBuffer, VkDescriptorSet* descriptorSet) const {
         m_pipeline->bind(commandBuffer);
         if (descriptorSet != nullptr)
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout,
