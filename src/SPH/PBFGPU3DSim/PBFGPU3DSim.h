@@ -48,8 +48,8 @@ private:
     uint32_t jacobiIterations = 3;
     uint32_t GRID_SIZE = 0;
 
-    static constexpr uint32_t gridShaderStartIdx = 12;
-    static constexpr uint32_t computeShaderStartIdx = 17;
+    static constexpr uint32_t gridShaderStartIdx = 14;
+    static constexpr uint32_t computeShaderStartIdx = 19;
     const std::vector<std::string> shaders = {
             "default.vert",
             "default.frag",
@@ -61,6 +61,8 @@ private:
             "ssf_thickness.frag",
             "ssf_calculate_normals.vert",
             "ssf_calculate_normals.frag",
+            "ssf_smooth.vert",
+            "ssf_smooth.frag",
             "quad.vert",
             "quad.frag",
             "reset_grid.comp",
@@ -105,9 +107,14 @@ private:
             COMPILED_SHADER_DIR + shaders[9] + ".spv",
     };
 
-    const vkb::RenderSystem::ShaderPaths quadShaderPaths = vkb::RenderSystem::ShaderPaths {
+    const vkb::RenderSystem::ShaderPaths smoothShaderPaths = vkb::RenderSystem::ShaderPaths {
             COMPILED_SHADER_DIR + shaders[10] + ".spv",
             COMPILED_SHADER_DIR + shaders[11] + ".spv",
+    };
+
+    const vkb::RenderSystem::ShaderPaths quadShaderPaths = vkb::RenderSystem::ShaderPaths {
+            COMPILED_SHADER_DIR + shaders[12] + ".spv",
+            COMPILED_SHADER_DIR + shaders[13] + ".spv",
     };
 
     struct SimulationKernel {
@@ -211,6 +218,7 @@ private:
     vkb::OffscreenPass depthPass{device, renderer.getSwapChainExtent(), true};
     vkb::OffscreenPass thicknessPass{device, renderer.getSwapChainExtent()};
     vkb::OffscreenPass normalsPass{device, renderer.getSwapChainExtent()};
+    vkb::OffscreenPass smoothPass{device, renderer.getSwapChainExtent(), true};
 
     vkb::RenderSystem debugRenderSystem{device};
 

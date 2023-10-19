@@ -14,6 +14,7 @@ layout(binding = 0) uniform UBO {
 layout (binding = 1) uniform sampler2D samplerDepth;
 layout (binding = 2) uniform sampler2D samplerThick;
 layout (binding = 3) uniform sampler2D samplerNormals;
+layout (binding = 4) uniform sampler2D samplerSmoothedDepth;
 
 
 layout (location = 0) out vec4 outFragColor;
@@ -42,5 +43,8 @@ void main()
     } else if (ubo.renderType == 3) {
         vec4 normal = texture(samplerNormals, inUV);
         outFragColor = vec4(normal.rgba);
+    } else if (ubo.renderType == 4) {
+        float smoothDepth = texture(samplerSmoothedDepth, inUV).r;
+        outFragColor = vec4(vec3(linearizeDepth(smoothDepth)), 1.0);
     }
 }

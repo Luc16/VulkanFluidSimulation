@@ -15,9 +15,6 @@ layout (binding = 1) uniform sampler2D samplerDepth;
 
 layout (location = 0) out vec4 outNormal;
 
-float c_x = 4 * ubo.tanHalfFov / ubo.screenWidth;
-float c_y = 4 * ubo.screenWidth * ubo.tanHalfFov / (ubo.screenHeight * ubo.screenHeight);
-
 float linearizeDepth(float depth)
 {
     float n = ubo.zNear;

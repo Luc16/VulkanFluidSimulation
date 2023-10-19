@@ -90,6 +90,25 @@ void PBFGPU3DSim::onCreate() {
             info.multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
             info.rasterizer.cullMode = VK_CULL_MODE_NONE;
         });
+
+        smoothPass.createPass(defaultDescriptorLayout.descriptorSetLayout(), depthShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
+            info.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+            info.bindingDescription.clear();
+            info.bindingDescription.push_back({0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX});
+            info.attributeDescription.clear();
+            info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
+            info.multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+            info.colorBlending.attachmentCount = 0;
+            info.rasterizer.cullMode = VK_CULL_MODE_NONE;
+            info.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+            // Enable depth bias
+            info.rasterizer.depthBiasEnable = VK_TRUE;
+            // Add depth bias to dynamic state, so we can change it at runtime
+            info.dynamicStateEnables.push_back(VK_DYNAMIC_STATE_DEPTH_BIAS);
+            info.dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+            info.dynamicState.dynamicStateCount = static_cast<uint32_t>(info.dynamicStateEnables.size());
+            info.dynamicState.pDynamicStates = info.dynamicStateEnables.data();
+        });
     }
     // debug render system
     {
@@ -98,6 +117,7 @@ void PBFGPU3DSim::onCreate() {
                 .addBinding({1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
                 .addBinding({2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
                 .addBinding({3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
+                .addBinding({4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
                 .build();
 
         debugRenderSystem.createPipelineLayout(debugDescriptorLayout.descriptorSetLayout(), 0);
@@ -109,7 +129,7 @@ void PBFGPU3DSim::onCreate() {
         debugDescriptorSets = createDescriptorSets(
                 debugDescriptorLayout,
                 {graphicsUniformBuffers[0]->descriptorInfo()},
-                {depthPass.descriptorInfo(), thicknessPass.descriptorInfo(), normalsPass.descriptorInfo()}
+                {depthPass.descriptorInfo(), thicknessPass.descriptorInfo(), normalsPass.descriptorInfo(), smoothPass.descriptorInfo()}
         );
 
     }
@@ -394,6 +414,12 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
         vkCmdDraw(commandBuffer, INSTANCE_COUNT, 1, 0, 0);
     });
 
+    smoothPass.run(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()],
+                   [](VkCommandBuffer commandBuffer) {
+        vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+
+    });
+
     normalsPass.run(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()],
                     [](VkCommandBuffer &commandBuffer) {
         vkCmdDraw(commandBuffer, 3, 1, 0, 0);
@@ -518,7 +544,7 @@ void PBFGPU3DSim::showImGui(){
         ImGui::DragFloat("Particle Radius", &gUbo.radius, 0.1f, 0.1f, 100.0f);
 
         ImGui::Text("View mode");
-        static std::array<std::string, 4> renderTypes = {"Particles", "Depth", "Thickness", "Normals"};
+        static std::array<std::string, 5> renderTypes = {"Particles", "Depth", "Thickness", "Normals", "Smooth"};
         std::string curItem = renderTypes[gUbo.renderType];
         if (ImGui::BeginCombo("##combo", curItem.c_str())) {
             for (uint32_t i = 0; i < renderTypes.size(); i++){
@@ -631,14 +657,15 @@ void PBFGPU3DSim::onResize(int width, int height) {
     depthPass.changeImageSize(renderer.getSwapChainExtent());
     thicknessPass.changeImageSize(renderer.getSwapChainExtent());
     normalsPass.changeImageSize(renderer.getSwapChainExtent());
+    smoothPass.changeImageSize(renderer.getSwapChainExtent());
     auto debugDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
-            .addSameTypeBindings(1, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .addSameTypeBindings(1, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
             .build();
     debugDescriptorSets = createDescriptorSets(
             debugDescriptorLayout,
             {graphicsUniformBuffers[0]->descriptorInfo()},
-            {depthPass.descriptorInfo(), thicknessPass.descriptorInfo(), normalsPass.descriptorInfo()}
+            {depthPass.descriptorInfo(), thicknessPass.descriptorInfo(), normalsPass.descriptorInfo(), smoothPass.descriptorInfo()}
     );
 
     auto defaultDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
