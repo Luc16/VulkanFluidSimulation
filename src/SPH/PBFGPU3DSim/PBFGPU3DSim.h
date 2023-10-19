@@ -160,8 +160,8 @@ private:
         float zNear = 0.1f;
         float zFar = 500.0f;
         int filterRadius = 5;
-        float blurScale = 0.8;
-        float blurDepthFalloff = 0.1;
+        float blurScale = 0.2;
+        float blurDepthFalloff = 8;
     };
 
     struct ComputeUniformBufferObject {

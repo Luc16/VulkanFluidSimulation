@@ -561,7 +561,7 @@ void PBFGPU3DSim::showImGui(){
         if (ImGui::CollapsingHeader("Blur Options", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::DragInt("Smoothing Radius", &gUbo.filterRadius, 1, 1, 20);
             ImGui::DragFloat("Blur Scale", &gUbo.blurScale, 0.01f, 0.01f, 5.0f, "%.3f");
-            ImGui::DragFloat("Blur Fall Off", &gUbo.blurDepthFalloff, 0.5f, 0.5f, 20.0f);
+            ImGui::DragFloat("Blur Fall Off", &gUbo.blurDepthFalloff, 0.5f, 0.5f, 50.0f);
         }
     }
 
@@ -679,6 +679,9 @@ void PBFGPU3DSim::onResize(int width, int height) {
             .build();
     simulationDescriptorSets = createDescriptorSets(defaultDescriptorLayout,
                                                 {graphicsUniformBuffers[0]->descriptorInfo()}, {depthPass.descriptorInfo()});
+    normalDescriptorSets = createDescriptorSets(defaultDescriptorLayout,
+                                                {graphicsUniformBuffers[0]->descriptorInfo()}, {smoothPass.descriptorInfo()});
+
 }
 
 void PBFGPU3DSim::compileShaders() {
