@@ -27,6 +27,16 @@ namespace vkb {
         m_renderSystem.createPipeline(m_renderPass, shaderPaths, configurePipeline);
     }
 
+    void OffscreenPass::changeImageSize(VkExtent2D extent) {
+        vkDestroyFramebuffer(m_deviceRef.device(), m_frameBuffer, nullptr);
+        vkDestroyRenderPass(m_deviceRef.device(), m_renderPass, nullptr);
+        vkDestroySampler(m_deviceRef.device(), m_sampler, nullptr);
+
+        m_extent = extent;
+        if (m_isDepthOnly) createDepthFrameBuffer();
+        else createFrameBuffer();
+    }
+
     void OffscreenPass::createRenderPass() {
         VkAttachmentDescription colorAttachment{};
         colorAttachment.format = VK_FORMAT_R16G16B16A16_UNORM;

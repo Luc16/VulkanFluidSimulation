@@ -34,12 +34,7 @@ float getDepth(float x, float y) {
 void main()
 {
     if (texture(samplerDepth, inUV).r == 1.0) {
-        if (ubo.renderType == 3) {
-            outNormal = vec4(0, 0, 0, -1);
-            return;
-        } else {
-            discard;
-        }
+        discard;
     }
     vec3 pos = vec3(inUV, getDepth(inUV.x, inUV.y));
     float x = inUV.x;

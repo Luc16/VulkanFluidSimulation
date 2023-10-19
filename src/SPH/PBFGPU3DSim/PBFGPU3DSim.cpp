@@ -628,6 +628,25 @@ void PBFGPU3DSim::showImGui(){
 void PBFGPU3DSim::onResize(int width, int height) {
     gUbo.screenHeight = (float) height;
     gUbo.screenWidth = (float) width;
+    depthPass.changeImageSize(renderer.getSwapChainExtent());
+    thicknessPass.changeImageSize(renderer.getSwapChainExtent());
+    normalsPass.changeImageSize(renderer.getSwapChainExtent());
+    auto debugDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
+            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
+            .addSameTypeBindings(1, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .build();
+    debugDescriptorSets = createDescriptorSets(
+            debugDescriptorLayout,
+            {graphicsUniformBuffers[0]->descriptorInfo()},
+            {depthPass.descriptorInfo(), thicknessPass.descriptorInfo(), normalsPass.descriptorInfo()}
+    );
+
+    auto defaultDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
+            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
+            .addBinding({1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
+            .build();
+    simulationDescriptorSets = createDescriptorSets(defaultDescriptorLayout,
+                                                {graphicsUniformBuffers[0]->descriptorInfo()}, {depthPass.descriptorInfo()});
 }
 
 void PBFGPU3DSim::compileShaders() {

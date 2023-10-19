@@ -15,6 +15,8 @@ namespace vkb {
             explicit Builder(const Device& device): m_deviceRef(device) {}
 
             Builder& addBinding(VkDescriptorSetLayoutBinding binding);
+            Builder& addSameTypeBindings(uint32_t first, uint32_t number, VkDescriptorType descriptorType, VkShaderStageFlags stageFlags);
+
             [[nodiscard]] DescriptorSetLayout build() const;
 
         private:

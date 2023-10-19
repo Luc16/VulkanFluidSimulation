@@ -28,6 +28,8 @@ namespace vkb {
         void createPass(VkDescriptorSetLayout globalSetLayout, const RenderSystem::ShaderPaths& shaderPaths,
                         const std::function<void(GraphicsPipeline::PipelineConfigInfo&)>& configurePipeline);
 
+        void changeImageSize(VkExtent2D extent);
+
         void run(VkCommandBuffer commandBuffer, VkDescriptorSet *descriptorSet,
                  const std::function<void(VkCommandBuffer &)> &function) const;
     private:

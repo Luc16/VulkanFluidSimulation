@@ -34,6 +34,14 @@ namespace vkb {
         return *this;
     }
 
+    DescriptorSetLayout::Builder &DescriptorSetLayout::Builder::addSameTypeBindings(uint32_t first, uint32_t number,
+                                                                                    VkDescriptorType descriptorType, VkShaderStageFlags stageFlags ) {
+        for (uint32_t i = first; i < first + number; i++) {
+            addBinding({i, descriptorType, 1, stageFlags, nullptr});
+        }
+        return *this;
+    }
+
     DescriptorSetLayout DescriptorSetLayout::Builder::build() const {
         return {m_deviceRef, bindings};
     }

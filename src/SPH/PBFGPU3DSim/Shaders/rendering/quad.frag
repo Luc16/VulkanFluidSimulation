@@ -23,14 +23,8 @@ float linearizeDepth(float depth)
     float n = ubo.zNear;
     float f = ubo.zFar;
     float z = depth;
-//    return (2.0 * n) / (f + n - z * (f - n));
-    return 0.5 * (f + n - z * (f - n));
-}
-
-float proj(float ze) {
-    float f = ubo.zFar;
-    float n = ubo.zNear;
-    return (f + n) / (f - n) + 2 * f*n / ((f - n) * ze);
+    return (2.0 * n) / (f + n - z * (f - n));
+//    return  n + z * (f - n);
 }
 
 void main()

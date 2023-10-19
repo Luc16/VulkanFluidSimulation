@@ -2,7 +2,6 @@
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_debug_printf : enable
 
-
 #include "common.glsl"
 
 layout(location = 0) in vec4 viewPos;

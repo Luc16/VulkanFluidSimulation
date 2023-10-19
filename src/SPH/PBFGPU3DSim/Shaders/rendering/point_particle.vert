@@ -9,8 +9,7 @@ layout(binding = 0) uniform UBO {
     UniformBufferObject ubo;
 };
 
-layout(location = 0) out vec3 worldPos;
-layout(location = 1) out vec4 fragColor;
+layout(location = 0) out vec4 fragColor;
 
 void main() {
 
@@ -20,6 +19,5 @@ void main() {
     gl_PointSize = ubo.screenHeight*ubo.radius/(viewPos.z*ubo.tanHalfFov);
     gl_Position = ubo.proj * viewPos;
 
-    worldPos = inPosition;
     fragColor = vec4(0.2f, 0.6f, 1.0f, 1.0f);
 }
