@@ -27,25 +27,26 @@ float linearizeDepth(float depth)
     return 0.5 * (f + n - z * (f - n));
 }
 
+float proj(float ze) {
+    float f = ubo.zFar;
+    float n = ubo.zNear;
+    return (f + n) / (f - n) + 2 * f*n / ((f - n) * ze);
+}
+
 void main()
 {
+    float depth = texture(samplerDepth, inUV).r;
+    if (depth == 1) {
+        discard;
+    }
+    gl_FragDepth = -depth;
     if (ubo.renderType == 1) {
-        float depth = texture(samplerDepth, inUV).r;
-        if (depth == 1) {
-            discard;
-        }
         outFragColor = vec4(vec3(linearizeDepth(depth)), 1.0);
     } else if (ubo.renderType == 2) {
         vec4 thickColor = vec4(texture(samplerThick, inUV).r);
-        if (thickColor.r == 1) {
-            discard;
-        }
         outFragColor = vec4(vec3(thickColor), 1.0 - thickColor.r);
     } else if (ubo.renderType == 3) {
         vec4 normal = texture(samplerNormals, inUV);
-        if (normal.rgb == vec3(0)) {
-            discard;
-        }
-        outFragColor = vec4(normal.rgb, 1.0);
+        outFragColor = vec4(normal.rgba);
     }
 }

@@ -18,10 +18,14 @@ void main()
     float mag = dot(normal.xy, normal.xy);
     if (mag > 1.0) discard;
 
-    normal.z = sqrt(mag);
+    normal.z = -sqrt(1 - mag);
 
     vec4 nviewPos = vec4(viewPos.xyz + normal*ubo.radius, 1.0);
     vec4 nclipPos = ubo.proj*nviewPos;
     float depth = nclipPos.z / nclipPos.w;
+
     gl_FragDepth = depth;
+
+    // convert from [-1, 1] range to [0, 1]
+//    gl_FragDepth = 0.5*(depth + 1);
 }

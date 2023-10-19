@@ -29,7 +29,7 @@ namespace vkb {
 
     void OffscreenPass::createRenderPass() {
         VkAttachmentDescription colorAttachment{};
-        colorAttachment.format = VK_FORMAT_R8G8B8A8_UNORM;
+        colorAttachment.format = VK_FORMAT_R16G16B16A16_UNORM;
         colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
         colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -87,7 +87,7 @@ namespace vkb {
                 m_extent.height,
                 1,
                 VK_SAMPLE_COUNT_1_BIT,
-                VK_FORMAT_R8G8B8A8_UNORM,
+                VK_FORMAT_R16G16B16A16_UNORM,
                 VK_IMAGE_TILING_OPTIMAL,
                 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
@@ -96,7 +96,7 @@ namespace vkb {
 
 
         VkFormatProperties formatProps;
-        vkGetPhysicalDeviceFormatProperties(m_deviceRef.physicalDevice(), VK_FORMAT_D16_UNORM, &formatProps);
+        vkGetPhysicalDeviceFormatProperties(m_deviceRef.physicalDevice(), VK_FORMAT_R16G16B16A16_UNORM, &formatProps);
 
         VkFilter shadowmap_filter = formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT ?
                                     VK_FILTER_LINEAR :
@@ -139,7 +139,7 @@ namespace vkb {
 
     void OffscreenPass::createDepthRenderPass() {
         VkAttachmentDescription attachmentDescription{};
-        attachmentDescription.format = VK_FORMAT_D16_UNORM;
+        attachmentDescription.format = VK_FORMAT_D32_SFLOAT;
         attachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
         attachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;                            // Clear depth at beginning of the render pass
         attachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;                        // We will read from depth, so it's important to store the depth attachment results
@@ -198,7 +198,7 @@ namespace vkb {
                 m_extent.height,
                 1,
                 VK_SAMPLE_COUNT_1_BIT,
-                VK_FORMAT_D16_UNORM,
+                VK_FORMAT_D32_SFLOAT,
                 VK_IMAGE_TILING_OPTIMAL,
                 VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
@@ -209,7 +209,7 @@ namespace vkb {
         // Create sampler to sample from to depth attachment
         // Used to sample in the fragment shader for shadowed rendering
         VkFormatProperties formatProps;
-        vkGetPhysicalDeviceFormatProperties(m_deviceRef.physicalDevice(), VK_FORMAT_D16_UNORM, &formatProps);
+        vkGetPhysicalDeviceFormatProperties(m_deviceRef.physicalDevice(), VK_FORMAT_D32_SFLOAT, &formatProps);
 
         VkFilter shadowmap_filter = formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT ?
                                     VK_FILTER_LINEAR :
