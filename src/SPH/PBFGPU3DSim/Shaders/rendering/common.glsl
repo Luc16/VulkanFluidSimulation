@@ -12,6 +12,9 @@ struct UniformBufferObject {
     uint renderType;
     float zNear;
     float zFar;
+    int filterRadius;
+    float blurScale;
+    float blurDepthFalloff;
 };
 
 #endif //COMMON_SHADER_H

@@ -156,9 +156,12 @@ private:
         float screenHeight;
         float screenWidth;
         float tanHalfFov = std::tan(glm::radians(50.0f)/2);
-        uint32_t renderType = 3;
+        uint32_t renderType = 4;
         float zNear = 0.1f;
         float zFar = 500.0f;
+        int filterRadius = 5;
+        float blurScale = 0.8;
+        float blurDepthFalloff = 0.1;
     };
 
     struct ComputeUniformBufferObject {
@@ -212,6 +215,7 @@ private:
     vkb::RenderSystem defaultSystem{device};
     std::vector<VkDescriptorSet> defaultDescriptorSets;
     std::vector<VkDescriptorSet> simulationDescriptorSets;
+    std::vector<VkDescriptorSet> normalDescriptorSets;
     std::vector<VkDescriptorSet> debugDescriptorSets;
     vkb::RenderSystem particleSystem{device};
     // rendering

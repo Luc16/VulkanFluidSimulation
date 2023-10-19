@@ -91,12 +91,9 @@ void PBFGPU3DSim::onCreate() {
             info.rasterizer.cullMode = VK_CULL_MODE_NONE;
         });
 
-        smoothPass.createPass(defaultDescriptorLayout.descriptorSetLayout(), depthShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
-            info.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+        smoothPass.createPass(defaultDescriptorLayout.descriptorSetLayout(), smoothShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
             info.bindingDescription.clear();
-            info.bindingDescription.push_back({0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX});
             info.attributeDescription.clear();
-            info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
             info.multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
             info.colorBlending.attachmentCount = 0;
             info.rasterizer.cullMode = VK_CULL_MODE_NONE;
@@ -137,6 +134,8 @@ void PBFGPU3DSim::onCreate() {
 
     simulationDescriptorSets = createDescriptorSets(defaultDescriptorLayout,
                                                     {graphicsUniformBuffers[0]->descriptorInfo()}, {depthPass.descriptorInfo()});
+    normalDescriptorSets = createDescriptorSets(defaultDescriptorLayout,
+                                                    {graphicsUniformBuffers[0]->descriptorInfo()}, {smoothPass.descriptorInfo()});
 
 
     // create compute systems and descriptors
@@ -420,7 +419,7 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
 
     });
 
-    normalsPass.run(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()],
+    normalsPass.run(commandBuffer, &normalDescriptorSets[renderer.currentFrame()],
                     [](VkCommandBuffer &commandBuffer) {
         vkCmdDraw(commandBuffer, 3, 1, 0, 0);
     });
@@ -558,6 +557,12 @@ void PBFGPU3DSim::showImGui(){
             ImGui::EndCombo();
         }
         debugScene = gUbo.renderType != 0;
+
+        if (ImGui::CollapsingHeader("Blur Options", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::DragInt("Smoothing Radius", &gUbo.filterRadius, 1, 1, 20);
+            ImGui::DragFloat("Blur Scale", &gUbo.blurScale, 0.01f, 0.01f, 5.0f, "%.3f");
+            ImGui::DragFloat("Blur Fall Off", &gUbo.blurDepthFalloff, 0.5f, 0.5f, 20.0f);
+        }
     }
 
     if (ImGui::Button("Reset")) {

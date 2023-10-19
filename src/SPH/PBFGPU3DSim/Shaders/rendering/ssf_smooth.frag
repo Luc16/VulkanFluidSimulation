@@ -11,14 +11,6 @@ layout(binding = 0) uniform UBO {
     UniformBufferObject ubo;
 };
 
-// int filterRadius
-// blurScale
-// blurDepthFalloff
-
- int filterRadius = 2;
- float blurScale = 0.2;
- float blurDepthFalloff = 2;
-
 layout (binding = 1) uniform sampler2D samplerDepth;
 
 float getDepth(ivec2 texPos) {
@@ -27,16 +19,17 @@ float getDepth(ivec2 texPos) {
 
 float bilateral(ivec2 texPos) {
     float z = getDepth(texPos);
+
     float sum = 0;
     float wsum = 0;
-    for(int dx = -filterRadius; dx <= filterRadius; dx++) {
-        for(int dy = -filterRadius; dy <= filterRadius; dy++) {
+    for(int dx = -ubo.filterRadius; dx <= ubo.filterRadius; dx++) {
+        for(int dy = -ubo.filterRadius; dy <= ubo.filterRadius; dy++) {
             ivec2 dPos = ivec2(dx, dy);
             float curZ = getDepth(texPos + dPos);
             // spatial domain
-            float w = exp(-dot(dPos, dPos)*blurScale*blurScale);
+            float w = exp(-dot(dPos, dPos)*ubo.blurScale*ubo.blurScale);
             // range domain
-            float r2 = (curZ - z) * blurDepthFalloff;
+            float r2 = (curZ - z) * ubo.blurDepthFalloff;
             float g = exp(-r2*r2);
 
             float wg = w * g;
@@ -52,11 +45,11 @@ float gaussian(ivec2 texPos) {
     float z = getDepth(texPos);
     float sum = 0, wsum = 0;
 
-    for (int dx = -filterRadius; dx <= filterRadius; dx++) {
-        for (int dy = -filterRadius; dy <= filterRadius; dy++) {
+    for (int dx = -ubo.filterRadius; dx <= ubo.filterRadius; dx++) {
+        for (int dy = -ubo.filterRadius; dy <= ubo.filterRadius; dy++) {
             ivec2 dPos = ivec2(dx, dy);
             float curZ = getDepth(texPos + dPos);
-            float w = exp(-dot(dPos, dPos)*blurScale*blurScale);
+            float w = exp(-dot(dPos, dPos)*ubo.blurScale*ubo.blurScale);
 
             sum += curZ * w;
             wsum += w;
@@ -69,6 +62,11 @@ float gaussian(ivec2 texPos) {
 
 void main()
 {
+//    if (getDepth(ivec2(gl_FragCoord)) == 1) {
+//        discard;
+//    }
+
+    debugPrintfEXT("pos: %f %f %f\n", gl_FragCoord.x, gl_FragCoord.y, getDepth(ivec2(gl_FragCoord)));
     float smoothDepth = bilateral(ivec2(gl_FragCoord));
     gl_FragDepth = smoothDepth;
 }
