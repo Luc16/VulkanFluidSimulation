@@ -134,8 +134,8 @@ void PBFGPU3DSim::onCreate() {
 
     simulationDescriptorSets = createDescriptorSets(defaultDescriptorLayout,
                                                     {graphicsUniformBuffers[0]->descriptorInfo()}, {depthPass.descriptorInfo()});
-    normalDescriptorSets = createDescriptorSets(defaultDescriptorLayout,
-                                                    {graphicsUniformBuffers[0]->descriptorInfo()}, {smoothPass.descriptorInfo()});
+    smooth1DescriptorSets = createDescriptorSets(defaultDescriptorLayout,
+                                                 {graphicsUniformBuffers[0]->descriptorInfo()}, {smoothPass.descriptorInfo()});
     smooth2DescriptorSets = createDescriptorSets(defaultDescriptorLayout,
                                                  {graphicsUniformBuffers[0]->descriptorInfo()}, {smoothPass.additionalImageDescriptorInfo()});
 
@@ -423,14 +423,15 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
     });
 
     for (uint32_t _ = 0; _ < blurIterations; _++){
-        smoothPass.runAlternating(commandBuffer, {&normalDescriptorSets[renderer.currentFrame()], &smooth2DescriptorSets[renderer.currentFrame()]},
-                       [](VkCommandBuffer commandBuffer) {
-                           vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+        smoothPass.runAlternating(commandBuffer, {&smooth1DescriptorSets[renderer.currentFrame()], &smooth2DescriptorSets[renderer.currentFrame()]},
+                                  [](VkCommandBuffer commandBuffer) {
+            vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
-                       });
+        });
     }
 
-    normalsPass.run(commandBuffer, &normalDescriptorSets[renderer.currentFrame()],
+    normalsPass.run(commandBuffer,
+                    (blurIterations % 2 == 0) ? &smooth1DescriptorSets[renderer.currentFrame()] : &smooth2DescriptorSets[renderer.currentFrame()],
                     [](VkCommandBuffer &commandBuffer) {
         vkCmdDraw(commandBuffer, 3, 1, 0, 0);
     });
@@ -569,10 +570,13 @@ void PBFGPU3DSim::showImGui(){
         }
         debugScene = gUbo.renderType != 0;
 
+        ImGui::SetCursorPosX(10.0f);
         if (ImGui::CollapsingHeader("Blur Options", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::SetCursorPosX(15.0f);
             ImGui::Text("Blur mode");
-            static std::array<std::string, 2> blurTypes = {"Bilateral", "Gaussian"};
+            static std::array<std::string, 3> blurTypes = {"Bilateral", "Gaussian", "Bilateral 2"};
             curItem = blurTypes[gUbo.blurMode];
+            ImGui::SetCursorPosX(15.0f);
             if (ImGui::BeginCombo("##combo2", curItem.c_str())) {
                 for (uint32_t i = 0; i < blurTypes.size(); i++){
                     bool isSelected = (curItem == blurTypes[i]);
@@ -584,9 +588,13 @@ void PBFGPU3DSim::showImGui(){
                 }
                 ImGui::EndCombo();
             }
+            ImGui::SetCursorPosX(15.0f);
             ImGui::DragInt("Blur Iterations", &blurIterations, 1, 0, 20);
+            ImGui::SetCursorPosX(15.0f);
             ImGui::DragInt("Smoothing Radius", &gUbo.filterRadius, 1, 0, 20);
+            ImGui::SetCursorPosX(15.0f);
             ImGui::DragFloat("Blur Scale", &gUbo.blurScale, 0.01f, 0.01f, 5.0f, "%.3f");
+            ImGui::SetCursorPosX(15.0f);
             ImGui::DragFloat("Blur Fall Off", &gUbo.blurDepthFalloff, 0.5f, 0.5f, 50.0f);
         }
     }
@@ -606,6 +614,11 @@ void PBFGPU3DSim::showImGui(){
     if (wasReleased && glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_PRESS) {
         pausedSimulation = !pausedSimulation;
         wasReleased = false;
+        if (controlMode) {
+            initializeObjects(true);
+            controlMode = false;
+        }
+
 //        std::cout << "camera.m_translation = {" << camera.m_translation.x << "f, " << camera.m_translation.y << "f, " << camera.m_translation.z << "f};\n";
 //        std::cout << "camera.m_rotation = {" << camera.m_rotation.x << "f, " << camera.m_rotation.y << "f, " << camera.m_rotation.z << "f};\n";
     } else if (glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_RELEASE){
@@ -705,8 +718,8 @@ void PBFGPU3DSim::onResize(int width, int height) {
             .build();
     simulationDescriptorSets = createDescriptorSets(defaultDescriptorLayout,
                                                 {graphicsUniformBuffers[0]->descriptorInfo()}, {depthPass.descriptorInfo()});
-    normalDescriptorSets = createDescriptorSets(defaultDescriptorLayout,
-                                                {graphicsUniformBuffers[0]->descriptorInfo()}, {smoothPass.descriptorInfo()});
+    smooth1DescriptorSets = createDescriptorSets(defaultDescriptorLayout,
+                                                 {graphicsUniformBuffers[0]->descriptorInfo()}, {smoothPass.descriptorInfo()});
     smooth2DescriptorSets = createDescriptorSets(defaultDescriptorLayout,
                                                  {graphicsUniformBuffers[0]->descriptorInfo()}, {smoothPass.additionalImageDescriptorInfo()});
 }

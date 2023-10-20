@@ -171,7 +171,7 @@ private:
         alignas(16) glm::vec3 G = glm::vec3(0.0f, -9.8f, 0.0f);
 
         float planeY = 0.0f;
-        float REST_DENS = 20.0f;  // rest density
+        float REST_DENS = 100.0f;  // rest density
         float H = 1.5f;           // kernel radius
         float HSQ = H * H;        // radius^2 for optimization
         float MASS = 5.0f;        // assume all particles have the same mass
@@ -217,7 +217,7 @@ private:
     vkb::RenderSystem defaultSystem{device};
     std::vector<VkDescriptorSet> defaultDescriptorSets;
     std::vector<VkDescriptorSet> simulationDescriptorSets;
-    std::vector<VkDescriptorSet> normalDescriptorSets;
+    std::vector<VkDescriptorSet> smooth1DescriptorSets;
     std::vector<VkDescriptorSet> smooth2DescriptorSets;
     std::vector<VkDescriptorSet> debugDescriptorSets;
     vkb::RenderSystem particleSystem{device};
