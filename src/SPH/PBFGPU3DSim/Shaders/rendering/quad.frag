@@ -35,16 +35,21 @@ void main()
         discard;
     }
     gl_FragDepth = -depth;
-    if (ubo.renderType == 1) {
-        outFragColor = vec4(vec3(linearizeDepth(depth)), 1.0);
-    } else if (ubo.renderType == 2) {
-        vec4 thickColor = vec4(texture(samplerThick, inUV).r);
-        outFragColor = vec4(vec3(thickColor), 1.0 - thickColor.r);
-    } else if (ubo.renderType == 3) {
-        vec4 normal = texture(samplerNormals, inUV);
-        outFragColor = vec4(normal.rgba);
-    } else if (ubo.renderType == 4) {
-        float smoothDepth = texture(samplerSmoothedDepth, inUV).r;
-        outFragColor = vec4(vec3(linearizeDepth(smoothDepth)), 1.0);
+    switch(ubo.renderType) {
+        case 1:
+            outFragColor = vec4(vec3(linearizeDepth(depth)), 1.0);
+        break;
+        case 2:
+            vec4 thickColor = vec4(texture(samplerThick, inUV).r);
+            outFragColor = vec4(vec3(thickColor), 1.0 - thickColor.r);
+        break;
+        case 3:
+            vec4 normal = texture(samplerNormals, inUV);
+            outFragColor = vec4(0.5*normal.rgba + vec4(0.5));
+        break;
+        case 4:
+            float smoothDepth = texture(samplerSmoothedDepth, inUV).r;
+            outFragColor = vec4(vec3(linearizeDepth(smoothDepth)), 1.0);
+        break;
     }
 }

@@ -136,6 +136,9 @@ void PBFGPU3DSim::onCreate() {
                                                     {graphicsUniformBuffers[0]->descriptorInfo()}, {depthPass.descriptorInfo()});
     normalDescriptorSets = createDescriptorSets(defaultDescriptorLayout,
                                                     {graphicsUniformBuffers[0]->descriptorInfo()}, {smoothPass.descriptorInfo()});
+    smooth2DescriptorSets = createDescriptorSets(defaultDescriptorLayout,
+                                                 {graphicsUniformBuffers[0]->descriptorInfo()}, {smoothPass.additionalImageDescriptorInfo()});
+
 
 
     // create compute systems and descriptors
@@ -419,6 +422,14 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
 
     });
 
+    for (uint32_t _ = 0; _ < blurIterations; _++){
+        smoothPass.runAlternating(commandBuffer, {&normalDescriptorSets[renderer.currentFrame()], &smooth2DescriptorSets[renderer.currentFrame()]},
+                       [](VkCommandBuffer commandBuffer) {
+                           vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+
+                       });
+    }
+
     normalsPass.run(commandBuffer, &normalDescriptorSets[renderer.currentFrame()],
                     [](VkCommandBuffer &commandBuffer) {
         vkCmdDraw(commandBuffer, 3, 1, 0, 0);
@@ -559,7 +570,22 @@ void PBFGPU3DSim::showImGui(){
         debugScene = gUbo.renderType != 0;
 
         if (ImGui::CollapsingHeader("Blur Options", ImGuiTreeNodeFlags_DefaultOpen)) {
-            ImGui::DragInt("Smoothing Radius", &gUbo.filterRadius, 1, 1, 20);
+            ImGui::Text("Blur mode");
+            static std::array<std::string, 2> blurTypes = {"Bilateral", "Gaussian"};
+            curItem = blurTypes[gUbo.blurMode];
+            if (ImGui::BeginCombo("##combo2", curItem.c_str())) {
+                for (uint32_t i = 0; i < blurTypes.size(); i++){
+                    bool isSelected = (curItem == blurTypes[i]);
+                    if (ImGui::Selectable(blurTypes[i].c_str(), isSelected)) {
+                        gUbo.blurMode = i;
+                    }
+                    if (isSelected)
+                        ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::DragInt("Blur Iterations", &blurIterations, 1, 0, 20);
+            ImGui::DragInt("Smoothing Radius", &gUbo.filterRadius, 1, 0, 20);
             ImGui::DragFloat("Blur Scale", &gUbo.blurScale, 0.01f, 0.01f, 5.0f, "%.3f");
             ImGui::DragFloat("Blur Fall Off", &gUbo.blurDepthFalloff, 0.5f, 0.5f, 50.0f);
         }
@@ -681,7 +707,8 @@ void PBFGPU3DSim::onResize(int width, int height) {
                                                 {graphicsUniformBuffers[0]->descriptorInfo()}, {depthPass.descriptorInfo()});
     normalDescriptorSets = createDescriptorSets(defaultDescriptorLayout,
                                                 {graphicsUniformBuffers[0]->descriptorInfo()}, {smoothPass.descriptorInfo()});
-
+    smooth2DescriptorSets = createDescriptorSets(defaultDescriptorLayout,
+                                                 {graphicsUniformBuffers[0]->descriptorInfo()}, {smoothPass.additionalImageDescriptorInfo()});
 }
 
 void PBFGPU3DSim::compileShaders() {

@@ -54,7 +54,5 @@ void main()
     vec3 normal = cross(ddx, ddy);
 
     float len = length(normal);
-
-//    outNormal = vec4(vec3(normal.z/len), texture(samplerDepth, inUV).r);
     outNormal = vec4(normal/len, len);
 }

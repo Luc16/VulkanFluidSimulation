@@ -62,11 +62,21 @@ float gaussian(ivec2 texPos) {
 
 void main()
 {
-//    if (getDepth(ivec2(gl_FragCoord)) == 1) {
-//        discard;
-//    }
+    if (getDepth(ivec2(gl_FragCoord)) == 1) {
+        discard;
+    }
+    float smoothDepth;
+    switch (ubo.blurMode) {
+        case 0:
+            smoothDepth = bilateral(ivec2(gl_FragCoord));
+        break;
+        case 1:
+            smoothDepth = gaussian(ivec2(gl_FragCoord));
+        break;
+        default:
+            smoothDepth = bilateral(ivec2(gl_FragCoord));
 
-    debugPrintfEXT("pos: %f %f %f\n", gl_FragCoord.x, gl_FragCoord.y, getDepth(ivec2(gl_FragCoord)));
-    float smoothDepth = bilateral(ivec2(gl_FragCoord));
+
+    }
     gl_FragDepth = smoothDepth;
 }

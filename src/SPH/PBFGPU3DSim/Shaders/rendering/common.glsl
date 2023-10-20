@@ -12,6 +12,7 @@ struct UniformBufferObject {
     uint renderType;
     float zNear;
     float zFar;
+    uint blurMode;
     int filterRadius;
     float blurScale;
     float blurDepthFalloff;

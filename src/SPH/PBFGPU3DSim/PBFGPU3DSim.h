@@ -46,6 +46,7 @@ private:
     static constexpr uint32_t MAX_PARTICLES = 1'000'000;
     static constexpr float MAX_BOUND = 1000.0f;
     uint32_t jacobiIterations = 3;
+    int blurIterations = 2;
     uint32_t GRID_SIZE = 0;
 
     static constexpr uint32_t gridShaderStartIdx = 14;
@@ -156,9 +157,10 @@ private:
         float screenHeight;
         float screenWidth;
         float tanHalfFov = std::tan(glm::radians(50.0f)/2);
-        uint32_t renderType = 4;
+        uint32_t renderType = 3;
         float zNear = 0.1f;
         float zFar = 500.0f;
+        uint32_t blurMode = 0;
         int filterRadius = 5;
         float blurScale = 0.2;
         float blurDepthFalloff = 8;
@@ -216,13 +218,14 @@ private:
     std::vector<VkDescriptorSet> defaultDescriptorSets;
     std::vector<VkDescriptorSet> simulationDescriptorSets;
     std::vector<VkDescriptorSet> normalDescriptorSets;
+    std::vector<VkDescriptorSet> smooth2DescriptorSets;
     std::vector<VkDescriptorSet> debugDescriptorSets;
     vkb::RenderSystem particleSystem{device};
     // rendering
     vkb::OffscreenPass depthPass{device, renderer.getSwapChainExtent(), true};
     vkb::OffscreenPass thicknessPass{device, renderer.getSwapChainExtent()};
     vkb::OffscreenPass normalsPass{device, renderer.getSwapChainExtent()};
-    vkb::OffscreenPass smoothPass{device, renderer.getSwapChainExtent(), true};
+    vkb::OffscreenPass smoothPass{device, renderer.getSwapChainExtent(), true, true};
 
     vkb::RenderSystem debugRenderSystem{device};
 

@@ -6,16 +6,19 @@
 
 
 namespace vkb {
-    OffscreenPass::OffscreenPass(const vkb::Device &device, VkExtent2D extent, bool isDepthOnly):
+    OffscreenPass::OffscreenPass(const vkb::Device &device, VkExtent2D extent, bool isDepthOnly, bool hasMultipleImages):
             m_deviceRef(device),
             m_extent(extent),
             m_renderSystem(device),
-            m_isDepthOnly(isDepthOnly) {}
+            m_isDepthOnly(isDepthOnly),
+            m_hasMultipleImages(hasMultipleImages) {}
 
     OffscreenPass::~OffscreenPass() {
         vkDestroyFramebuffer(m_deviceRef.device(), m_frameBuffer, nullptr);
         vkDestroyRenderPass(m_deviceRef.device(), m_renderPass, nullptr);
         vkDestroySampler(m_deviceRef.device(), m_sampler, nullptr);
+        if (m_hasMultipleImages)
+            vkDestroyFramebuffer(m_deviceRef.device(), m_additionalFrameBuffer, nullptr);
     }
 
     void OffscreenPass::createPass(VkDescriptorSetLayout descriptorSetLayout, const RenderSystem::ShaderPaths &shaderPaths,
@@ -31,6 +34,8 @@ namespace vkb {
         vkDestroyFramebuffer(m_deviceRef.device(), m_frameBuffer, nullptr);
         vkDestroyRenderPass(m_deviceRef.device(), m_renderPass, nullptr);
         vkDestroySampler(m_deviceRef.device(), m_sampler, nullptr);
+        if (m_hasMultipleImages)
+            vkDestroyFramebuffer(m_deviceRef.device(), m_additionalFrameBuffer, nullptr);
 
         m_extent = extent;
         if (m_isDepthOnly) createDepthFrameBuffer();
@@ -39,7 +44,7 @@ namespace vkb {
 
     void OffscreenPass::createRenderPass() {
         VkAttachmentDescription colorAttachment{};
-        colorAttachment.format = VK_FORMAT_R16G16B16A16_UNORM;
+        colorAttachment.format = VK_FORMAT_R16G16B16A16_SFLOAT;
         colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
         colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -97,7 +102,7 @@ namespace vkb {
                 m_extent.height,
                 1,
                 VK_SAMPLE_COUNT_1_BIT,
-                VK_FORMAT_R16G16B16A16_UNORM,
+                VK_FORMAT_R16G16B16A16_SFLOAT,
                 VK_IMAGE_TILING_OPTIMAL,
                 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
@@ -106,7 +111,7 @@ namespace vkb {
 
 
         VkFormatProperties formatProps;
-        vkGetPhysicalDeviceFormatProperties(m_deviceRef.physicalDevice(), VK_FORMAT_R16G16B16A16_UNORM, &formatProps);
+        vkGetPhysicalDeviceFormatProperties(m_deviceRef.physicalDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, &formatProps);
 
         VkFilter shadowmap_filter = formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT ?
                                     VK_FILTER_LINEAR :
@@ -214,7 +219,20 @@ namespace vkb {
                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                 VK_IMAGE_ASPECT_DEPTH_BIT
                 );
-
+        if (m_hasMultipleImages) {
+            m_additionalImage = std::make_unique<Image>(
+                    m_deviceRef,
+                    m_extent.width,
+                    m_extent.height,
+                    1,
+                    VK_SAMPLE_COUNT_1_BIT,
+                    VK_FORMAT_D32_SFLOAT,
+                    VK_IMAGE_TILING_OPTIMAL,
+                    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                    VK_IMAGE_ASPECT_DEPTH_BIT
+            );
+        }
 
         // Create sampler to sample from to depth attachment
         // Used to sample in the fragment shader for shadowed rendering
@@ -258,14 +276,24 @@ namespace vkb {
         if (vkCreateFramebuffer(m_deviceRef.device(), &fbufCreateInfo, nullptr, &m_frameBuffer) != VK_SUCCESS) {
             throw std::runtime_error("failed to create framebuffer!");
         }
+
+        if (m_hasMultipleImages) {
+            VkImageView additionalDepthImageView = m_additionalImage->view();
+            fbufCreateInfo.pAttachments = &additionalDepthImageView;
+
+            if (vkCreateFramebuffer(m_deviceRef.device(), &fbufCreateInfo, nullptr, &m_additionalFrameBuffer) != VK_SUCCESS) {
+                throw std::runtime_error("failed to create additional framebuffer!");
+            }
+        }
     }
 
-    void OffscreenPass::run(VkCommandBuffer commandBuffer, VkDescriptorSet *descriptorSet,
-                            const std::function<void(VkCommandBuffer &)> &function) const {
+    void OffscreenPass::runWithFrameBuffer(VkCommandBuffer commandBuffer, VkFramebuffer frameBuffer,
+                                           VkDescriptorSet *descriptorSet,
+                                           const std::function<void(VkCommandBuffer &)> &function) {
         VkRenderPassBeginInfo renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
         renderPassInfo.renderPass = m_renderPass;
-        renderPassInfo.framebuffer = m_frameBuffer;
+        renderPassInfo.framebuffer = frameBuffer;
         renderPassInfo.renderArea.offset = {0, 0};
         renderPassInfo.renderArea.extent = m_extent;
 
@@ -304,6 +332,23 @@ namespace vkb {
         function(commandBuffer);
 
         vkCmdEndRenderPass(commandBuffer);
-
     }
+
+    void OffscreenPass::run(VkCommandBuffer commandBuffer, VkDescriptorSet *descriptorSet,
+                            const std::function<void(VkCommandBuffer &)> &function) {
+        m_alternatingIdx = 0;
+        runWithFrameBuffer(commandBuffer, m_frameBuffer, descriptorSet, function);
+    }
+
+    void OffscreenPass::runAlternating(VkCommandBuffer commandBuffer, const std::array<VkDescriptorSet*, 2>& descriptorSets,
+                                       const std::function<void(VkCommandBuffer &)> &function) {
+        if (!m_hasMultipleImages) {
+            throw std::runtime_error("cant run alternating without multiple images");
+        }
+        // assuming first texture has already been set
+        runWithFrameBuffer(commandBuffer, (!m_alternatingIdx) ? m_additionalFrameBuffer: m_frameBuffer,
+                           descriptorSets[m_alternatingIdx], function);
+        m_alternatingIdx = (m_alternatingIdx + 1) % 2;
+    }
+
 }
