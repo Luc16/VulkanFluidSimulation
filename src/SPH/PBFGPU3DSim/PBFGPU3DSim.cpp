@@ -5,6 +5,8 @@
 #include "PBFGPU3DSim.h"
 
 void PBFGPU3DSim::onCreate() {
+    vkDeviceWaitIdle(device.device());
+    compileShaders();
     camera.m_translation = {-174.012f, 194.745f, 193.005f};
     camera.m_rotation = {0.569391f, 1.95856f, 3.14159f};
     gUbo.radius = cUbo.H;
@@ -132,6 +134,8 @@ void PBFGPU3DSim::onCreate() {
                 .addBinding({2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
                 .addBinding({3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
                 .addBinding({4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
+                .addBinding({5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
+                .addBinding({6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
                 .build();
 
         debugRenderSystem.createPipelineLayout(debugDescriptorLayout.descriptorSetLayout(), 0);
@@ -143,7 +147,8 @@ void PBFGPU3DSim::onCreate() {
         debugDescriptorSets = createDescriptorSets(
                 debugDescriptorLayout,
                 {graphicsUniformBuffers[0]->descriptorInfo()},
-                {depthPass.descriptorInfo(), thicknessPass.descriptorInfo(), normalsPass.descriptorInfo(), smoothPass.descriptorInfo()}
+                {depthPass.descriptorInfo(), thicknessPass.descriptorInfo(), normalsPass.descriptorInfo(), smoothPass.descriptorInfo(),
+                 plane.textureInfo(), skybox.descriptorInfo()}
         );
 
     }
@@ -175,7 +180,6 @@ void PBFGPU3DSim::onCreate() {
 
         gridHandler.createSystems();
     }
-
 }
 
 void PBFGPU3DSim::createComputeDescriptorSets() {
@@ -251,6 +255,7 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
 
 void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     gUbo.view = camera.getView();
+    gUbo.inverseView = glm::inverse(gUbo.view);
     gUbo.proj = camera.getProjection();
     cUbo.numParticles = INSTANCE_COUNT;
     GRID_SIZE = uint32_t(cUbo.BOUNDARY_SIZE.x/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.y/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.z/cUbo.H) + 1;
@@ -429,12 +434,6 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
         vkCmdDraw(commandBuffer, INSTANCE_COUNT, 1, 0, 0);
     });
 
-    thicknessPass.run(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()],
-                  [this, &vb, &offsets](VkCommandBuffer &commandBuffer) {
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
-        vkCmdDraw(commandBuffer, INSTANCE_COUNT, 1, 0, 0);
-    });
-
     smoothPass.run(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()],
                    [](VkCommandBuffer commandBuffer) {
         vkCmdDraw(commandBuffer, 3, 1, 0, 0);
@@ -448,6 +447,13 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
 
         });
     }
+
+    thicknessPass.run(commandBuffer,
+                      (blurIterations % 2 == 0) ? &smooth1DescriptorSets[renderer.currentFrame()] : &smooth2DescriptorSets[renderer.currentFrame()],
+                      [this, &vb, &offsets](VkCommandBuffer &commandBuffer) {
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
+        vkCmdDraw(commandBuffer, INSTANCE_COUNT, 1, 0, 0);
+    });
 
     normalsPass.run(commandBuffer,
                     (blurIterations % 2 == 0) ? &smooth1DescriptorSets[renderer.currentFrame()] : &smooth2DescriptorSets[renderer.currentFrame()],
@@ -527,6 +533,7 @@ void PBFGPU3DSim::updateSimulation() {
 void PBFGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){
     camera.setPerspectiveProjection(glm::radians(50.f), renderer.getSwapChainAspectRatio(), 0.1f, 500.f);
     gUbo.view = camera.getView();
+    gUbo.inverseView = glm::inverse(gUbo.view);
     gUbo.proj = camera.getProjection();
     graphicsUniformBuffers[frameIndex]->write(&gUbo);
 
@@ -577,7 +584,7 @@ void PBFGPU3DSim::showImGui(){
         ImGui::DragFloat("Particle Radius", &gUbo.radius, 0.1f, 0.1f, 100.0f);
 
         ImGui::Text("View mode");
-        static std::array<std::string, 5> renderTypes = {"Particles", "Depth", "Thickness", "Normals", "Smooth"};
+        static std::array<std::string, 7> renderTypes = {"Particles", "Depth", "Thickness", "Normals", "Smooth", "Fresnel Scale", "Fresnel"};
         std::string curItem = renderTypes[gUbo.renderType];
         if (ImGui::BeginCombo("##combo", curItem.c_str())) {
             for (uint32_t i = 0; i < renderTypes.size(); i++){
@@ -626,6 +633,21 @@ void PBFGPU3DSim::showImGui(){
         controlMode = false;
         pausedSimulation = false;
     }
+
+    if (hardResetFrame > 2) {
+        hardResetFrame = 2;
+        enableEmergencyExit();
+    }
+    if (ImGui::Button("Hard Reset")) {
+        hardResetFrame = 0;
+        disableEmergencyExit();
+        onCreate();
+        controlMode = false;
+        pausedSimulation = false;
+    }
+    hardResetFrame++;
+
+
 
     ImGui::Text("Using %s", device.getPhysicalDeviceName().c_str());
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
@@ -726,12 +748,13 @@ void PBFGPU3DSim::onResize(int width, int height) {
     smoothPass.changeImageSize(renderer.getSwapChainExtent());
     auto debugDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
-            .addSameTypeBindings(1, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .addSameTypeBindings(1, 6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
             .build();
     debugDescriptorSets = createDescriptorSets(
             debugDescriptorLayout,
             {graphicsUniformBuffers[0]->descriptorInfo()},
-            {depthPass.descriptorInfo(), thicknessPass.descriptorInfo(), normalsPass.descriptorInfo(), smoothPass.descriptorInfo()}
+            {depthPass.descriptorInfo(), thicknessPass.descriptorInfo(), normalsPass.descriptorInfo(), smoothPass.descriptorInfo(),
+             plane.textureInfo(), skybox.descriptorInfo()}
     );
 
     auto defaultDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)

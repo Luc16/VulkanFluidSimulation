@@ -37,6 +37,7 @@ namespace vkb{
     private:
         std::string m_appName;
         bool m_running = true;
+        bool m_emergencyExit = true;
 
     protected:
         std::vector<VkDescriptorSet> createDescriptorSets(DescriptorSetLayout &layout,
@@ -48,6 +49,9 @@ namespace vkb{
         virtual void onDestroy() {};
         virtual void onResize(int width, int height) {};
         void endProgram() { m_running = false; }
+        void enableEmergencyExit() { m_emergencyExit = true; }
+        void disableEmergencyExit() { m_emergencyExit = false; }
+        bool isEmergencyExitEnabled() { return m_emergencyExit; }
 
         vkb::Window window;
         vkb::Device device;

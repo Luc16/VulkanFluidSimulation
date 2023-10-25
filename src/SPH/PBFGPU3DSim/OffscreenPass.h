@@ -54,6 +54,7 @@ namespace vkb {
         void createFrameBuffer();
         void createDepthRenderPass();
         void createDepthFrameBuffer();
+        void destroyObjects();
         void runWithFrameBuffer(VkCommandBuffer commandBuffer, VkFramebuffer frameBuffer, VkDescriptorSet *descriptorSet,
                                 const std::function<void(VkCommandBuffer &)> &function);
 
@@ -68,6 +69,7 @@ namespace vkb {
         RenderSystem m_renderSystem;
         const bool m_isDepthOnly;
         const bool m_hasMultipleImages;
+        bool m_created = false;
         const Device& m_deviceRef;
         VkExtent2D m_extent;
         VkFramebuffer m_frameBuffer{};

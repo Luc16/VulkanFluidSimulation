@@ -50,7 +50,7 @@ namespace vkb {
 
             mainLoop(deltaTime);
 
-            if (deltaTime > 1.0f) {
+            if (deltaTime > 1.0f && m_emergencyExit) {
                 m_running = false;
                 std::cerr << "ERROR: EXITED because simulation was running too slow\n";
             }

@@ -4,6 +4,7 @@
 struct UniformBufferObject {
     mat4 view;
     mat4 proj;
+    mat4 inverseView;
     vec3 lightDir;
     float radius;
     float screenHeight;

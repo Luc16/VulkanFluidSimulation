@@ -14,6 +14,10 @@ namespace vkb {
             m_hasMultipleImages(hasMultipleImages) {}
 
     OffscreenPass::~OffscreenPass() {
+        destroyObjects();
+    }
+
+    void OffscreenPass::destroyObjects() {
         vkDestroyFramebuffer(m_deviceRef.device(), m_frameBuffer, nullptr);
         vkDestroyRenderPass(m_deviceRef.device(), m_renderPass, nullptr);
         vkDestroySampler(m_deviceRef.device(), m_sampler, nullptr);
@@ -23,20 +27,19 @@ namespace vkb {
 
     void OffscreenPass::createPass(VkDescriptorSetLayout descriptorSetLayout, const RenderSystem::ShaderPaths &shaderPaths,
                                    const std::function<void(GraphicsPipeline::PipelineConfigInfo &)> &configurePipeline) {
+        if (m_created)
+            destroyObjects();
+
         if (m_isDepthOnly) createDepthFrameBuffer();
         else createFrameBuffer();
 
         m_renderSystem.createPipelineLayout(descriptorSetLayout, 0);
         m_renderSystem.createPipeline(m_renderPass, shaderPaths, configurePipeline);
+        m_created = true;
     }
 
     void OffscreenPass::changeImageSize(VkExtent2D extent) {
-        vkDestroyFramebuffer(m_deviceRef.device(), m_frameBuffer, nullptr);
-        vkDestroyRenderPass(m_deviceRef.device(), m_renderPass, nullptr);
-        vkDestroySampler(m_deviceRef.device(), m_sampler, nullptr);
-        if (m_hasMultipleImages)
-            vkDestroyFramebuffer(m_deviceRef.device(), m_additionalFrameBuffer, nullptr);
-
+        destroyObjects();
         m_extent = extent;
         if (m_isDepthOnly) createDepthFrameBuffer();
         else createFrameBuffer();

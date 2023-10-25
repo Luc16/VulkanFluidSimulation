@@ -160,12 +160,13 @@ private:
     struct UniformBufferObject {
         alignas(16) glm::mat4 view;
         alignas(16) glm::mat4 proj;
+        alignas(16) glm::mat4 inverseView;
         alignas(16) glm::vec3 lightDir = glm::vec3(1.0f, -1.0f, 0.0f);
         float radius;
         float screenHeight;
         float screenWidth;
         float tanHalfFov = std::tan(glm::radians(50.0f)/2);
-        uint32_t renderType = 3;
+        uint32_t renderType = 6;
         float zNear = 0.1f;
         float zFar = 500.0f;
         uint32_t blurMode = 0;
@@ -381,6 +382,7 @@ private:
     glm::vec4 initialPos = {cUbo.EPS, cUbo.EPS, cUbo.EPS, 0};
     float drawTime = 0, cpuTime = 0, computeTime = 0, gravityFactor = 1.0f;
     bool activateTimer = false, controlMode = false, objectsInitialized = false, pausedSimulation = false, debugScene = false;
+    uint32_t hardResetFrame = 0;
 
     void onCreate() override;
     void initializeObjects(bool activateRandomOffsets);
