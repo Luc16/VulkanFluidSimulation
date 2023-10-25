@@ -20,5 +20,5 @@ const float AMBIENT = 0.05;
 void main() {
     float lightIntensity = AMBIENT + max(dot(normalize(fragNormalWorld), normalize(ubo.lightDir)), 0);
 
-    outColor = lightIntensity*texture(texSampler, fragTexCoord);
+    outColor = lightIntensity*vec4(vec3(texture(texSampler, fragTexCoord)), 1.0);
 }

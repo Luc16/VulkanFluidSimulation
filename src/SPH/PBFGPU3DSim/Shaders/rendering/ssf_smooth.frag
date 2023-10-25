@@ -71,7 +71,6 @@ float normpdf(in float x, in float sigma) {
 }
 
 float bilateral2(ivec2 texPos) {
-    debugPrintfEXT("OK\n");
     float z = getDepth(texPos);
 
     float wsum = 0;

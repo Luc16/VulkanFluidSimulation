@@ -50,6 +50,11 @@ namespace vkb {
 
             mainLoop(deltaTime);
 
+            if (deltaTime > 1.0f) {
+                m_running = false;
+                std::cerr << "ERROR: EXITED because simulation was running too slow\n";
+            }
+
             if (accTime > 0.5f) {
                 double fps = double(frames) / accTime;
 

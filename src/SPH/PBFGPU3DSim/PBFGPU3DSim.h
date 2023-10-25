@@ -25,6 +25,7 @@
 #include "../../lib/ComputeShaderHandler.h"
 #include "PbfGpuSpatialGridHandler.h"
 #include "OffscreenPass.h"
+#include "../../lib/CubeMapModel.h"
 
 
 class PBFGPU3DSim: public vkb::VulkanApp {
@@ -49,8 +50,8 @@ private:
     int blurIterations = 2;
     uint32_t GRID_SIZE = 0;
 
-    static constexpr uint32_t gridShaderStartIdx = 14;
-    static constexpr uint32_t computeShaderStartIdx = 19;
+    static constexpr uint32_t gridShaderStartIdx = 16;
+    static constexpr uint32_t computeShaderStartIdx = 21;
     const std::vector<std::string> shaders = {
             "default.vert",
             "default.frag",
@@ -66,6 +67,8 @@ private:
             "ssf_smooth.frag",
             "quad.vert",
             "quad.frag",
+            "skybox.vert",
+            "skybox.frag",
             "reset_grid.comp",
             "insert_particles.comp",
             "scan.comp",
@@ -116,6 +119,11 @@ private:
     const vkb::RenderSystem::ShaderPaths quadShaderPaths = vkb::RenderSystem::ShaderPaths {
             COMPILED_SHADER_DIR + shaders[12] + ".spv",
             COMPILED_SHADER_DIR + shaders[13] + ".spv",
+    };
+
+    const vkb::RenderSystem::ShaderPaths skyboxShaderPaths = vkb::RenderSystem::ShaderPaths {
+            COMPILED_SHADER_DIR + shaders[14] + ".spv",
+            COMPILED_SHADER_DIR + shaders[15] + ".spv",
     };
 
     struct SimulationKernel {
@@ -215,13 +223,26 @@ private:
     std::vector<std::unique_ptr<vkb::Buffer>> graphicsUniformBuffers;
     UniformBufferObject gUbo{};
     vkb::RenderSystem defaultSystem{device};
+
+    vkb::CubeMapModel skybox{device, {
+            "../textures/skybox/right.jpg",
+            "../textures/skybox/left.jpg",
+            "../textures/skybox/bottom.jpg",
+            "../textures/skybox/top.jpg",
+            "../textures/skybox/front.jpg",
+            "../textures/skybox/back.jpg",
+    }, true};
+    vkb::RenderSystem skyboxSystem{device};
+
     std::vector<VkDescriptorSet> defaultDescriptorSets;
     std::vector<VkDescriptorSet> simulationDescriptorSets;
     std::vector<VkDescriptorSet> smooth1DescriptorSets;
     std::vector<VkDescriptorSet> smooth2DescriptorSets;
     std::vector<VkDescriptorSet> debugDescriptorSets;
+    std::vector<VkDescriptorSet> skyboxDescriptorSets;
     vkb::RenderSystem particleSystem{device};
-    // rendering
+
+    // rendering with screen space fluids
     vkb::OffscreenPass depthPass{device, renderer.getSwapChainExtent(), true};
     vkb::OffscreenPass thicknessPass{device, renderer.getSwapChainExtent()};
     vkb::OffscreenPass normalsPass{device, renderer.getSwapChainExtent()};

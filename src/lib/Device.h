@@ -67,7 +67,7 @@ namespace vkb{
         [[nodiscard]] QueueFamilyIndices findQueueFamilies(VkPhysicalDevice physicalDevice) const;
         [[nodiscard]] uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
         void executeSingleCommand(const std::function<void(VkCommandBuffer&)>& function, bool useGraphicsQueue = false) const;
-        void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) const;
+        void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount = 1) const;
         void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
                           VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) const;
         void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const;

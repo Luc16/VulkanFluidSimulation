@@ -42,6 +42,22 @@ void PBFGPU3DSim::onCreate() {
     }
 
     {
+        skyboxSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
+        skyboxSystem.createPipeline(renderer.renderPass(), skyboxShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
+            info.depthStencilInfo.depthTestEnable = VK_FALSE;
+            info.depthStencilInfo.depthWriteEnable = VK_FALSE;
+            info.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+            info.colorBlendAttachment.blendEnable = VK_FALSE;
+
+            info.bindingDescription.clear();
+            info.bindingDescription.push_back({0, sizeof(glm::vec3), VK_VERTEX_INPUT_RATE_VERTEX});
+            info.attributeDescription.clear();
+            info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
+        });
+    }
+
+    // create offscreen passes
+    {
         depthPass.createPass(defaultDescriptorLayout.descriptorSetLayout(), depthShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
             info.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
             info.bindingDescription.clear();
@@ -107,6 +123,7 @@ void PBFGPU3DSim::onCreate() {
             info.dynamicState.pDynamicStates = info.dynamicStateEnables.data();
         });
     }
+
     // debug render system
     {
         auto debugDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
@@ -131,6 +148,8 @@ void PBFGPU3DSim::onCreate() {
 
     }
 
+    skyboxDescriptorSets = createDescriptorSets(defaultDescriptorLayout,
+                                                {graphicsUniformBuffers[0]->descriptorInfo()}, {skybox.descriptorInfo()});
 
     simulationDescriptorSets = createDescriptorSets(defaultDescriptorLayout,
                                                     {graphicsUniformBuffers[0]->descriptorInfo()}, {depthPass.descriptorInfo()});
@@ -437,6 +456,8 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
     });
 
     renderer.runRenderPass([this, &vb, &offsets](VkCommandBuffer& commandBuffer){
+        skyboxSystem.bind(commandBuffer, &skyboxDescriptorSets[renderer.currentFrame()]);
+        skybox.bindAndDraw(commandBuffer);
 
         if (debugScene) {
             debugRenderSystem.bind(commandBuffer, &debugDescriptorSets[renderer.currentFrame()]);
@@ -450,6 +471,7 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
 
         defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
         plane.render(defaultSystem, commandBuffer);
+
     });
 
 }

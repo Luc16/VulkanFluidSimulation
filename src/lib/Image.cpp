@@ -7,9 +7,11 @@
 namespace vkb {
     Image::Image(const vkb::Device &device, uint32_t width, uint32_t height, uint32_t mipLevels,
                  VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
-                 VkMemoryPropertyFlags properties, VkImageAspectFlags aspectFlags): m_deviceRef(device) {
-        createImage(device, width, height, mipLevels, numSamples, format, tiling, usage, properties);
-        createImageView(format, aspectFlags, mipLevels);
+                 VkMemoryPropertyFlags properties, VkImageAspectFlags aspectFlags, bool createView,
+                 VkImageCreateFlags flags, uint32_t arrayLayers): m_deviceRef(device) {
+        createImage(device, width, height, mipLevels, numSamples, format, tiling, usage, properties, flags, arrayLayers);
+        if (createView)
+            createImageView(format, aspectFlags, mipLevels);
 
     }
 
@@ -21,7 +23,8 @@ namespace vkb {
 
     void Image::createImage(const vkb::Device &device, uint32_t width, uint32_t height, uint32_t mipLevels,
                             VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
-                            VkMemoryPropertyFlags properties){
+                            VkMemoryPropertyFlags properties, VkImageCreateFlags flags, uint32_t arrayLayers){
+        m_layerCount = arrayLayers;
         VkImageCreateInfo imageInfo{};
         imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -29,7 +32,7 @@ namespace vkb {
         imageInfo.extent.height = height;
         imageInfo.extent.depth = 1;
         imageInfo.mipLevels = mipLevels;
-        imageInfo.arrayLayers = 1;
+        imageInfo.arrayLayers = arrayLayers;
         imageInfo.format = format;
         imageInfo.tiling = tiling;
         imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -37,7 +40,7 @@ namespace vkb {
         imageInfo.usage = usage;
         imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         imageInfo.samples = numSamples;
-        imageInfo.flags = 0; // Optional
+        imageInfo.flags = flags;
 
         if (vkCreateImage(device.device(), &imageInfo, nullptr, &m_image) != VK_SUCCESS) {
             throw std::runtime_error("failed to create image!");
@@ -68,14 +71,21 @@ namespace vkb {
         viewInfo.subresourceRange.baseMipLevel = 0;
         viewInfo.subresourceRange.levelCount = mipLevels;
         viewInfo.subresourceRange.baseArrayLayer = 0;
-        viewInfo.subresourceRange.layerCount = 1;
+        viewInfo.subresourceRange.layerCount = m_layerCount;
 
         if (vkCreateImageView(m_deviceRef.device(), &viewInfo, nullptr, &m_imageView) != VK_SUCCESS) {
             throw std::runtime_error("failed to create texture image view!");
         }
     }
 
-    void Image::transitionLayout(VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels) {
+    void Image::createImageView(const VkImageViewCreateInfo& viewInfo) {
+
+        if (vkCreateImageView(m_deviceRef.device(), &viewInfo, nullptr, &m_imageView) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create texture image view!");
+        }
+    }
+
+    void Image::transitionLayout(VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels, bool useGraphicsQueue) {
         m_deviceRef.executeSingleCommand([format, oldLayout, newLayout, mipLevels, this](VkCommandBuffer commandBuffer){
             VkImageMemoryBarrier barrier{};
             barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -88,7 +98,7 @@ namespace vkb {
             barrier.subresourceRange.baseMipLevel = 0;
             barrier.subresourceRange.levelCount = mipLevels;
             barrier.subresourceRange.baseArrayLayer = 0;
-            barrier.subresourceRange.layerCount = 1;
+            barrier.subresourceRange.layerCount = m_layerCount;
 
             VkPipelineStageFlags sourceStage;
             VkPipelineStageFlags destinationStage;
@@ -136,7 +146,7 @@ namespace vkb {
 
             m_layout = newLayout;
 
-        });
+        }, useGraphicsQueue);
     }
 
     bool Image::hasStencilComponent(VkFormat format) {
