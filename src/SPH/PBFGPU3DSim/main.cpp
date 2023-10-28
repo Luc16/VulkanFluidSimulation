@@ -12,8 +12,6 @@ const std::string APP_NAME = "Vulkan GPU PBF 3D fluid simulation";
 int main() {
     PBFGPU3DSim app{WIDTH, HEIGHT, APP_NAME, vkb::Device::NVIDIA};
 
-    app.compileShaders();
-
     try {
         app.run();
     } catch (const std::exception& e) {

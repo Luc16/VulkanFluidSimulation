@@ -4,6 +4,7 @@
 #include "common.glsl"
 
 layout(location = 0) in vec3 inPosition;
+layout(location = 1) in float density;
 
 layout(binding = 0) uniform UBO {
     UniformBufferObject ubo;
@@ -19,5 +20,5 @@ void main() {
     gl_PointSize = ubo.screenHeight*ubo.radius/(viewPos.z*ubo.tanHalfFov);
     gl_Position = ubo.proj * viewPos;
 
-    fragColor = vec4(0.2f, 0.6f, 1.0f, 1.0f);
+    fragColor = density/ubo.restDens * vec4(1.0, 1.0, 1.0f, 1.0f);
 }

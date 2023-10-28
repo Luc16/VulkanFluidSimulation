@@ -7,14 +7,14 @@
 void PBFGPU3DSim::onCreate() {
     vkDeviceWaitIdle(device.device());
     compileShaders();
-    camera.m_translation = {-174.012f, 194.745f, 193.005f};
-    camera.m_rotation = {0.569391f, 1.95856f, 3.14159f};
+//    camera.m_translation = {-174.012f, 194.745f, 193.005f};
+//    camera.m_rotation = {0.569391f, 1.95856f, 3.14159f};
+    camera.m_translation = {-9.31845f, 14.2878f, 15.5649f};
+    camera.m_rotation = {0.569391f, 2.26887f, 3.14159f};
+    camera.updateView();
     gUbo.radius = cUbo.H;
     gUbo.screenHeight = (float) window.height();
     gUbo.screenWidth = (float) window.width();
-//    camera.m_translation = {-9.31845f, 14.2878f, 15.5649f};
-//    camera.m_rotation = {0.569391f, 2.26887f, 3.14159f};
-    camera.updateView();
     auto extent = window.extent();
     camera.setOrthographicProjection(0.0f, (float) extent.width, (float) extent.height, 0.0f, gUbo.zNear, gUbo.zFar);
     createUniformBuffers();
@@ -38,8 +38,10 @@ void PBFGPU3DSim::onCreate() {
             info.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
             info.bindingDescription.clear();
             info.bindingDescription.push_back({0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX});
+            info.bindingDescription.push_back({1, sizeof(float), VK_VERTEX_INPUT_RATE_VERTEX});
             info.attributeDescription.clear();
             info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
+            info.attributeDescription.push_back({1, 1, VK_FORMAT_R32_SFLOAT, 0});
         });
     }
 
@@ -316,7 +318,9 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
         }
         correctionBuffer = makeBuffer(particles.correction.size() * sizeof(glm::vec4));
         vorticityBuffer = makeBuffer(particles.vorticity.size()*sizeof(glm::vec4));
-        densityBuffer = makeBuffer(particles.density.size()*sizeof(float));
+        densityBuffer = std::make_unique<vkb::Buffer>(device, particles.density.size() * sizeof(float),
+                                                      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
         lambdaBuffer = makeBuffer(particles.lambda.size()*sizeof(float));
         gridIdxBuffer = makeBuffer(particles.idx.size() * sizeof(uint32_t));
     }
@@ -368,6 +372,13 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
         });
     }
     createComputeDescriptorSets();
+
+    std::vector<uint32_t> idxs(INSTANCE_COUNT);
+    std::iota(std::begin(idxs), std::end(idxs), 0);
+    idxBuffer = std::make_unique<vkb::Buffer>(device, idxs.size() * sizeof(uint32_t),
+                                              VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    vkb::Buffer::writeVectorToBuffer(device, idxBuffer, idxs);
 
     objectsInitialized = true;
 
@@ -473,7 +484,10 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
         } else {
             particleSystem.bind(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()]);
             vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
-            vkCmdDraw(commandBuffer, INSTANCE_COUNT, 1, 0, 0);
+            VkBuffer vbDens = densityBuffer->getBuffer();
+            vkCmdBindVertexBuffers(commandBuffer, 1, 1, &vbDens, offsets);
+            vkCmdBindIndexBuffer(commandBuffer, idxBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
+            vkCmdDrawIndexed(commandBuffer, INSTANCE_COUNT, 1, 0, 0, 0);
         }
 
         defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
@@ -536,6 +550,7 @@ void PBFGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){
     gUbo.view = camera.getView();
     gUbo.inverseView = glm::inverse(gUbo.view);
     gUbo.proj = camera.getProjection();
+    gUbo.restDens = cUbo.REST_DENS;
     graphicsUniformBuffers[frameIndex]->write(&gUbo);
 
     cUbo.planeY = plane.m_translation.y;
@@ -585,7 +600,8 @@ void PBFGPU3DSim::showImGui(){
         ImGui::DragFloat("Particle Radius", &gUbo.radius, 0.1f, 0.1f, 100.0f);
 
         ImGui::Text("View mode");
-        static std::array<std::string, 7> renderTypes = {"Particles", "Depth", "Thickness", "Normals", "Smooth", "Fresnel Scale", "Fresnel"};
+        static std::array<std::string, 9> renderTypes = {"Particles", "Depth", "Thickness", "Normals", "Smooth",
+                                                         "Reflection", "Refraction", "Fresnel Scale", "Fresnel"};
         std::string curItem = renderTypes[gUbo.renderType];
         if (ImGui::BeginCombo("##combo", curItem.c_str())) {
             for (uint32_t i = 0; i < renderTypes.size(); i++){

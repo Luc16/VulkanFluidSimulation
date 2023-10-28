@@ -43,7 +43,7 @@ private:
     const std::string COMPILED_SHADER_DIR = std::string("../src/SPH/PBFGPU3DSim/Shaders/bin/");
 
 
-    uint32_t INSTANCE_COUNT = 200'000;
+    uint32_t INSTANCE_COUNT = 1000;
     static constexpr uint32_t MAX_PARTICLES = 1'000'000;
     static constexpr float MAX_BOUND = 1000.0f;
     uint32_t jacobiIterations = 3;
@@ -166,7 +166,7 @@ private:
         float screenHeight;
         float screenWidth;
         float tanHalfFov = std::tan(glm::radians(50.0f)/2);
-        uint32_t renderType = 6;
+        uint32_t renderType = 0;
         float zNear = 0.1f;
         float zFar = 500.0f;
         uint32_t blurMode = 0;
@@ -174,52 +174,53 @@ private:
         float blurScale = 0.2;
         float blurDepthFalloff = 8;
         alignas(16) glm::vec3 planeSize;
+        float restDens;
 
     };
 
-    struct ComputeUniformBufferObject {
-        alignas(16) glm::vec3 BOUNDARY_SIZE = glm::vec3(150.0f);
-        alignas(16) glm::vec3 G = glm::vec3(0.0f, -9.8f, 0.0f);
-
-        float planeY = 0.0f;
-        float REST_DENS = 100.0f;  // rest density
-        float H = 1.5f;           // kernel radius
-        float HSQ = H * H;        // radius^2 for optimization
-        float MASS = 5.0f;        // assume all particles have the same mass
-        float VISC = 0.8f;       // viscosity constant
-        float DT = 0.01666f/2;       // integration timestep
-        float ART_PRESSURE_COEF = 0.1f;
-        float VORTICITY_COEF = 0.0004f;
-        uint numParticles = 0;
-        float POLY6 = 315.0f / (64.0f * glm::pi<float>() *H*H*H *H*H*H *H*H*H);
-        float SPIKY_GRAD = 45.0f / (glm::pi<float>() * H*H*H *H*H*H);
-
-        float CFM = 0.5f;
-        float EPS = H; // boundary epsilon
-        uint32_t GRID_SIZE = 0;
-    };
 //    struct ComputeUniformBufferObject {
-//        alignas(16) glm::vec3 BOUNDARY_SIZE = glm::vec3(8.0f);
+//        alignas(16) glm::vec3 BOUNDARY_SIZE = glm::vec3(150.0f);
 //        alignas(16) glm::vec3 G = glm::vec3(0.0f, -9.8f, 0.0f);
 //
 //        float planeY = 0.0f;
-//        float REST_DENS = 6378.0f;  // rest density
-//        float H = 0.1f;           // kernel radius
+//        float REST_DENS = 100.0f;  // rest density
+//        float H = 1.5f;           // kernel radius
 //        float HSQ = H * H;        // radius^2 for optimization
-//        float MASS = 1.0f;        // assume all particles have the same mass
-//        float VISC = 0.01f;       // viscosity constant
-////        float DT = 0.0083f;       // integration timestep
-//        float DT = 0.00005f;       // integration timestep
-//        float ART_PRESSURE_COEF = 0.0001f;
+//        float MASS = 5.0f;        // assume all particles have the same mass
+//        float VISC = 0.8f;       // viscosity constant
+//        float DT = 0.01666f/2;       // integration timestep
+//        float ART_PRESSURE_COEF = 0.1f;
 //        float VORTICITY_COEF = 0.0004f;
 //        uint numParticles = 0;
 //        float POLY6 = 315.0f / (64.0f * glm::pi<float>() *H*H*H *H*H*H *H*H*H);
 //        float SPIKY_GRAD = 45.0f / (glm::pi<float>() * H*H*H *H*H*H);
 //
-//        float CFM = 600.0f;
+//        float CFM = 0.5f;
 //        float EPS = H; // boundary epsilon
 //        uint32_t GRID_SIZE = 0;
 //    };
+    struct ComputeUniformBufferObject {
+        alignas(16) glm::vec3 BOUNDARY_SIZE = glm::vec3(8.0f);
+        alignas(16) glm::vec3 G = glm::vec3(0.0f, -9.8f, 0.0f);
+
+        float planeY = 0.0f;
+        float REST_DENS = 6378.0f;  // rest density
+        float H = 0.1f;           // kernel radius
+        float HSQ = H * H;        // radius^2 for optimization
+        float MASS = 1.0f;        // assume all particles have the same mass
+        float VISC = 0.01f;       // viscosity constant
+        float DT = 0.0083f;       // integration timestep
+//        float DT = 0.00005f;       // integration timestep
+        float ART_PRESSURE_COEF = 0.0001f;
+        float VORTICITY_COEF = 0.0004f;
+        uint numParticles = 0;
+        float POLY6 = 315.0f / (64.0f * glm::pi<float>() *H*H*H *H*H*H *H*H*H);
+        float SPIKY_GRAD = 45.0f / (glm::pi<float>() * H*H*H *H*H*H);
+
+        float CFM = 600.0f;
+        float EPS = H; // boundary epsilon
+        uint32_t GRID_SIZE = 0;
+    };
 
     vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, planeModelPath), std::make_shared<vkb::Texture>(device, planeTexPath)};
 
@@ -255,6 +256,7 @@ private:
 
 
     ParticleData particles{};
+    std::unique_ptr<vkb::Buffer> idxBuffer;
     std::array<std::unique_ptr<vkb::Buffer>, 2> positionBuffers;
     std::array<std::unique_ptr<vkb::Buffer>, 2> velocityBuffers;
     std::array<std::unique_ptr<vkb::Buffer>, 2> predPosBuffers;

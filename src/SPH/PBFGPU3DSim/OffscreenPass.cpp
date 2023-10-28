@@ -47,7 +47,7 @@ namespace vkb {
 
     void OffscreenPass::createRenderPass() {
         VkAttachmentDescription colorAttachment{};
-        colorAttachment.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+        colorAttachment.format = VK_FORMAT_R32G32B32A32_SFLOAT;
         colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
         colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -105,7 +105,7 @@ namespace vkb {
                 m_extent.height,
                 1,
                 VK_SAMPLE_COUNT_1_BIT,
-                VK_FORMAT_R16G16B16A16_SFLOAT,
+                VK_FORMAT_R32G32B32A32_SFLOAT,
                 VK_IMAGE_TILING_OPTIMAL,
                 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
@@ -114,7 +114,7 @@ namespace vkb {
 
 
         VkFormatProperties formatProps;
-        vkGetPhysicalDeviceFormatProperties(m_deviceRef.physicalDevice(), VK_FORMAT_R16G16B16A16_SFLOAT, &formatProps);
+        vkGetPhysicalDeviceFormatProperties(m_deviceRef.physicalDevice(), VK_FORMAT_R32G32B32A32_SFLOAT, &formatProps);
 
         VkFilter shadowmap_filter = formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT ?
                                     VK_FILTER_LINEAR :
