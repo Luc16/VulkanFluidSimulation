@@ -87,18 +87,18 @@ void PBFGPU3DSim::onCreate() {
             info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
             info.multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
             info.rasterizer.cullMode = VK_CULL_MODE_NONE;
-            info.enableAlphaBlending();
+//            info.enableAlphaBlending();
             // additive blending
-//            info.colorBlendAttachment.blendEnable = VK_TRUE;
-//            info.colorBlendAttachment.colorWriteMask =
-//                    VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
-//                    VK_COLOR_COMPONENT_A_BIT;
-//            info.colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-//            info.colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
-//            info.colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-//            info.colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-//            info.colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-//            info.colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+            info.colorBlendAttachment.blendEnable = VK_TRUE;
+            info.colorBlendAttachment.colorWriteMask =
+                    VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
+                    VK_COLOR_COMPONENT_A_BIT;
+            info.colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+            info.colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+            info.colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+            info.colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+            info.colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+            info.colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
 
         });
 
@@ -257,6 +257,7 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     gUbo.view = camera.getView();
     gUbo.inverseView = glm::inverse(gUbo.view);
     gUbo.proj = camera.getProjection();
+    gUbo.planeSize = cUbo.BOUNDARY_SIZE;
     cUbo.numParticles = INSTANCE_COUNT;
     GRID_SIZE = uint32_t(cUbo.BOUNDARY_SIZE.x/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.y/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.z/cUbo.H) + 1;
 

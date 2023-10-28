@@ -173,6 +173,8 @@ private:
         int filterRadius = 5;
         float blurScale = 0.2;
         float blurDepthFalloff = 8;
+        alignas(16) glm::vec3 planeSize;
+
     };
 
     struct ComputeUniformBufferObject {

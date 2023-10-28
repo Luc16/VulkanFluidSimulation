@@ -17,6 +17,7 @@ struct UniformBufferObject {
     int filterRadius;
     float blurScale;
     float blurDepthFalloff;
+    vec3 planeSize;
 };
 
 #endif //COMMON_SHADER_H

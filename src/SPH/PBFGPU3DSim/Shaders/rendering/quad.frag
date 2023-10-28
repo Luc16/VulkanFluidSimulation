@@ -22,7 +22,11 @@ layout (binding = 6) uniform samplerCube samplerCubeMap;
 layout (location = 0) out vec4 outFragColor;
 
 const float r0 = 0.142857;
-const vec4 defaultColor = vec4(0.2f, 0.6f, 1.0f, 1.0f);
+const vec3 defaultColor = vec3(6, 105, 217) / 256;
+const float attenuateConst = 0.01;
+const float fresnel_bias = 0;
+const float fresnel_scale = 100;
+const float fresnel_power = 2.5;
 
 float linearizeDepth(float depth){
     float n = ubo.zNear;
@@ -31,53 +35,77 @@ float linearizeDepth(float depth){
     return (2.0 * n) / (f + n - z * (f - n));
 }
 
+float getDepth(vec2 uv) {
+//    return ubo.zNear + linearizeDepth(texture(samplerDepth, uv).r)*(ubo.zFar - ubo.zNear);
+//    return linearizeDepth(texture(samplerDepth, uv).r);
+//    return ubo.zNear + texture(samplerDepth, uv).r*(ubo.zFar - ubo.zNear);
+    return 0.5 * (ubo.zFar + ubo.zNear + texture(samplerDepth, uv).r*(ubo.zFar - ubo.zNear));
+}
+
+float getThickness(vec2 uv) {
+    float thickness = texture(samplerThick, inUV).r;
+    return clamp(exp(attenuateConst*-thickness), 0.01, 1.0);
+}
+
 vec3 getPos() {
-    float z = texture(samplerDepth, inUV).r;
+    float z = getDepth(inUV);
     return vec3(
-        (inUV.x*2 - 1)*z*ubo.screenWidth/ubo.screenHeight,
+        (inUV.x*2 - 1)*z*ubo.tanHalfFov*ubo.screenWidth/ubo.screenHeight,
         (inUV.y*2 - 1)*z*ubo.tanHalfFov,
         z
     );
 }
 
-vec3 traceColor(vec3 pos, vec3 dir) {
-    vec4 worldPos = mat4(ubo.inverseView) * vec4(pos, 1.0);
-    vec3 worldDir = mat3(ubo.inverseView) * dir;
-    float t = worldPos.z / worldDir.z;
-    vec3 world_its = worldPos.xyz + t * worldDir;
+float fresnelScale(vec3 dir, vec3 normal) {
+    // http://developer.download.nvidia.com/CgTutorial/cg_tutorial_chapter07.html
+    return clamp(fresnel_bias + fresnel_scale * pow(1 + dot(dir, normal), fresnel_power), 0, 1);
+//    return clamp(r0 + (1 - r0) * pow(1 - dot(-dir, normal), 5), 0, 1);
+}
 
-//    if (t >= 0 && abs(world_its.x) < 150 && abs(world_its.y) < 150) {
-//       return vec3(0.3, 0.3, 0.3);//texture(samplerPlane, world_its.xy).rgb;
-//    } else {
+vec3 traceColor(vec4 pos, vec3 dir) {
+    float t = -pos.y / dir.y;
+    pos.z *= -1;
+    vec3 world_its = pos.xyz + t * dir;
+
+    if (t >= 0 && world_its.x > 0 && world_its.x < ubo.planeSize.x && world_its.z < 0 && world_its.z > -ubo.planeSize.z) {
+        return texture(samplerPlane, vec2(world_its.x, -world_its.z)/150).rgb;
+    } else {
         return texture(samplerCubeMap, dir).rgb;
-//    }
+    }
 }
 
 vec4 shadingFresnel() {
     vec3 n = texture(samplerNormals, inUV).xyz;
     vec3 p = getPos();
-    vec3 e = -normalize(p);
-//    float r = r0 + (1 - r0)*pow(1 - dot(n, e), 3);
+    vec3 dir = -normalize(p);
+    vec4 worldPos = ubo.inverseView * vec4(p, 1.0);
+    vec3 worldDir = mat3(ubo.inverseView) * dir;
+    worldDir.z *= -1;
+
+    // http://developer.download.nvidia.com/CgTutorial/cg_tutorial_chapter07.html
+    float r = fresnelScale(dir, n);
+    r = (r == 1) ? 0.3 : r;
+
+    vec3 reflectedDir = -worldDir + 2 * n * dot(n, worldDir);
+    vec3 refractedDir = worldDir - 0.02*n;
+
+    vec3 refractColor = mix(defaultColor, traceColor(worldPos, refractedDir), getThickness(inUV));
+    vec3 reflectColor = traceColor(worldPos, reflectedDir);
 //
-//    vec3 view_reflect = -e + 2 * n * dot(n, e);
-//    vec3 view_refract = -e - 0.2*n;
-//
-//    float thickness = texture(samplerThick, inUV).r;
-//    float attenuate = max(exp(0.5*-thickness), 0.2);
-//    vec3 tint_color = vec3(6, 105, 217) / 256;
-//     vec3 refract_color = mix(tint_color, traceColor(p, view_refract), 0.99);
-////    vec3 refract_color = mix(tint_color, traceColor(p, view_refract), thickness);
-//    vec3 reflect_color = traceColor(p, view_reflect);
-//
-////    return vec4(mix(refract_color, reflect_color, r), 1);
-    return vec4(traceColor(p, e), 1);
+    return vec4(mix(refractColor, reflectColor, r), 1.0);
+//    return vec4(reflectColor, 1);
+//    return vec4(refractColor, 1);
 }
 
 vec4 shadingFresnelScale() {
     vec3 n = texture(samplerNormals, inUV).xyz;
-    vec3 e = normalize(-getPos());
-    float r = r0 + (1 - r0)*pow(1 - dot(n, e), 2);
-    return r*defaultColor;
+    vec3 dir = normalize(-getPos());
+    vec3 worldDir = mat3(ubo.inverseView) * dir;
+    worldDir.z *= -1;
+
+    float r = fresnelScale(dir, n);
+
+    return vec4(vec3(r), 1.0);
 }
 
 void main()
@@ -92,8 +120,7 @@ void main()
             outFragColor = vec4(vec3(linearizeDepth(depth)), 1.0);
         break;
         case 2:
-            vec4 thickColor = vec4(texture(samplerThick, inUV).r);
-            outFragColor = vec4(vec3(thickColor), 1.0 - thickColor.r);
+            outFragColor = vec4(getThickness(inUV));
         break;
         case 3:
             vec4 normal = texture(samplerNormals, inUV);
@@ -102,8 +129,10 @@ void main()
         case 4:
             float smoothDepth = texture(samplerSmoothedDepth, inUV).r;
             outFragColor = vec4(vec3(linearizeDepth(smoothDepth)), 1.0);
+        break;
         case 5:
             outFragColor = shadingFresnelScale();
+        break;
         case 6:
             outFragColor = shadingFresnel();
         break;
