@@ -1,4 +1,5 @@
 #version 450
+#extension GL_EXT_debug_printf : enable
 #extension GL_GOOGLE_include_directive : require
 
 #include "core.glsl"
@@ -65,10 +66,10 @@ void main()
                     vec3 vec = predPos[i] - predPos[j];
                     float dist2 = dot(vec, vec);
 
-                    if (i == j || dist2 < 0.0000001f) continue;
-
                     if (dist2 < ubo.HSQ) {
                         densities[i] += ubo.MASS * ubo.POLY6 * pow(ubo.HSQ - dist2, 3.f);
+
+                        if (i == j || dist2 < 0.0000001f) continue;
 
                         float dist = sqrt(dist2);
                         float delta = ubo.H - dist;

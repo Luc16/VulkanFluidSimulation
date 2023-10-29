@@ -43,7 +43,7 @@ private:
     const std::string COMPILED_SHADER_DIR = std::string("../src/SPH/PBFGPU3DSim/Shaders/bin/");
 
 
-    uint32_t INSTANCE_COUNT = 10000;
+    uint32_t INSTANCE_COUNT = 200'000;
     static constexpr uint32_t MAX_PARTICLES = 1'000'000;
     static constexpr float MAX_BOUND = 1000.0f;
     uint32_t jacobiIterations = 3;
@@ -164,7 +164,7 @@ private:
         float screenHeight;
         float screenWidth;
         float tanHalfFov = std::tan(glm::radians(50.0f)/2);
-        uint32_t renderType = 0;
+        uint32_t renderType = 8;
         float zNear = 0.1f;
         float zFar = 500.0f;
         uint32_t blurMode = 0;
@@ -199,8 +199,7 @@ private:
 //    };
     struct ComputeUniformBufferObject {
         alignas(16) glm::vec3 BOUNDARY_SIZE = glm::vec3(10.0f);
-//        alignas(16) glm::vec3 G = glm::vec3(0.0f, -9.8f, 0.0f);
-        alignas(16) glm::vec3 G = glm::vec3(0.0f, -0.0f, 0.0f);
+        alignas(16) glm::vec3 G = glm::vec3(0.0f, -9.8f, 0.0f);
 
         float planeY = 0.0f;
         float REST_DENS = 6378.0f;  // rest density

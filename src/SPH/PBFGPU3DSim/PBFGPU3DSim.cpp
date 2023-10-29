@@ -528,7 +528,7 @@ void PBFGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){
 
     cUbo.planeY = plane.m_translation.y;
 //    cUbo.DT = std::clamp(deltaTime, 0.001f, 0.016f);
-    cUbo.G = 0.0f*glm::vec3(0.0f, -9.8f, 0.0f);
+//    cUbo.G = 0.0f*glm::vec3(0.0f, -9.8f, 0.0f);
     computeUniformBuffer->write(&cUbo);
 }
 
