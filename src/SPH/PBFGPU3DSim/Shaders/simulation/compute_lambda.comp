@@ -36,6 +36,7 @@ void main()
 
     vec3 gradCiSum = vec3(0.0f);
     float gradCsqSum = 0;
+    densities[i] = 0;
 
     // For each neighbor
     int numCellsX = int(ubo.BOUNDARY_SIZE.x/ubo.H);
@@ -67,6 +68,8 @@ void main()
                     if (i == j || dist2 < 0.0000001f) continue;
 
                     if (dist2 < ubo.HSQ) {
+                        densities[i] += ubo.MASS * ubo.POLY6 * pow(ubo.HSQ - dist2, 3.f);
+
                         float dist = sqrt(dist2);
                         float delta = ubo.H - dist;
                         vec3 gradCj = (vec/dist) * ubo.SPIKY_GRAD * delta * delta;

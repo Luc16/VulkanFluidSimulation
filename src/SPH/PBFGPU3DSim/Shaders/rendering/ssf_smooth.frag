@@ -61,7 +61,7 @@ float gaussian(ivec2 texPos) {
 }
 
 // https://www.shadertoy.com/view/4dfGDH
-#define BSIGMA 0.1
+#define BSIGMA 0.001
 #define MSIZE 15
 const float kernel[MSIZE] = float[MSIZE](0.031225216, 0.033322271, 0.035206333, 0.036826804, 0.038138565, 0.039104044, 0.039695028, 0.039894000, 0.039695028, 0.039104044, 0.038138565, 0.036826804, 0.035206333, 0.033322271, 0.031225216);
 const int k_size = (MSIZE - 1) / 2;

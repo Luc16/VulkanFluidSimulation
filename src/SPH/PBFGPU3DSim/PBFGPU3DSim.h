@@ -43,7 +43,7 @@ private:
     const std::string COMPILED_SHADER_DIR = std::string("../src/SPH/PBFGPU3DSim/Shaders/bin/");
 
 
-    uint32_t INSTANCE_COUNT = 1000;
+    uint32_t INSTANCE_COUNT = 10000;
     static constexpr uint32_t MAX_PARTICLES = 1'000'000;
     static constexpr float MAX_BOUND = 1000.0f;
     uint32_t jacobiIterations = 3;
@@ -75,10 +75,8 @@ private:
             "scan_add.comp",
             "sort_particles.comp",
             "predict_positions.comp",
-            "compute_density.comp",
             "compute_lambda.comp",
             "compute_position_correction.comp",
-            "correct_positions.comp",
             "update_velocities.comp",
             "apply_visc_and_compute_vort.comp",
             "apply_vort_and_update_pos.comp",
@@ -172,7 +170,7 @@ private:
         uint32_t blurMode = 0;
         int filterRadius = 5;
         float blurScale = 0.2;
-        float blurDepthFalloff = 8;
+        float blurDepthFalloff = 1000;
         alignas(16) glm::vec3 planeSize;
         float restDens;
 
@@ -183,7 +181,7 @@ private:
 //        alignas(16) glm::vec3 G = glm::vec3(0.0f, -9.8f, 0.0f);
 //
 //        float planeY = 0.0f;
-//        float REST_DENS = 100.0f;  // rest density
+//        float REST_DENS = 40.0f;  // rest density
 //        float H = 1.5f;           // kernel radius
 //        float HSQ = H * H;        // radius^2 for optimization
 //        float MASS = 5.0f;        // assume all particles have the same mass
@@ -200,8 +198,9 @@ private:
 //        uint32_t GRID_SIZE = 0;
 //    };
     struct ComputeUniformBufferObject {
-        alignas(16) glm::vec3 BOUNDARY_SIZE = glm::vec3(8.0f);
-        alignas(16) glm::vec3 G = glm::vec3(0.0f, -9.8f, 0.0f);
+        alignas(16) glm::vec3 BOUNDARY_SIZE = glm::vec3(10.0f);
+//        alignas(16) glm::vec3 G = glm::vec3(0.0f, -9.8f, 0.0f);
+        alignas(16) glm::vec3 G = glm::vec3(0.0f, -0.0f, 0.0f);
 
         float planeY = 0.0f;
         float REST_DENS = 6378.0f;  // rest density
@@ -214,7 +213,7 @@ private:
         float ART_PRESSURE_COEF = 0.0001f;
         float VORTICITY_COEF = 0.0004f;
         uint numParticles = 0;
-        float POLY6 = 315.0f / (64.0f * glm::pi<float>() *H*H*H *H*H*H *H*H*H);
+        float POLY6 = 0.02f*315.0f / (64.0f * glm::pi<float>() *H*H*H *H*H*H *H*H*H);
         float SPIKY_GRAD = 45.0f / (glm::pi<float>() * H*H*H *H*H*H);
 
         float CFM = 600.0f;
@@ -293,19 +292,8 @@ private:
                     .build()
     };
 
-    SimulationKernel densityKernel {
-            .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 1] + ".spv"},
-            .layout = vkb::DescriptorSetLayout::Builder(device)
-                    .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                    .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
-                    .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // predPos
-                    .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // density
-                    .addBinding({4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid idx
-                    .build()
-    };
-
     SimulationKernel lambdaKernel {
-            .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 2] + ".spv"},
+            .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 1] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
@@ -317,7 +305,7 @@ private:
     };
 
     SimulationKernel posCorrectionKernel {
-            .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 3] + ".spv"},
+            .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 2] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
@@ -328,17 +316,8 @@ private:
                     .build()
     };
 
-    SimulationKernel correctPositionsKernel {
-        .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 4] + ".spv"},
-        .layout = vkb::DescriptorSetLayout::Builder(device)
-            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-            .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // predPos
-            .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // correction
-            .build()
-    };
-
     SimulationKernel updateVelocitiesKernel {
-            .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 5] + ".spv"},
+            .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 3] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pos
@@ -348,7 +327,7 @@ private:
     };
 
     SimulationKernel applyViscAndComputeVortKernel {
-            .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 6] + ".spv"},
+            .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 4] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
@@ -361,7 +340,7 @@ private:
     };
 
     SimulationKernel applyVortAndUpdatePos {
-            .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 7] + ".spv"},
+            .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 5] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
@@ -385,7 +364,7 @@ private:
     float particleVerticalSpacing = cUbo.H*(1 + 0.13333f);
     glm::vec4 initialPos = {cUbo.EPS, cUbo.EPS, cUbo.EPS, 0};
     float drawTime = 0, cpuTime = 0, computeTime = 0, gravityFactor = 1.0f;
-    bool activateTimer = false, controlMode = false, objectsInitialized = false, pausedSimulation = false, debugScene = false;
+    bool activateTimer = false, controlMode = false, objectsInitialized = false, pausedSimulation = false, debugScene = false, singleStep = false;
     uint32_t hardResetFrame = 0;
 
     void onCreate() override;

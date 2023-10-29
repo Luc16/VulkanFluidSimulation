@@ -172,10 +172,8 @@ void PBFGPU3DSim::onCreate() {
         createComputeDescriptorSets();
 
         predictPositionKernel.createPipeline();
-        densityKernel.createPipeline();
         lambdaKernel.createPipeline();
         posCorrectionKernel.createPipeline();
-        correctPositionsKernel.createPipeline();
         updateVelocitiesKernel.createPipeline();
         applyViscAndComputeVortKernel.createPipeline();
         applyVortAndUpdatePos.createPipeline();
@@ -191,14 +189,6 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
                 {positionBuffers[i]->descriptorInfo()},
                 {velocityBuffers[i]->descriptorInfo()},
                 {predPosBuffers[i]->descriptorInfo()},
-        });
-
-        densityKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, densityKernel.layout, {
-                {computeUniformBuffer->descriptorInfo()},
-                {gridHandler.gridDescriptorInfo()},
-                {predPosBuffers[(i + 1) % predPosBuffers.size()]->descriptorInfo()},
-                {densityBuffer->descriptorInfo()},
-                {gridIdxBuffer->descriptorInfo()}
         });
 
         lambdaKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, lambdaKernel.layout, {
@@ -217,12 +207,6 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
                 {correctionBuffer->descriptorInfo()},
                 {lambdaBuffer->descriptorInfo()},
                 {gridIdxBuffer->descriptorInfo()},
-        });
-
-        correctPositionsKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, correctPositionsKernel.layout, {
-                {computeUniformBuffer->descriptorInfo()},
-                {predPosBuffers[(i + 1) % predPosBuffers.size()]->descriptorInfo()},
-                {correctionBuffer->descriptorInfo()},
         });
 
         updateVelocitiesKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, updateVelocitiesKernel.layout, {
@@ -355,14 +339,10 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
         globalDescriptorPool->freeDescriptors({
             predictPositionKernel.descSets[0],
             predictPositionKernel.descSets[1],
-            densityKernel.descSets[0],
-            densityKernel.descSets[1],
             lambdaKernel.descSets[0],
             lambdaKernel.descSets[1],
             posCorrectionKernel.descSets[0],
             posCorrectionKernel.descSets[1],
-            correctPositionsKernel.descSets[0],
-            correctPositionsKernel.descSets[1],
             updateVelocitiesKernel.descSets[0],
             updateVelocitiesKernel.descSets[1],
             applyViscAndComputeVortKernel.descSets[0],
@@ -511,19 +491,12 @@ void PBFGPU3DSim::updateSimulation() {
         vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
 
         for (uint32_t i = 0; i < jacobiIterations; i++){
-            densityKernel.bindAndDispatch(computeCommandBuffer,computeFrameIdx, blockSize, 1, 1);
-
-            vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
 
             lambdaKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
 
             vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
 
             posCorrectionKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
-
-            vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
-
-            correctPositionsKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
 
             vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
         }
@@ -555,7 +528,7 @@ void PBFGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){
 
     cUbo.planeY = plane.m_translation.y;
 //    cUbo.DT = std::clamp(deltaTime, 0.001f, 0.016f);
-    cUbo.G = gravityFactor*glm::vec3(0.0f, -10.0f, 0.0f);
+    cUbo.G = 0.0f*glm::vec3(0.0f, -9.8f, 0.0f);
     computeUniformBuffer->write(&cUbo);
 }
 
@@ -641,14 +614,36 @@ void PBFGPU3DSim::showImGui(){
             ImGui::SetCursorPosX(15.0f);
             ImGui::DragFloat("Blur Scale", &gUbo.blurScale, 0.01f, 0.01f, 5.0f, "%.3f");
             ImGui::SetCursorPosX(15.0f);
-            ImGui::DragFloat("Blur Fall Off", &gUbo.blurDepthFalloff, 0.5f, 0.5f, 50.0f);
+            ImGui::DragFloat("Blur Fall Off", &gUbo.blurDepthFalloff, 10.0f, 100.0f, 10000.0f);
         }
+    }
+
+    if (singleStep) {
+        pausedSimulation = true;
+        singleStep = false;
+    }
+
+    static bool pWasReleased = false;
+    if (ImGui::Button("Step") || pWasReleased && glfwGetKey(window.window(), GLFW_KEY_P) == GLFW_PRESS) {
+        singleStep = true;
+        pausedSimulation = false;
+
+    } else if (glfwGetKey(window.window(), GLFW_KEY_P) == GLFW_RELEASE){
+        pWasReleased = true;
     }
 
     if (ImGui::Button("Reset")) {
         initializeObjects(true);
         controlMode = false;
         pausedSimulation = false;
+    }
+
+    static bool rWasReleased = false;
+    if (rWasReleased && glfwGetKey(window.window(), GLFW_KEY_R) == GLFW_PRESS) {
+        initializeObjects(true);
+        controlMode = false;
+    } else if (glfwGetKey(window.window(), GLFW_KEY_R) == GLFW_RELEASE){
+        rWasReleased = true;
     }
 
     if (hardResetFrame > 2) {

@@ -23,10 +23,10 @@ layout (location = 0) out vec4 outFragColor;
 
 const float r0 = 0.142857;
 const vec3 defaultColor = vec3(6, 105, 217) / 256;
-const float attenuateConst = 0.01;
+const float attenuateConst = 0.2;
 const float fresnel_bias = 0;
-const float fresnel_scale = 5;
-const float fresnel_power = 3;
+const float fresnel_scale = 1.2f;
+const float fresnel_power = 10.0f;
 
 float linearizeDepth(float depth){
     float n = ubo.zNear;
@@ -64,11 +64,14 @@ float fresnelScale(vec3 dir, vec3 normal) {
 
 vec3 traceColor(vec4 pos, vec3 dir) {
     float t = -pos.y / dir.y;
-    vec3 world_its = pos.xyz + t * dir;
+    vec3 planeIntersect = pos.xyz + t * dir;
 
-    if (t >= 0 && world_its.x > 0 && world_its.x < ubo.planeSize.x && world_its.z > 0 && world_its.z < ubo.planeSize.z) {
-        return texture(samplerPlane, vec2(world_its.x, world_its.z)/150).rgb;
+    debugPrintfEXT("intersect: %f, %f, %f -> t: %f, pos: %f, %f, %f -> dir: %f, %f, %f",
+    planeIntersect.x, planeIntersect.y, planeIntersect.z, t, pos.x, pos.y, pos.z, dir.x, dir.y, dir.z);
+    if (t >= 0 && planeIntersect.x > 0 && planeIntersect.x < ubo.planeSize.x && planeIntersect.z > 0 && planeIntersect.z < ubo.planeSize.z) {
+        return texture(samplerPlane, vec2(planeIntersect.x/ubo.planeSize.x, planeIntersect.z/ubo.planeSize.z)).rgb;
     } else {
+        dir.z *= -1; // flip z for cube map
         return texture(samplerCubeMap, dir).rgb;
     }
 }
@@ -81,12 +84,11 @@ vec4 shadingFresnel() {
     vec3 worldDir = mat3(ubo.inverseView) * dir;
 
     float r = fresnelScale(dir, n);
-    r = (r == 1) ? 0.25 : r;
+//    r = (r == 1) ? 0.25 : r;
 
     vec3 reflectedDir = worldDir - 2 * n * dot(n, worldDir);
     reflectedDir.x *= -1;
-    reflectedDir.z *= -1;
-    vec3 refractedDir = worldDir - 0.02*n;
+    vec3 refractedDir = worldDir - 0.0008*n;
 
     vec3 refractColor = mix(defaultColor, traceColor(worldPos, refractedDir), getThickness(inUV));
     vec3 reflectColor = traceColor(worldPos, reflectedDir);
@@ -97,8 +99,6 @@ vec4 shadingFresnel() {
 vec4 shadingFresnelScale() {
     vec3 n = texture(samplerNormals, inUV).xyz;
     vec3 dir = normalize(-getPos());
-    vec3 worldDir = mat3(ubo.inverseView) * dir;
-    worldDir.z *= -1;
 
     float r = fresnelScale(dir, n);
 
@@ -113,8 +113,7 @@ vec4 reflectionShading() {
     vec3 worldDir = mat3(ubo.inverseView) * dir;
 
     vec3 reflectedDir = worldDir - 2 * n * dot(n, worldDir);
-    reflectedDir.x *= -1;
-    reflectedDir.z *= -1;
+//    reflectedDir.x *= -1;
 
     vec3 reflectColor = traceColor(worldPos, reflectedDir);
 
@@ -128,7 +127,7 @@ vec4 refractionShading() {
     vec4 worldPos = ubo.inverseView * vec4(p, 1.0);
     vec3 worldDir = mat3(ubo.inverseView) * dir;
 
-    vec3 refractedDir = worldDir - 0.02*n;
+    vec3 refractedDir = worldDir - 0.0008*n;
 
     vec3 refractColor = mix(defaultColor, traceColor(worldPos, refractedDir), getThickness(inUV));
 

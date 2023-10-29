@@ -30,7 +30,7 @@ void main()
     predPos[i] = pos[i] + ubo.DT * vel[i];
 
     // enforce boundary conditions
-    float nearEPS = ubo.EPS + 0.02;
+    float nearEPS = ubo.EPS*(1 + 0.01);
     if (predPos[i].x - ubo.EPS < 0.0f) {
         predPos[i].x = nearEPS;
     } else if (predPos[i].x + ubo.EPS > ubo.BOUNDARY_SIZE.x) {

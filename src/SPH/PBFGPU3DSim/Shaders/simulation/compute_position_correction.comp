@@ -11,7 +11,7 @@ layout(std430, binding = 1) readonly buffer GridSSBO {
     uint grid[ ];
 };
 
-layout(std430, binding = 2) readonly buffer PositionSSBO {
+layout(std430, binding = 2) buffer PositionSSBO {
     vec3 predPos[ ];
 };
 
@@ -78,4 +78,24 @@ void main()
         }
     }
     corrections[i] /= ubo.REST_DENS;
+
+    predPos[i] += corrections[i];
+
+    // enforce boundary conditions
+    float nearEPS = ubo.EPS*(1 + 0.01);
+    if (predPos[i].x - ubo.EPS < 0.0f) {
+        predPos[i].x = nearEPS;
+    } else if (predPos[i].x + ubo.EPS > ubo.BOUNDARY_SIZE.x) {
+        predPos[i].x = ubo.BOUNDARY_SIZE.x - nearEPS;
+    }
+    if (predPos[i].z - ubo.EPS < 0.0f) {
+        predPos[i].z = nearEPS;
+    } else if (predPos[i].z + ubo.EPS > ubo.BOUNDARY_SIZE.z) {
+        predPos[i].z = ubo.BOUNDARY_SIZE.z - nearEPS;
+    }
+    if (predPos[i].y - ubo.EPS < ubo.planeY) {
+        predPos[i].y = ubo.planeY + nearEPS;
+    } else if (predPos[i].y + ubo.EPS > ubo.BOUNDARY_SIZE.y) {
+        predPos[i].y = ubo.BOUNDARY_SIZE.y - nearEPS;
+    }
 }

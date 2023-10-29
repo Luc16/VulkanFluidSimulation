@@ -34,8 +34,6 @@ void main()
         discard;
     }
     vec3 pos = vec3(inUV, getDepth(inUV.x, inUV.y));
-    float x = inUV.x;
-    float y = inUV.y;
 
     float dx = 1 / ubo.screenWidth;
     float dy = 1 / ubo.screenHeight;
