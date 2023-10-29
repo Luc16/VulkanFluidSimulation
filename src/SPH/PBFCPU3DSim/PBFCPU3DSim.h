@@ -35,26 +35,30 @@ public:
 
     uint32_t INSTANCE_COUNT = 10'000;
     static constexpr glm::vec3 G{0.0f, -9.8f, 0.0f};   // external (gravitational) forces
-    float REST_DENS = 8.0f;  // rest density
-    static constexpr float H = 1.5f;           // kernel radius
+//    static constexpr glm::vec3 G{0.0f, 0.0f, 0.0f};   // external (gravitational) forces
+    float REST_DENS = 6378.0f;  // rest density
+    static constexpr float H = 0.1f;           // kernel radius
     static constexpr float HSQ = H * H;        // radius^2 for optimization
-    float MASS = 5.0f;        // assume all particles have the same mass
-    float VISC = 0.8f;       // viscosity constant
-    float DT = 0.010f;       // integration timestep
-    float ART_PRESSURE_COEF = 0.1f;
+    float MASS = 1.0f;        // assume all particles have the same mass
+    float VISC = 0.01f;       // viscosity constant
+    float DT = 1/120.0f;       // integration timestep
+    float ART_PRESSURE_COEF = 0.001f;
     float VORTICITY_COEF = 0.0004f;
-    uint32_t jacobiIterations = 3;
+    float CFM = 600.0f;
 
+    uint32_t jacobiIterations = 4;
     // smoothing kernels defined in Müller and their gradients
-    static constexpr float POLY6 = 315.0f / (64.0f * glm::pi<float>() *H*H*H *H*H*H *H*H*H);
-    static constexpr float SPIKY_GRAD = 45.0f / (glm::pi<float>() * H*H*H *H*H*H);
+//    static constexpr float POLY6 = 315.0f / (64.0f * glm::pi<float>() *H*H*H *H*H*H *H*H*H);
+    static constexpr float POLY6 = 0.02f*315.0f / (64.0f * glm::pi<float>() *H*H*H *H*H*H *H*H*H);
 
-    float CFM = 4.0f;
+    static constexpr float SPIKY_GRAD = 45.0f / (glm::pi<float>() * H*H*H *H*H*H);
 
     // simulation parameters
     static constexpr float EPS = H; // boundary epsilon
-    glm::vec3 BOUNDARY_SIZE = glm::vec3(50.0f) ;
     glm::ivec2 numParticlesXZ = glm::ivec2(int(std::cbrt(INSTANCE_COUNT)));
+//    glm::vec3 BOUNDARY_SIZE = glm::vec3(12.0f, 2.0f, 12.0f) ;
+    glm::vec3 BOUNDARY_SIZE = glm::vec3(5.0f) ;
+//    glm::ivec2 numParticlesXZ = glm::ivec2(int(std::sqrt(INSTANCE_COUNT)));
     static constexpr uint32_t numThreads = 12;
     uint32_t particlesPerThread = INSTANCE_COUNT/numThreads;
 
@@ -137,20 +141,20 @@ public:
     std::array<std::jthread, numThreads> threads;
 
     // simulation functions
-    std::function<void(uint32_t,uint32_t)> predictPositionsThreaded; // ok
-    std::function<void(uint32_t,uint32_t)> computeDensityThreaded;
+    std::function<void(uint32_t,uint32_t)> predictPositionsThreaded;
     std::function<void(uint32_t,uint32_t)> computeLambdaThreaded;
     std::function<void(uint32_t,uint32_t)> computePositionCorrectionThreaded;
-    std::function<void(uint32_t,uint32_t)> correctPositionThreaded;
     std::function<void(uint32_t,uint32_t)> updateVelocitiesThreaded;
     std::function<void(uint32_t,uint32_t)> applyXsphViscosityAndComputeVorticity;
     std::function<void(uint32_t,uint32_t)> applyVorticity;
 
-    glm::vec3 initialPos = {EPS, EPS, EPS};
+    glm::vec3 initialPos = {EPS, EPS, 0};
     float gravityFactor = 40.f;
     float colorUpdate = 0.008f, densColorThreshold = 0.0f;//1.01f;
     float gpuTime = 0, cpuTime = 0;
-    bool activateTimer = false, controlMode = false;
+    std::atomic<float> avgDensity = 0;
+    std::atomic<uint32_t> avgNeighbors = 0;
+    bool activateTimer = false, controlMode = false, pausedSimulation = false, singleStep = false;
 
     void threadedCall(const std::function<void(uint32_t,uint32_t)>& func);
 
