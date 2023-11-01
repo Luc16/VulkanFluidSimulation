@@ -27,5 +27,6 @@ void main()
     if (i >= ubo.numParticles) return;
 
     vel[i] = (predPos[i] - pos[i])/ubo.DT;
+    pos[i] = predPos[i];
 
 }

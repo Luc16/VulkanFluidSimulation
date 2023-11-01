@@ -12,7 +12,7 @@ void PBFGPU3DSim::onCreate() {
     camera.m_translation = {-9.31845f, 14.2878f, 15.5649f};
     camera.m_rotation = {0.569391f, 2.26887f, 3.14159f};
     camera.updateView();
-    gUbo.radius = cUbo.H;
+    gUbo.radius = cUbo.H/2;
     gUbo.screenHeight = (float) window.height();
     gUbo.screenWidth = (float) window.width();
     auto extent = window.extent();
@@ -204,7 +204,6 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
                 {computeUniformBuffer->descriptorInfo()},
                 {gridHandler.gridDescriptorInfo()},
                 {predPosBuffers[(i + 1) % predPosBuffers.size()]->descriptorInfo()},
-                {correctionBuffer->descriptorInfo()},
                 {lambdaBuffer->descriptorInfo()},
                 {gridIdxBuffer->descriptorInfo()},
         });
@@ -221,7 +220,6 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
                 {gridHandler.gridDescriptorInfo()},
                 {predPosBuffers[(i + 1) % predPosBuffers.size()]->descriptorInfo()},
                 {velocityBuffers[(i + 1) % velocityBuffers.size()]->descriptorInfo()},
-                {correctionBuffer->descriptorInfo()},
                 {vorticityBuffer->descriptorInfo()},
                 {gridIdxBuffer->descriptorInfo()},
         });
@@ -232,7 +230,6 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
                 {predPosBuffers[(i + 1) % predPosBuffers.size()]->descriptorInfo()},
                 {positionBuffers[(i + 1) % positionBuffers.size()]->descriptorInfo()},
                 {velocityBuffers[(i + 1) % velocityBuffers.size()]->descriptorInfo()},
-                {correctionBuffer->descriptorInfo()},
                 {vorticityBuffer->descriptorInfo()},
                 {gridIdxBuffer->descriptorInfo()},
         });
@@ -264,6 +261,7 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
                     randomFloat((accPos.z != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
                     0.0f);
         particles.velocity[i] = glm::vec4(0.0f);
+        particles.density[i] = cUbo.REST_DENS;
         accPos.x += particleSpacing;
 
         if (i % numParticlesXZ.x == numParticlesXZ.x - 1) {
@@ -300,11 +298,11 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
             }
 
         }
-        correctionBuffer = makeBuffer(particles.correction.size() * sizeof(glm::vec4));
         vorticityBuffer = makeBuffer(particles.vorticity.size()*sizeof(glm::vec4));
         densityBuffer = std::make_unique<vkb::Buffer>(device, particles.density.size() * sizeof(float),
                                                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        vkb::Buffer::writeVectorToBuffer(device, densityBuffer, particles.density);
         lambdaBuffer = makeBuffer(particles.lambda.size()*sizeof(float));
         gridIdxBuffer = makeBuffer(particles.idx.size() * sizeof(uint32_t));
     }
@@ -315,7 +313,6 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
                 positionBuffers[(i+1) % positionBuffers.size()]->getBarrierData(),
                 velocityBuffers[(i+1) % velocityBuffers.size()]->getBarrierData(),
                 predPosBuffers[(i+1) % predPosBuffers.size()]->getBarrierData(),
-                correctionBuffer->getBarrierData(),
                 vorticityBuffer->getBarrierData(),
                 densityBuffer->getBarrierData(),
                 lambdaBuffer->getBarrierData(),
@@ -505,13 +502,17 @@ void PBFGPU3DSim::updateSimulation() {
 
         vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
 
-        applyViscAndComputeVortKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
+        if (activateVisc || activateVorticity) {
+            applyViscAndComputeVortKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
 
-        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+            vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+        }
+        if (activateVorticity) {
+            applyVortAndUpdatePos.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
 
-        applyVortAndUpdatePos.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
+            vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+        }
 
-        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
 
     });
 
@@ -551,24 +552,28 @@ void PBFGPU3DSim::showImGui(){
 
     if (ImGui::CollapsingHeader("Simulation constants", ImGuiTreeNodeFlags_DefaultOpen)) {
         int iJac = int(jacobiIterations);
-        ImGui::DragInt("Num iterations", &iJac, 1, 1, 5);
+        ImGui::DragInt("Num iterations", &iJac, 1, 1, 8);
         jacobiIterations = iJac;
-        ImGui::DragFloat("Gravity Factor", &gravityFactor, 0.001f, 0.001f, 5.0f);
-        ImGui::DragFloat("Viscosity", &cUbo.VISC, 0.001f, 0.001f, 5.0f);
         ImGui::DragFloat("DeltaTime", &cUbo.DT, 0.00005f, 0.0005f, 0.02f, "%.5f");
         ImGui::DragFloat("Rest Density", &cUbo.REST_DENS, 1.0f, 2000.0f, 10000.0f, "%.0f");
-        ImGui::DragFloat("Rest Density", &cUbo.REST_DENS, 1.0f, 2000.0f, 10000.0f, "%.0f");
         if (cUbo.REST_DENS == 0) cUbo.REST_DENS = 0.1f;
-        ImGui::DragFloat("Mass", &cUbo.MASS, 0.001f, 0.001f, 40.0f, "%.1f");
         ImGui::DragFloat("CFM", &cUbo.CFM, 1.0f, 300.0f, 5000.0f, "%.4f");
         if (cUbo.CFM == 0) cUbo.CFM = 0.1;
-        ImGui::DragFloat("ARTIFICIAL PRESSURE", &cUbo.ART_PRESSURE_COEF, 0.0001f, 0.0001f, 10.0f, "%.4f");
-        ImGui::DragFloat("VORTICITY COEF", &cUbo.VORTICITY_COEF, 0.000001f, 0.000001f, 0.1f, "%.6f");
+        ImGui::DragFloat("Artificial Pressure", &cUbo.ART_PRESSURE_COEF, 0.00001f, 0.00001f, 0.001f, "%.5f");
+
+        ImGui::NewLine();
+        ImGui::Checkbox("Activate viscosity", &activateVisc);
+        ImGui::DragFloat("Viscosity", &cUbo.VISC, 0.00001f, 0.00001f, 0.001f, "%.5f");
+        ImGui::Checkbox("Activate vorticity", &activateVorticity);
+        cUbo.activateVort = activateVorticity;
+        ImGui::DragFloat("Vorticity Coef", &cUbo.VORTICITY_COEF, 0.000001f, 0.000001f, 0.1f, "%.6f");
     }
+    ImGui::NewLine();
 
     if (ImGui::CollapsingHeader("Boundaries", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::SliderFloat("Plane Y", &plane.m_translation.y, -100.0f, 100.0f);
     }
+    ImGui::NewLine();
 
     if (ImGui::CollapsingHeader("Rendering", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::DragFloat("Particle Radius", &gUbo.radius, 0.1f, 0.1f, 100.0f);
@@ -618,6 +623,7 @@ void PBFGPU3DSim::showImGui(){
             ImGui::DragFloat("Blur Fall Off", &gUbo.blurDepthFalloff, 10.0f, 100.0f, 10000.0f);
         }
     }
+    ImGui::NewLine();
 
     if (singleStep) {
         pausedSimulation = true;
@@ -696,8 +702,8 @@ void PBFGPU3DSim::showImGui(){
         int temp = (int) INSTANCE_COUNT;
         ImGui::SliderInt("Num Particles", &temp, 16, MAX_PARTICLES);
 
-        ImGui::SliderFloat("Spacing", &particleSpacing, cUbo.H, 2*cUbo.H);
-        ImGui::SliderFloat("Spacing vert", &particleVerticalSpacing, cUbo.H, 2 * cUbo.H);
+        ImGui::DragFloat("Spacing", &particleSpacing, 0.01f*cUbo.H, 0.2f*cUbo.H, 2*cUbo.H);
+        ImGui::DragFloat("Spacing vert", &particleVerticalSpacing, 0.01f*cUbo.H, 0.2f*cUbo.H, 2*cUbo.H);
 
         auto particleShapeSize = getParticleShapeSize();
 
@@ -715,7 +721,7 @@ void PBFGPU3DSim::showImGui(){
         glm::vec3 newBoundSize = cUbo.BOUNDARY_SIZE;
         auto maxBound = glm::vec3(MAX_BOUND);
 
-        ImGui::CDragFloatRanged3("Boundary Size", &newBoundSize[0], 1, &particleShapeSize[0], &maxBound[0]);
+        ImGui::CDragFloatRanged3("Boundary Size", &newBoundSize[0], 0.5f*cUbo.H, &particleShapeSize[0], &maxBound[0]);
         for (int i = 0; i < 3; i++){
             if (newBoundSize[i] != cUbo.BOUNDARY_SIZE[i] && newBoundSize[i] >= particleShapeSize[i] + 2*cUbo.EPS) {
                 cUbo.BOUNDARY_SIZE[i] = newBoundSize[i];

@@ -79,7 +79,7 @@ private:
             "compute_position_correction.comp",
             "update_velocities.comp",
             "apply_visc_and_compute_vort.comp",
-            "apply_vort_and_update_pos.comp",
+            "apply_vort.comp",
     };
 
     const std::string planeModelPath = "../Models/quadXZ1.obj";
@@ -164,7 +164,7 @@ private:
         float screenHeight;
         float screenWidth;
         float tanHalfFov = std::tan(glm::radians(50.0f)/2);
-        uint32_t renderType = 8;
+        uint32_t renderType = 0;
         float zNear = 0.1f;
         float zFar = 500.0f;
         uint32_t blurMode = 0;
@@ -176,40 +176,17 @@ private:
 
     };
 
-//    struct ComputeUniformBufferObject {
-//        alignas(16) glm::vec3 BOUNDARY_SIZE = glm::vec3(150.0f);
-//        alignas(16) glm::vec3 G = glm::vec3(0.0f, -9.8f, 0.0f);
-//
-//        float planeY = 0.0f;
-//        float REST_DENS = 40.0f;  // rest density
-//        float H = 1.5f;           // kernel radius
-//        float HSQ = H * H;        // radius^2 for optimization
-//        float MASS = 5.0f;        // assume all particles have the same mass
-//        float VISC = 0.8f;       // viscosity constant
-//        float DT = 0.01666f/2;       // integration timestep
-//        float ART_PRESSURE_COEF = 0.1f;
-//        float VORTICITY_COEF = 0.0004f;
-//        uint numParticles = 0;
-//        float POLY6 = 315.0f / (64.0f * glm::pi<float>() *H*H*H *H*H*H *H*H*H);
-//        float SPIKY_GRAD = 45.0f / (glm::pi<float>() * H*H*H *H*H*H);
-//
-//        float CFM = 0.5f;
-//        float EPS = H; // boundary epsilon
-//        uint32_t GRID_SIZE = 0;
-//    };
     struct ComputeUniformBufferObject {
-        alignas(16) glm::vec3 BOUNDARY_SIZE = glm::vec3(10.0f);
+        alignas(16) glm::vec3 BOUNDARY_SIZE = glm::vec3(7.0f);
         alignas(16) glm::vec3 G = glm::vec3(0.0f, -9.8f, 0.0f);
 
         float planeY = 0.0f;
         float REST_DENS = 6378.0f;  // rest density
         float H = 0.1f;           // kernel radius
         float HSQ = H * H;        // radius^2 for optimization
-        float MASS = 1.0f;        // assume all particles have the same mass
-        float VISC = 0.01f;       // viscosity constant
-        float DT = 0.0083f;       // integration timestep
-//        float DT = 0.00005f;       // integration timestep
-        float ART_PRESSURE_COEF = 0.0001f;
+        float VISC = 0.0001f;       // viscosity constant
+        float DT = 1/120.0f;       // integration timestep
+        float ART_PRESSURE_COEF = 0.00025f;
         float VORTICITY_COEF = 0.0004f;
         uint numParticles = 0;
         float POLY6 = 315.0f / (64.0f * glm::pi<float>() *H*H*H *H*H*H *H*H*H);
@@ -217,7 +194,7 @@ private:
 
         float CFM = 600.0f;
         float EPS = H; // boundary epsilon
-        uint32_t GRID_SIZE = 0;
+        bool activateVort = 1;
     };
 
     vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, planeModelPath), std::make_shared<vkb::Texture>(device, planeTexPath)};
@@ -258,7 +235,6 @@ private:
     std::array<std::unique_ptr<vkb::Buffer>, 2> positionBuffers;
     std::array<std::unique_ptr<vkb::Buffer>, 2> velocityBuffers;
     std::array<std::unique_ptr<vkb::Buffer>, 2> predPosBuffers;
-    std::unique_ptr<vkb::Buffer> correctionBuffer;
     std::unique_ptr<vkb::Buffer> vorticityBuffer;
     std::unique_ptr<vkb::Buffer> densityBuffer;
     std::unique_ptr<vkb::Buffer> lambdaBuffer;
@@ -309,9 +285,8 @@ private:
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
                     .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // predPos
-                    .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // correction
-                    .addBinding({4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // lambda
-                    .addBinding({5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid idx
+                    .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // lambda
+                    .addBinding({4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid idx
                     .build()
     };
 
@@ -332,9 +307,8 @@ private:
                     .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
                     .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // predPos
                     .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // vel
-                    .addBinding({4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // correction
-                    .addBinding({5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // vorticity
-                    .addBinding({6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid idx
+                    .addBinding({4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // vorticity
+                    .addBinding({5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid idx
                     .build()
     };
 
@@ -346,9 +320,8 @@ private:
                     .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // predPos
                     .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pos
                     .addBinding({4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // vel
-                    .addBinding({5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // correction
-                    .addBinding({6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // vorticity
-                    .addBinding({7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid idx
+                    .addBinding({5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // vorticity
+                    .addBinding({6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid idx
                     .build()
     };
 
@@ -359,11 +332,12 @@ private:
     vkb::CameraMovementController cameraController{};
 
     glm::ivec2 numParticlesXZ = glm::ivec2(int(std::cbrt(INSTANCE_COUNT)));
-    float particleSpacing = cUbo.H*(1 + 0.13333f);
-    float particleVerticalSpacing = cUbo.H*(1 + 0.13333f);
+    float particleSpacing = cUbo.H*0.56f;
+    float particleVerticalSpacing = cUbo.H*0.50f;
     glm::vec4 initialPos = {cUbo.EPS, cUbo.EPS, cUbo.EPS, 0};
-    float drawTime = 0, cpuTime = 0, computeTime = 0, gravityFactor = 1.0f;
+    float drawTime = 0, cpuTime = 0, computeTime = 0;
     bool activateTimer = false, controlMode = false, objectsInitialized = false, pausedSimulation = false, debugScene = false, singleStep = false;
+    bool activateVisc = true, activateVorticity = true;
     uint32_t hardResetFrame = 0;
 
     void onCreate() override;

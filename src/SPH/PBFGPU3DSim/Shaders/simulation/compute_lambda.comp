@@ -67,7 +67,7 @@ void main()
                     float dist2 = dot(vec, vec);
 
                     if (dist2 < ubo.HSQ) {
-                        densities[i] += ubo.MASS * ubo.POLY6 * pow(ubo.HSQ - dist2, 3.f);
+                        densities[i] += ubo.POLY6 * pow(ubo.HSQ - dist2, 3.f);
 
                         if (i == j || dist2 < 0.0000001f) continue;
 

@@ -40,7 +40,7 @@ public:
     static constexpr float H = 0.1f;           // kernel radius
     static constexpr float HSQ = H * H;        // radius^2 for optimization
     float MASS = 1.0f;        // assume all particles have the same mass
-    float VISC = 0.01f;       // viscosity constant
+    float VISC = 0.0001f;       // viscosity constant
     float DT = 1/120.0f;       // integration timestep
     float ART_PRESSURE_COEF = 0.00025f;
     float VORTICITY_COEF = 0.0004f;
@@ -150,6 +150,7 @@ public:
     glm::vec3 initialPos = {EPS, EPS, EPS};
     float gravityFactor = 40.f;
     float colorUpdate = 0.008f, densColorThreshold = 0.0f;//1.01f;
+    float spacing = 0;
     float gpuTime = 0, cpuTime = 0;
     std::atomic<float> avgDensity = 0;
     std::atomic<float> maxDensity = 0;

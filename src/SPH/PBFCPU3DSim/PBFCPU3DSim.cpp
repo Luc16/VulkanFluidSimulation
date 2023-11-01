@@ -52,7 +52,7 @@ void PBFCPU3DSim::createInstances(bool activateRandomOffsets) {
     grid = vkb::SpatialGrid(H, BOUNDARY_SIZE);
 
     auto accPos = initialPos;
-    float step = H*(1 - 0.3f);
+    spacing = H*(1 - 0.4f);
 
     uint32_t count = 0;
     for (uint32_t i = 0; i < particles.position.size(); i++) {
@@ -64,15 +64,15 @@ void PBFCPU3DSim::createInstances(bool activateRandomOffsets) {
                 randomFloat((accPos.z != EPS) ? -H/10 : 0.0f, H/10)
                 );
         particles.velocity[i] = glm::vec3(0.0f);
-        accPos.x += step;
+        accPos.x += spacing;
 
         if (i % numParticlesXZ.x == numParticlesXZ.x - 1) {
             count++;
-            accPos.z += step;
+            accPos.z += spacing;
             accPos.x = initialPos.x;
             if (count == numParticlesXZ.y) {
                 count = 0;
-                accPos.y += step - 0.2f*H;
+                accPos.y += spacing - 0.2f*H;
                 accPos.z = initialPos.z;
             }
         }
@@ -183,7 +183,7 @@ void PBFCPU3DSim::showImGui(){
     }
 
     ImGui::SliderFloat("Gravity", &gravityFactor, 1.f, 1000.f);
-    ImGui::DragFloat("Viscosity", &VISC, 0.001f, 0.001f, 5.0f);
+    ImGui::DragFloat("Viscosity", &VISC, 0.0001f, 0.0001f, 5.0f, "%.4f");
     ImGui::DragFloat("DeltaTime", &DT, 0.00005f, 0.0005f, 0.02f, "%.5f");
     ImGui::DragFloat("Rest Density", &REST_DENS, 1.0f, 4.0f, 1000.0f, "%.0f");
     ImGui::DragFloat("Mass", &MASS, 0.5f, 1.0f, 40.0f, "%.1f");
@@ -250,9 +250,9 @@ void PBFCPU3DSim::showImGui(){
         ImGui::Begin("Control Mode");
 
         auto getParticleShapeSize = [this]() -> glm::vec3 {
-            return {float(numParticlesXZ.x) * H + H,
-                    float(INSTANCE_COUNT) / float(numParticlesXZ.x * numParticlesXZ.y) * H + H,
-                    float(numParticlesXZ.y) * H + H
+            return {float(numParticlesXZ.x) * spacing + EPS,
+                    float(INSTANCE_COUNT) / float(numParticlesXZ.x * numParticlesXZ.y) * spacing + EPS,
+                    float(numParticlesXZ.y) * spacing + EPS
             };
         };
 
@@ -276,7 +276,7 @@ void PBFCPU3DSim::showImGui(){
         glm::vec3 newBoundSize = BOUNDARY_SIZE;
         auto maxBound = glm::vec3(1000.0f);
 
-        ImGui::CDragFloatRanged3("Boundary Size", &newBoundSize[0], 1, &particleShapeSize[0], &maxBound[0]);
+        ImGui::CDragFloatRanged3("Boundary Size", &newBoundSize[0], 0.1*H, &particleShapeSize[0], &maxBound[0]);
         for (int i = 0; i < 3; i++){
             if (newBoundSize[i] != BOUNDARY_SIZE[i] && newBoundSize[i] >= particleShapeSize[i] + EPS) {
                 BOUNDARY_SIZE[i] = newBoundSize[i];
@@ -476,58 +476,57 @@ void PBFCPU3DSim::createFunctions() {
     };
 
     applyXsphViscosityAndComputeVorticity = [this](uint32_t start, uint32_t end) {
-//        for (uint32_t idx = start; idx < end; idx++) {
-//
-//            auto viscTerm = glm::vec3(0.0f);
-//            particles.vorticity[idx] = glm::vec3(0.0f);
-//
-//
-//            grid.query(particles.predPos[idx], H, [this, idx, &viscTerm](uint32_t otherIdx) {
-//
-//                auto vec = particles.predPos[idx] - particles.predPos[otherIdx];
-//                auto dist2 = glm::dot(vec, vec);
-//
-//                if (idx == otherIdx || dist2 < 0.0000001f) return;
-//
-//                if (dist2 < HSQ) {
-//                    auto vij = (particles.velocity[otherIdx] - particles.velocity[idx]);
-//                    viscTerm += vij * POLY6 * std::pow(HSQ - dist2, 3.f);
-//
-//                    float dist = std::sqrt(dist2);
-//                    particles.vorticity[idx] += glm::cross(vij, (vec/dist) * SPIKY_GRAD * (H - dist) * (H - dist));
-//                }
-//            });
-//
-//            particles.posCorrection[idx] = viscTerm * VISC;
-//        }
+        for (uint32_t idx = start; idx < end; idx++) {
+
+            auto viscTerm = glm::vec3(0.0f);
+            particles.vorticity[idx] = glm::vec3(0.0f);
+
+
+            grid.query(particles.predPos[idx], H, [this, idx, &viscTerm](uint32_t otherIdx) {
+
+                auto vec = particles.predPos[idx] - particles.predPos[otherIdx];
+                auto dist2 = glm::dot(vec, vec);
+
+                if (idx == otherIdx || dist2 < 0.0000001f) return;
+
+                if (dist2 < HSQ) {
+                    auto vij = (particles.velocity[otherIdx] - particles.velocity[idx]);
+                    viscTerm += vij * POLY6 * std::pow(HSQ - dist2, 3.f);
+
+                    float dist = std::sqrt(dist2);
+                    particles.vorticity[idx] += glm::cross(vij, (vec/dist) * SPIKY_GRAD * (H - dist) * (H - dist));
+                }
+            });
+
+            particles.posCorrection[idx] = viscTerm * VISC;
+        }
     };
 
     applyVorticity = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
-//            auto locationVector = glm::vec3(0.0f);
-//
-//            grid.query(particles.predPos[idx], H, [this, idx, &locationVector](uint32_t otherIdx) {
-//
-//                auto vec = particles.predPos[idx] - particles.predPos[otherIdx];
-//                auto dist2 = glm::dot(vec, vec);
-//
-//                if (idx == otherIdx || dist2 < 0.0000001f) return;
-//
-//                if (dist2 < HSQ) {
-//                    float dist = std::sqrt(dist2);
-//                    float delta = H - dist;
-//                    float lengthVort = glm::length(particles.vorticity[otherIdx]);
-//                    locationVector += lengthVort * (vec/dist) * SPIKY_GRAD * delta * delta;
-//
-//                }
-//            });
-//
-//            float lengthLocVec = glm::length(locationVector);
-//            if (lengthLocVec > 0.000001f){
-//                particles.velocity[idx] += VORTICITY_COEF*glm::cross(locationVector/lengthLocVec, particles.vorticity[idx])*DT/MASS;
-//            }
-            // viscosity
-//            particles.velocity[idx] += particles.posCorrection[idx];
+            auto locationVector = glm::vec3(0.0f);
+
+            grid.query(particles.predPos[idx], H, [this, idx, &locationVector](uint32_t otherIdx) {
+
+                auto vec = particles.predPos[idx] - particles.predPos[otherIdx];
+                auto dist2 = glm::dot(vec, vec);
+
+                if (idx == otherIdx || dist2 < 0.0000001f) return;
+
+                if (dist2 < HSQ) {
+                    float dist = std::sqrt(dist2);
+                    float delta = H - dist;
+                    float lengthVort = glm::length(particles.vorticity[otherIdx]);
+                    locationVector += lengthVort * (vec/dist) * SPIKY_GRAD * delta * delta;
+
+                }
+            });
+
+            float lengthLocVec = glm::length(locationVector);
+            if (lengthLocVec > 0.000001f){
+                particles.velocity[idx] += VORTICITY_COEF*glm::cross(locationVector/lengthLocVec, particles.vorticity[idx])*DT/MASS;
+            }
+            particles.velocity[idx] += particles.posCorrection[idx];
             particles.position[idx] = particles.predPos[idx];
 
         }

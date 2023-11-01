@@ -10,7 +10,6 @@ struct computeUBO {
     float REST_DENS;  // rest density
     float H;           // kernel radius
     float HSQ;        // radius^2 for optimization
-    float MASS;        // assume all particles have the same mass
     float VISC;       // viscosity constant
     float DT;       // integration timestep
     float ART_PRESSURE_COEF;
@@ -21,6 +20,7 @@ struct computeUBO {
 
     float CFM;
     float EPS; // boundary epsilon
+    bool activateVort;
 };
 
 

@@ -15,15 +15,11 @@ layout(std430, binding = 2) buffer PositionSSBO {
     vec3 predPos[ ];
 };
 
-layout(std430, binding = 3) buffer CorrSSBO {
-    vec3 corrections[ ];
-};
-
-layout(std430, binding = 4) buffer LambdaSSBO {
+layout(std430, binding = 3) buffer LambdaSSBO {
     float lambdas[ ];
 };
 
-layout(std430, binding = 5) readonly buffer ParticleIdxSSBO {
+layout(std430, binding = 4) readonly buffer ParticleIdxSSBO {
     int gridIdx[ ];
 };
 
@@ -34,7 +30,7 @@ void main()
     uint i = gl_GlobalInvocationID.x;
     if (i >= ubo.numParticles) return;
 
-    corrections[i] = vec3(0.0f);
+    vec3 deltaP = vec3(0.0f);
 
     // For each neighbor
     int numCellsX = int(ubo.BOUNDARY_SIZE.x/ubo.H);
@@ -70,19 +66,19 @@ void main()
                         float delta = ubo.H - dist;
                         float sCorr = -ubo.ART_PRESSURE_COEF * pow((ubo.HSQ - dist2)/(ubo.HSQ - 0.0009), 12.0f);
 
-                        corrections[i] += (vec / dist) * (lambdas[i] + lambdas[j] + sCorr) * ubo.SPIKY_GRAD * delta * delta;
+                        deltaP += (vec / dist) * (lambdas[i] + lambdas[j] + sCorr) * ubo.SPIKY_GRAD * delta * delta;
 
                     }
                 }
             }
         }
     }
-    corrections[i] /= ubo.REST_DENS;
+    deltaP /= ubo.REST_DENS;
 
-    predPos[i] += corrections[i];
+    predPos[i] += deltaP;
 
     // enforce boundary conditions
-    float nearEPS = ubo.EPS*(1 + 0.01);
+    float nearEPS = ubo.EPS*(1 + 0.02);
     if (predPos[i].x - ubo.EPS < 0.0f) {
         predPos[i].x = nearEPS;
     } else if (predPos[i].x + ubo.EPS > ubo.BOUNDARY_SIZE.x) {
