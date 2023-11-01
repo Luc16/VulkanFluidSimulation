@@ -35,8 +35,8 @@ void PBFCPU3DSim::onCreate() {
 }
 
 void PBFCPU3DSim::initializeObjects() {
-    camera.m_translation = {-11.5622f, 20.8235f, 17.4464f};
-    camera.m_rotation = {0.72675f, 2.26897f, 3.14159f};
+    camera.m_translation = {-3.85021f, 6.08832f, 4.48576f};
+    camera.m_rotation = {0.72675f, 2.22789f, 3.14159f};
 
     createInstances(true);
 }
@@ -52,17 +52,16 @@ void PBFCPU3DSim::createInstances(bool activateRandomOffsets) {
     grid = vkb::SpatialGrid(H, BOUNDARY_SIZE);
 
     auto accPos = initialPos;
-    float step = H*(1 + 0.01f);
+    float step = H*(1 - 0.3f);
 
     uint32_t count = 0;
     for (uint32_t i = 0; i < particles.position.size(); i++) {
         particles.color[i] = glm::vec3(0.2f, 0.6f, 1.0f);
         particles.position[i] = accPos;
         if (activateRandomOffsets) particles.position[i] += glm::vec3(
-                randomFloat((accPos.x != EPS) ? -H/5 : 0.0f, H/5),
-//                randomFloat((accPos.y != EPS) ? -H/5 : 0.0f, H/5),
-                0.0f,
-                randomFloat((accPos.z != EPS) ? -H/5 : 0.0f, H/5)
+                randomFloat((accPos.x != EPS) ? -H/10 : 0.0f, H/10),
+                randomFloat((accPos.y != EPS) ? -H/10 : 0.0f, H/10),
+                randomFloat((accPos.z != EPS) ? -H/10 : 0.0f, H/10)
                 );
         particles.velocity[i] = glm::vec3(0.0f);
         accPos.x += step;
@@ -73,7 +72,7 @@ void PBFCPU3DSim::createInstances(bool activateRandomOffsets) {
             accPos.x = initialPos.x;
             if (count == numParticlesXZ.y) {
                 count = 0;
-                accPos.y += step;
+                accPos.y += step - 0.2f*H;
                 accPos.z = initialPos.z;
             }
         }
@@ -168,12 +167,14 @@ void PBFCPU3DSim::showImGui(){
     ImGui::Text("Grid size: %d", grid.size());
 
     ImGui::Text("Avg density: %f", avgDensity / float(jacobiIterations * INSTANCE_COUNT));
+    ImGui::Text("Max density: %f", maxDensity.load());
     ImGui::Text("Avg neighbors: %d", avgNeighbors / (jacobiIterations * INSTANCE_COUNT));
+    ImGui::Text("Same spot particles: %d", sameSpot / (jacobiIterations));
 
 
-    for (uint32_t i = 0; i < 10; i++){
-        ImGui::Text("particle %d density: %f", i*100, particles.density[100*i]);
-    }
+//    for (uint32_t i = 0; i < 10; i++){
+//        ImGui::Text("particle %d density: %f", i*100, particles.density[100*i]);
+//    }
 
     ImGui::Checkbox("Display time", &activateTimer);
     if(activateTimer){
@@ -258,7 +259,6 @@ void PBFCPU3DSim::showImGui(){
         int temp = (int) INSTANCE_COUNT;
         ImGui::SliderInt("Num Particles", &temp, 16, 500000);
 
-
         auto particleShapeSize = getParticleShapeSize();
 
         if (temp != INSTANCE_COUNT) {
@@ -278,7 +278,7 @@ void PBFCPU3DSim::showImGui(){
 
         ImGui::CDragFloatRanged3("Boundary Size", &newBoundSize[0], 1, &particleShapeSize[0], &maxBound[0]);
         for (int i = 0; i < 3; i++){
-            if (newBoundSize[i] != BOUNDARY_SIZE[i] && newBoundSize[i] >= particleShapeSize[i] + 2*EPS) {
+            if (newBoundSize[i] != BOUNDARY_SIZE[i] && newBoundSize[i] >= particleShapeSize[i] + EPS) {
                 BOUNDARY_SIZE[i] = newBoundSize[i];
             }
         }
@@ -312,7 +312,9 @@ void PBFCPU3DSim::showImGui(){
 
     if (!pausedSimulation) {
         avgDensity = 0.0f;
+        maxDensity = 0.0f;
         avgNeighbors = 0;
+        sameSpot = 0;
     }
 
 }
@@ -347,28 +349,32 @@ void PBFCPU3DSim::updateParticles(float deltaTime){
 }
 
 void PBFCPU3DSim::createFunctions() {
+    boundaryConditions = [this](glm::vec3& pos){
+        float nearEPS = EPS*(1 + 0.01);
+        if (pos.x - EPS < 0.0f) {
+            pos.x = nearEPS;
+        } else if (pos.x + EPS > BOUNDARY_SIZE.x) {
+            pos.x = BOUNDARY_SIZE.x - nearEPS;
+        }
+        if (pos.z - EPS < 0.0f) {
+            pos.z = nearEPS;
+        } else if (pos.z + EPS > BOUNDARY_SIZE.z) {
+            pos.z = BOUNDARY_SIZE.z - nearEPS;
+        }
+        if (pos.y - EPS < plane.m_translation.y) {
+            pos.y = plane.m_translation.y + nearEPS;
+        } else if (pos.y + EPS > BOUNDARY_SIZE.y) {
+            pos.y = BOUNDARY_SIZE.y - nearEPS;
+        }
+    };
+
     predictPositionsThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
             particles.velocity[idx] += DT*G;
             particles.predPos[idx] = particles.position[idx] + DT*particles.velocity[idx];
 
             // enforce boundary conditions
-            float nearEPS = EPS*(1 + 0.02);
-            if (particles.predPos[idx].x - EPS < 0.0f) {
-                particles.predPos[idx].x = nearEPS;
-            } else if (particles.predPos[idx].x + EPS > BOUNDARY_SIZE.x) {
-                particles.predPos[idx].x = BOUNDARY_SIZE.x - nearEPS;
-            }
-            if (particles.predPos[idx].z - EPS < 0.0f) {
-                particles.predPos[idx].z = nearEPS;
-            } else if (particles.predPos[idx].z + EPS > BOUNDARY_SIZE.z) {
-                particles.predPos[idx].z = BOUNDARY_SIZE.z - nearEPS;
-            }
-            if (particles.predPos[idx].y - EPS < plane.m_translation.y) {
-                particles.predPos[idx].y = plane.m_translation.y + nearEPS;
-            } else if (particles.predPos[idx].y + EPS > BOUNDARY_SIZE.y) {
-                particles.predPos[idx].y = BOUNDARY_SIZE.y - nearEPS;
-            }
+            boundaryConditions(particles.predPos[idx]);
         }
     };
 
@@ -383,14 +389,13 @@ void PBFCPU3DSim::createFunctions() {
                 auto vec = particles.predPos[idx] - particles.predPos[otherIdx];
                 auto dist2 = glm::dot(vec, vec);
 
-                if (idx == otherIdx) {
-                    particles.density[idx] += MASS * POLY6 * std::pow(HSQ, 3.f);
-                }
-
-                if (idx == otherIdx || dist2 < 0.0000001f) return;
-
                 if (dist2 < HSQ) {
                     particles.density[idx] += MASS * POLY6 * std::pow(HSQ - dist2, 3.f);
+                    if (idx == otherIdx) return;
+                    if (dist2 < 0.0000001f){
+                        sameSpot++;
+                        return;
+                    }
 
                     avgNeighbors++;
 
@@ -410,6 +415,8 @@ void PBFCPU3DSim::createFunctions() {
             float gradConstraintSqSum = (gradCsqSum + glm::dot(gradCiSum, gradCiSum))/(REST_DENS * REST_DENS);
 
             float constraint = particles.density[idx]/REST_DENS - 1;
+
+            maxDensity = std::max(maxDensity.load(), particles.density[idx]);
 
             avgDensity += particles.density[idx];
 
@@ -431,73 +438,68 @@ void PBFCPU3DSim::createFunctions() {
 
                 if (dist2 < HSQ) {
                     auto dist = std::sqrt(dist2);
-                    float sCorr = - ART_PRESSURE_COEF * std::pow(std::pow(HSQ - dist2, 3.f) / std::pow(HSQ*(1.0f - 0.09f), 3.f), 4.0f);
+                    float sCorr = -ART_PRESSURE_COEF * std::pow(std::pow(HSQ - dist2, 3.f) / std::pow(HSQ - 0.0009f, 3.f), 4.0f);
 
                     particles.posCorrection[idx] += (vec / dist) * (particles.lambda[idx] + particles.lambda[otherIdx] + sCorr) * SPIKY_GRAD * (H - dist)*(H - dist);
                 }
             });
 
-            particles.posCorrection[idx] /= REST_DENS;
+            particles.posCorrection[idx] = glm::clamp(particles.posCorrection[idx]/REST_DENS, -H, H);
+
 
             particles.predPos[idx] += particles.posCorrection[idx];
 
             // enforce boundary conditions
-            float nearEPS = EPS*(1 + 0.02);
-            if (particles.predPos[idx].x - EPS < 0.0f) {
-                particles.predPos[idx].x = nearEPS;
-            } else if (particles.predPos[idx].x + EPS > BOUNDARY_SIZE.x) {
-                particles.predPos[idx].x = BOUNDARY_SIZE.x - nearEPS;
-            }
-            if (particles.predPos[idx].z - EPS < 0.0f) {
-                particles.predPos[idx].z = nearEPS;
-            } else if (particles.predPos[idx].z + EPS > BOUNDARY_SIZE.z) {
-                particles.predPos[idx].z = BOUNDARY_SIZE.z - nearEPS;
-            }
-            if (particles.predPos[idx].y - EPS < plane.m_translation.y) {
-                particles.predPos[idx].y = plane.m_translation.y + nearEPS;
-            } else if (particles.predPos[idx].y + EPS > BOUNDARY_SIZE.y) {
-                particles.predPos[idx].y = BOUNDARY_SIZE.y - nearEPS;
-            }
+            boundaryConditions(particles.predPos[idx]);
         }
     };
 
     updateVelocitiesThreaded = [this](uint32_t start, uint32_t end) {
         for (uint32_t idx = start; idx < end; idx++) {
 
-            particles.velocity[idx] = (particles.predPos[idx] - particles.position[idx])/DT;
+            particles.velocity[idx] = glm::clamp((particles.predPos[idx] - particles.position[idx])/DT, -30.f, 30.f);
 
-            particles.color[idx] = glm::vec3(0.2f, 0.6f, 1.0f);
 
-//            particles.color[idx] = particles.density[idx]/REST_DENS * glm::vec3(1, 1, 1);
+//            particles.color[idx] = glm::vec3(0.2f, 0.6f, 1.0f);
+
+            if (particles.density[idx] < 2000) {
+                particles.color[idx] = glm::vec3(0.2f, 0.6f, 1.0f);
+            } else if (particles.density[idx] > 2*REST_DENS) {
+                particles.color[idx] = glm::vec3(0, 1, 0);
+            } else if (particles.density[idx] > REST_DENS) {
+                particles.color[idx] = (2.0f - particles.density[idx]/REST_DENS) * glm::vec3(1, 0, 0);
+            } else {
+                particles.color[idx] = particles.density[idx]/REST_DENS * glm::vec3(1, 1, 1);
+            }
 
         }
     };
 
     applyXsphViscosityAndComputeVorticity = [this](uint32_t start, uint32_t end) {
-        for (uint32_t idx = start; idx < end; idx++) {
-
-            auto viscTerm = glm::vec3(0.0f);
-            particles.vorticity[idx] = glm::vec3(0.0f);
-
-
-            grid.query(particles.predPos[idx], H, [this, idx, &viscTerm](uint32_t otherIdx) {
-
-                auto vec = particles.predPos[idx] - particles.predPos[otherIdx];
-                auto dist2 = glm::dot(vec, vec);
-
-                if (idx == otherIdx || dist2 < 0.0000001f) return;
-
-                if (dist2 < HSQ) {
-                    auto vij = (particles.velocity[otherIdx] - particles.velocity[idx]);
-                    viscTerm += vij * POLY6 * std::pow(HSQ - dist2, 3.f);
-
-                    float dist = std::sqrt(dist2);
-                    particles.vorticity[idx] += glm::cross(vij, (vec/dist) * SPIKY_GRAD * (H - dist) * (H - dist));
-                }
-            });
-
-            particles.posCorrection[idx] = viscTerm * VISC;
-        }
+//        for (uint32_t idx = start; idx < end; idx++) {
+//
+//            auto viscTerm = glm::vec3(0.0f);
+//            particles.vorticity[idx] = glm::vec3(0.0f);
+//
+//
+//            grid.query(particles.predPos[idx], H, [this, idx, &viscTerm](uint32_t otherIdx) {
+//
+//                auto vec = particles.predPos[idx] - particles.predPos[otherIdx];
+//                auto dist2 = glm::dot(vec, vec);
+//
+//                if (idx == otherIdx || dist2 < 0.0000001f) return;
+//
+//                if (dist2 < HSQ) {
+//                    auto vij = (particles.velocity[otherIdx] - particles.velocity[idx]);
+//                    viscTerm += vij * POLY6 * std::pow(HSQ - dist2, 3.f);
+//
+//                    float dist = std::sqrt(dist2);
+//                    particles.vorticity[idx] += glm::cross(vij, (vec/dist) * SPIKY_GRAD * (H - dist) * (H - dist));
+//                }
+//            });
+//
+//            particles.posCorrection[idx] = viscTerm * VISC;
+//        }
     };
 
     applyVorticity = [this](uint32_t start, uint32_t end) {
@@ -525,7 +527,7 @@ void PBFCPU3DSim::createFunctions() {
 //                particles.velocity[idx] += VORTICITY_COEF*glm::cross(locationVector/lengthLocVec, particles.vorticity[idx])*DT/MASS;
 //            }
             // viscosity
-            particles.velocity[idx] += particles.posCorrection[idx];
+//            particles.velocity[idx] += particles.posCorrection[idx];
             particles.position[idx] = particles.predPos[idx];
 
         }

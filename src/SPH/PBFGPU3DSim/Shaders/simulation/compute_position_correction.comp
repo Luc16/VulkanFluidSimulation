@@ -68,7 +68,7 @@ void main()
                     if (dist2 < ubo.HSQ) {
                         float dist = sqrt(dist2);
                         float delta = ubo.H - dist;
-                        float sCorr = ubo.ART_PRESSURE_COEF * pow((ubo.HSQ - dist2)/(ubo.HSQ - 0.0009), 12.0f);
+                        float sCorr = -ubo.ART_PRESSURE_COEF * pow((ubo.HSQ - dist2)/(ubo.HSQ - 0.0009), 12.0f);
 
                         corrections[i] += (vec / dist) * (lambdas[i] + lambdas[j] + sCorr) * ubo.SPIKY_GRAD * delta * delta;
 

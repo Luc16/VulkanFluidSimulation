@@ -38,50 +38,50 @@ void main()
     uint i = gl_GlobalInvocationID.x;
     if (i >= ubo.numParticles) return;
 
-    vorticities[i] = vec3(0.0f);
-    vec3 viscTerm = vec3(0.0f);
-
-    // For each neighbor
-    int numCellsX = int(ubo.BOUNDARY_SIZE.x/ubo.H);
-    int numCellsZ = int(ubo.BOUNDARY_SIZE.z/ubo.H);
-    for (int y = -1; y <= 1; y++){
-        int idxy = y*numCellsX*numCellsZ;
-
-        float ypos = predPos[i].y + ubo.H*y;
-        if (ypos >= ubo.BOUNDARY_SIZE.y || ypos < 0) continue;
-
-        for (int z = -1; z <= 1; z++){
-            float zpos = predPos[i].z + ubo.H*z;
-
-            if (zpos >= ubo.BOUNDARY_SIZE.z || zpos < 0) continue;
-            int idxz = z*numCellsX;
-
-            for (int x = -1; x <= 1; x++){
-                float xpos = predPos[i].x + ubo.H*x;
-                if (xpos > ubo.BOUNDARY_SIZE.x || xpos < 0) continue;
-
-                int idx = gridIdx[i] + x + idxz + idxy;
-
-                for (uint j = grid[idx]; j < grid[idx+1]; j++){
-
-                    // apply for each neighbor
-                    vec3 vec = predPos[i] - predPos[j];
-                    float dist2 = dot(vec, vec);
-
-                    if (i == j || dist2 < 0.0000001f) continue;
-
-                    if (dist2 < ubo.HSQ) {
-                        vec3 vij = (vel[j] - vel[i]);
-                        viscTerm += vij * ubo.POLY6 * pow(ubo.HSQ - dist2, 3.f);
-
-                        float dist = sqrt(dist2);
-                        vorticities[i] += cross(vij, (vec/dist) * ubo.SPIKY_GRAD * (ubo.H - dist) * (ubo.H - dist));
-
-                    }
-                }
-            }
-        }
-    }
-    corrections[i] = viscTerm * ubo.VISC;
+//    vorticities[i] = vec3(0.0f);
+//    vec3 viscTerm = vec3(0.0f);
+//
+//    // For each neighbor
+//    int numCellsX = int(ubo.BOUNDARY_SIZE.x/ubo.H);
+//    int numCellsZ = int(ubo.BOUNDARY_SIZE.z/ubo.H);
+//    for (int y = -1; y <= 1; y++){
+//        int idxy = y*numCellsX*numCellsZ;
+//
+//        float ypos = predPos[i].y + ubo.H*y;
+//        if (ypos >= ubo.BOUNDARY_SIZE.y || ypos < 0) continue;
+//
+//        for (int z = -1; z <= 1; z++){
+//            float zpos = predPos[i].z + ubo.H*z;
+//
+//            if (zpos >= ubo.BOUNDARY_SIZE.z || zpos < 0) continue;
+//            int idxz = z*numCellsX;
+//
+//            for (int x = -1; x <= 1; x++){
+//                float xpos = predPos[i].x + ubo.H*x;
+//                if (xpos > ubo.BOUNDARY_SIZE.x || xpos < 0) continue;
+//
+//                int idx = gridIdx[i] + x + idxz + idxy;
+//
+//                for (uint j = grid[idx]; j < grid[idx+1]; j++){
+//
+//                    // apply for each neighbor
+//                    vec3 vec = predPos[i] - predPos[j];
+//                    float dist2 = dot(vec, vec);
+//
+//                    if (i == j || dist2 < 0.0000001f) continue;
+//
+//                    if (dist2 < ubo.HSQ) {
+//                        vec3 vij = (vel[j] - vel[i]);
+//                        viscTerm += vij * ubo.POLY6 * pow(ubo.HSQ - dist2, 3.f);
+//
+//                        float dist = sqrt(dist2);
+//                        vorticities[i] += cross(vij, (vec/dist) * ubo.SPIKY_GRAD * (ubo.H - dist) * (ubo.H - dist));
+//
+//                    }
+//                }
+//            }
+//        }
+//    }
+//    corrections[i] = viscTerm * ubo.VISC;
 
 }

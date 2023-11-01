@@ -212,8 +212,8 @@ private:
         float ART_PRESSURE_COEF = 0.0001f;
         float VORTICITY_COEF = 0.0004f;
         uint numParticles = 0;
-        float POLY6 = 0.02f*315.0f / (64.0f * glm::pi<float>() *H*H*H *H*H*H *H*H*H);
-        float SPIKY_GRAD = 45.0f / (glm::pi<float>() * H*H*H *H*H*H);
+        float POLY6 = 315.0f / (64.0f * glm::pi<float>() *H*H*H *H*H*H *H*H*H);
+        float SPIKY_GRAD = -45.0f / (glm::pi<float>() * H*H*H *H*H*H);
 
         float CFM = 600.0f;
         float EPS = H; // boundary epsilon

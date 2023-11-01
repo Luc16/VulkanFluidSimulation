@@ -556,10 +556,11 @@ void PBFGPU3DSim::showImGui(){
         ImGui::DragFloat("Gravity Factor", &gravityFactor, 0.001f, 0.001f, 5.0f);
         ImGui::DragFloat("Viscosity", &cUbo.VISC, 0.001f, 0.001f, 5.0f);
         ImGui::DragFloat("DeltaTime", &cUbo.DT, 0.00005f, 0.0005f, 0.02f, "%.5f");
-        ImGui::DragFloat("Rest Density", &cUbo.REST_DENS, 0.1f, 0.1f, 1000.0f, "%.4f");
+        ImGui::DragFloat("Rest Density", &cUbo.REST_DENS, 1.0f, 2000.0f, 10000.0f, "%.0f");
+        ImGui::DragFloat("Rest Density", &cUbo.REST_DENS, 1.0f, 2000.0f, 10000.0f, "%.0f");
         if (cUbo.REST_DENS == 0) cUbo.REST_DENS = 0.1f;
         ImGui::DragFloat("Mass", &cUbo.MASS, 0.001f, 0.001f, 40.0f, "%.1f");
-        ImGui::DragFloat("CFM", &cUbo.CFM, 0.005f, 0.005f, 10.0f, "%.4f");
+        ImGui::DragFloat("CFM", &cUbo.CFM, 1.0f, 300.0f, 5000.0f, "%.4f");
         if (cUbo.CFM == 0) cUbo.CFM = 0.1;
         ImGui::DragFloat("ARTIFICIAL PRESSURE", &cUbo.ART_PRESSURE_COEF, 0.0001f, 0.0001f, 10.0f, "%.4f");
         ImGui::DragFloat("VORTICITY COEF", &cUbo.VORTICITY_COEF, 0.000001f, 0.000001f, 0.1f, "%.6f");

@@ -21,5 +21,11 @@ void main() {
     gl_PointSize = ubo.screenHeight*ubo.radius/(viewPos.z*ubo.tanHalfFov);
     gl_Position = ubo.proj * viewPos;
 
-    fragColor = density/ubo.restDens * vec4(1.0, 1.0, 1.0f, 1.0f);
+    if (density < 2000) {
+        fragColor = vec4(0.2f, 0.6f, 1.0f, 1);
+    } else if (density > ubo.restDens) {
+        fragColor = (2 - density/ubo.restDens)*vec4(1, 0, 0, 1);
+    } else {
+        fragColor = density/ubo.restDens * vec4(1, 1, 1, 1);
+    }
 }

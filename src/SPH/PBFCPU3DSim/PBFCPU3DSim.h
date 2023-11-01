@@ -42,24 +42,22 @@ public:
     float MASS = 1.0f;        // assume all particles have the same mass
     float VISC = 0.01f;       // viscosity constant
     float DT = 1/120.0f;       // integration timestep
-    float ART_PRESSURE_COEF = 0.001f;
+    float ART_PRESSURE_COEF = 0.00025f;
     float VORTICITY_COEF = 0.0004f;
     float CFM = 600.0f;
 
     uint32_t jacobiIterations = 4;
     // smoothing kernels defined in Müller and their gradients
-//    static constexpr float POLY6 = 315.0f / (64.0f * glm::pi<float>() *H*H*H *H*H*H *H*H*H);
-    static constexpr float POLY6 = 0.02f*315.0f / (64.0f * glm::pi<float>() *H*H*H *H*H*H *H*H*H);
+    static constexpr float POLY6 = 315.0f / (64.0f * glm::pi<float>() *H*H*H *H*H*H *H*H*H);
 
-    static constexpr float SPIKY_GRAD = 45.0f / (glm::pi<float>() * H*H*H *H*H*H);
+    static constexpr float SPIKY_GRAD = -45.0f / (glm::pi<float>() * H*H*H *H*H*H);
 
     // simulation parameters
     static constexpr float EPS = H; // boundary epsilon
     glm::ivec2 numParticlesXZ = glm::ivec2(int(std::cbrt(INSTANCE_COUNT)));
-//    glm::vec3 BOUNDARY_SIZE = glm::vec3(12.0f, 2.0f, 12.0f) ;
-    glm::vec3 BOUNDARY_SIZE = glm::vec3(5.0f) ;
-//    glm::ivec2 numParticlesXZ = glm::ivec2(int(std::sqrt(INSTANCE_COUNT)));
     static constexpr uint32_t numThreads = 12;
+//    glm::vec3 BOUNDARY_SIZE = glm::vec3(3.0f) ;
+    glm::vec3 BOUNDARY_SIZE = glm::vec3(2.4f, 3.0f, 2.4f) ;
     uint32_t particlesPerThread = INSTANCE_COUNT/numThreads;
 
 
@@ -78,7 +76,7 @@ public:
         alignas(16) glm::mat4 viewProj;
         alignas(16) glm::vec3 cameraPos;
         alignas(16) glm::vec3 lightDir = glm::vec3(1.0f, -1.0f, 0.0f);
-        float radius = H;
+        float radius = H*0.5;
     };
 
     struct ParticleData {
@@ -147,13 +145,16 @@ public:
     std::function<void(uint32_t,uint32_t)> updateVelocitiesThreaded;
     std::function<void(uint32_t,uint32_t)> applyXsphViscosityAndComputeVorticity;
     std::function<void(uint32_t,uint32_t)> applyVorticity;
+    std::function<void(glm::vec3& pos)> boundaryConditions;
 
-    glm::vec3 initialPos = {EPS, EPS, 0};
+    glm::vec3 initialPos = {EPS, EPS, EPS};
     float gravityFactor = 40.f;
     float colorUpdate = 0.008f, densColorThreshold = 0.0f;//1.01f;
     float gpuTime = 0, cpuTime = 0;
     std::atomic<float> avgDensity = 0;
+    std::atomic<float> maxDensity = 0;
     std::atomic<uint32_t> avgNeighbors = 0;
+    std::atomic<uint32_t> sameSpot = 0;
     bool activateTimer = false, controlMode = false, pausedSimulation = false, singleStep = false;
 
     void threadedCall(const std::function<void(uint32_t,uint32_t)>& func);

@@ -86,10 +86,10 @@ void main()
     }
     float lengthLocVec = length(locationVector);
     if (lengthLocVec > 0.000001f){
-        vel[i] += ubo.VORTICITY_COEF*cross(locationVector/lengthLocVec, vorticities[i])*ubo.DT/ubo.MASS;
+//        vel[i] += ubo.VORTICITY_COEF*cross(locationVector/lengthLocVec, vorticities[i])*ubo.DT/ubo.MASS;
     }
     // viscosity
-    vel[i] += corrections[i];
+//    vel[i] += corrections[i];
     pos[i] = predPos[i];
 
 }
