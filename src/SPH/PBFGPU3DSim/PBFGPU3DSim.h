@@ -45,8 +45,9 @@ private:
 
     uint32_t INSTANCE_COUNT = 200'000;
     static constexpr uint32_t MAX_PARTICLES = 1'000'000;
-    static constexpr float MAX_BOUND = 1000.0f;
-    uint32_t jacobiIterations = 3;
+    static constexpr float MAX_BOUND = 100.0f;
+    uint32_t jacobiIterations = 2;
+    uint32_t substeps = 2;
     int blurIterations = 2;
     uint32_t GRID_SIZE = 0;
 
@@ -164,7 +165,7 @@ private:
         float screenHeight;
         float screenWidth;
         float tanHalfFov = std::tan(glm::radians(50.0f)/2);
-        uint32_t renderType = 0;
+        uint32_t renderType = 8;
         float zNear = 0.1f;
         float zFar = 500.0f;
         uint32_t blurMode = 0;
@@ -186,6 +187,7 @@ private:
         float HSQ = H * H;        // radius^2 for optimization
         float VISC = 0.0001f;       // viscosity constant
         float DT = 1/120.0f;       // integration timestep
+//        float DT = 1/60.0f;       // integration timestep
         float ART_PRESSURE_COEF = 0.00025f;
         float VORTICITY_COEF = 0.0004f;
         uint numParticles = 0;

@@ -135,28 +135,31 @@ namespace vkb {
     void PbfGpuSpatialGridHandler::resetGrid(VkCommandBuffer commandBuffer) {
         m_resetGridComputeSystem.bindAndDispatch(commandBuffer,
                                                  &m_resetDescriptorSet,
-                                                 m_gridUbo.gridSize / 256 + (1 - (m_gridUbo.gridSize % 256 == 0)), 1, 1);
+                                                 m_gridUbo.gridSize / m_workGroupSize + (1 - (m_gridUbo.gridSize % m_workGroupSize == 0)), 1, 1);
     }
 
     void PbfGpuSpatialGridHandler::insertParticles(u_char frameIdx, VkCommandBuffer commandBuffer) {
         m_insertParticlesComputeSystem.bindAndDispatch(commandBuffer,
                                                        &m_insertDescriptorSets[frameIdx],
-                                                       m_gridParticleUbo.numParticles / 256 + (1 - (m_gridParticleUbo.numParticles % 256 == 0)), 1, 1);
+                                                       m_gridParticleUbo.numParticles / m_workGroupSize + (1 - (m_gridParticleUbo.numParticles % m_workGroupSize == 0)), 1, 1);
     }
 
     void PbfGpuSpatialGridHandler::prefixSum(VkCommandBuffer commandBuffer) {
         for (int i = 0; i < m_partialSums.size(); i++) {
+            uint32_t sizeData = m_scanBarrierData[i][0].second/sizeof(uint32_t);
             m_scanComputeSystem.bindAndDispatch(commandBuffer,
                                                 &m_scanDescriptorSets[i],
-                                                m_gridUbo.gridSize / 256 + (1 - (m_gridUbo.gridSize % 256 == 0)), 1, 1);
+                                                (sizeData) / m_workGroupSize + (1 - ((sizeData) % m_workGroupSize == 0)), 1, 1);
             ComputeShaderHandler::computeBarriers(commandBuffer, m_scanBarrierData[i]);
         }
 
+
         for (int i = int(m_partialSums.size()) - 2; i >= 0; i--) {
+            uint32_t sizeData = m_scanBarrierData[i][0].second/sizeof(uint32_t);
+
             m_scanAddComputeSystem.bindAndDispatch(commandBuffer,
                                                    &m_scanDescriptorSets[i],
-                                                   m_gridUbo.gridSize / 256 + (1 - (m_gridUbo.gridSize % 256 == 0)), 1, 1);
-
+                                                   (sizeData) / m_workGroupSize + (1 - ((sizeData) % m_workGroupSize == 0)), 1, 1);
             ComputeShaderHandler::computeBarriers(commandBuffer, m_scanBarrierData[i]);
         }
     }
@@ -164,7 +167,7 @@ namespace vkb {
     void PbfGpuSpatialGridHandler::countingSort(u_char frameIdx, VkCommandBuffer commandBuffer) {
         m_countingSortComputeSystem.bindAndDispatch(commandBuffer,
                                                     &m_sortDescriptorSets[frameIdx],
-                                                    m_gridParticleUbo.numParticles / 256 + (1 - (m_gridParticleUbo.numParticles % 256 == 0)), 1, 1);
+                                                    m_gridParticleUbo.numParticles / m_workGroupSize + (1 - (m_gridParticleUbo.numParticles % m_workGroupSize == 0)), 1, 1);
     }
 
     void PbfGpuSpatialGridHandler::gridBarrier(VkCommandBuffer commandBuffer) {

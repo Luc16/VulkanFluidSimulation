@@ -479,44 +479,45 @@ void PBFGPU3DSim::updateSimulation() {
     computeHandler.runCompute(renderer.currentFrame(), [this](VkCommandBuffer computeCommandBuffer){
         uint32_t blockSize = INSTANCE_COUNT/256 + (1 - (INSTANCE_COUNT%256 == 0));
 
-        predictPositionKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
+        for (uint32_t _ = 0; _ < substeps; _++) {
+            predictPositionKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
 
-        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[(computeFrameIdx + 1) % 2]);
+            vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[(computeFrameIdx + 1) % 2]);
 
-        gridHandler.createGrid(computeCommandBuffer, computeFrameIdx);
-
-        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
-
-        for (uint32_t i = 0; i < jacobiIterations; i++){
-
-            lambdaKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
+            gridHandler.createGrid(computeCommandBuffer, computeFrameIdx);
 
             vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
 
-            posCorrectionKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
+            for (uint32_t i = 0; i < jacobiIterations; i++){
+
+                lambdaKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
+
+                vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+
+                posCorrectionKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
+
+                vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+            }
+
+            updateVelocitiesKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
 
             vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+
+            if (activateVisc || activateVorticity) {
+                applyViscAndComputeVortKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
+
+                vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+            }
+            if (activateVorticity) {
+                applyVortAndUpdatePos.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
+
+                vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+            }
+
+            computeFrameIdx = (computeFrameIdx + 1) % positionBuffers.size();
         }
-
-        updateVelocitiesKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
-
-        vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
-
-        if (activateVisc || activateVorticity) {
-            applyViscAndComputeVortKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
-
-            vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
-        }
-        if (activateVorticity) {
-            applyVortAndUpdatePos.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
-
-            vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
-        }
-
-
     });
 
-    computeFrameIdx = (computeFrameIdx + 1) % positionBuffers.size();
 }
 
 void PBFGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){
