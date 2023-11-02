@@ -66,8 +66,8 @@ private:
             "ssf_calculate_normals.frag",
             "ssf_smooth.vert",
             "ssf_smooth.frag",
-            "quad.vert",
-            "quad.frag",
+            "ssf_shading.vert",
+            "ssf_shading.frag",
             "skybox.vert",
             "skybox.frag",
             "reset_grid.comp",
@@ -219,7 +219,7 @@ private:
     std::vector<VkDescriptorSet> simulationDescriptorSets;
     std::vector<VkDescriptorSet> smooth1DescriptorSets;
     std::vector<VkDescriptorSet> smooth2DescriptorSets;
-    std::vector<VkDescriptorSet> debugDescriptorSets;
+    std::vector<VkDescriptorSet> shadingDescriptorSets;
     std::vector<VkDescriptorSet> skyboxDescriptorSets;
     vkb::RenderSystem particleSystem{device};
 
@@ -229,7 +229,7 @@ private:
     vkb::OffscreenPass normalsPass{device, renderer.getSwapChainExtent()};
     vkb::OffscreenPass smoothPass{device, renderer.getSwapChainExtent(), true, true};
 
-    vkb::RenderSystem debugRenderSystem{device};
+    vkb::RenderSystem shadingRenderSystem{device};
 
 
     ParticleData particles{};
@@ -338,7 +338,7 @@ private:
     float particleVerticalSpacing = cUbo.H*0.50f;
     glm::vec4 initialPos = {cUbo.EPS, cUbo.EPS, cUbo.EPS, 0};
     float drawTime = 0, cpuTime = 0, computeTime = 0;
-    bool activateTimer = false, controlMode = false, objectsInitialized = false, pausedSimulation = false, debugScene = false, singleStep = false;
+    bool activateTimer = false, controlMode = false, objectsInitialized = false, pausedSimulation = false, showParticles = false, singleStep = false;
     bool activateVisc = true, activateVorticity = true;
     uint32_t hardResetFrame = 0;
 

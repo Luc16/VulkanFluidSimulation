@@ -23,7 +23,7 @@ layout (location = 0) out vec4 outFragColor;
 
 const float r0 = 0.142857;
 const vec3 defaultColor = vec3(6, 105, 217) / 256;
-const float attenuateConst = 0.2;
+const float attenuateConst = 0.8;
 const float fresnel_bias = 0;
 const float fresnel_scale = 1.2f;
 const float fresnel_power = 10.0f;

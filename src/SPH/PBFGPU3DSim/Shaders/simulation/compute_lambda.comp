@@ -42,22 +42,14 @@ void main()
     // For each neighbor
     int numCellsX = int(ubo.BOUNDARY_SIZE.x/ubo.H);
     int numCellsZ = int(ubo.BOUNDARY_SIZE.z/ubo.H);
+
     for (int y = -1; y <= 1; y++){
         int idxy = y*numCellsX*numCellsZ;
 
-        float ypos = predPos[i].y + ubo.H*y;
-        if (ypos >= ubo.BOUNDARY_SIZE.y || ypos < 0) continue;
-
         for (int z = -1; z <= 1; z++){
-            float zpos = predPos[i].z + ubo.H*z;
-
-            if (zpos >= ubo.BOUNDARY_SIZE.z || zpos < 0) continue;
             int idxz = z*numCellsX;
 
             for (int x = -1; x <= 1; x++){
-                float xpos = predPos[i].x + ubo.H*x;
-                if (xpos > ubo.BOUNDARY_SIZE.x || xpos < 0) continue;
-
                 int idx = gridIdx[i] + x + idxz + idxy;
 
                 for (uint j = grid[idx]; j < grid[idx+1]; j++){

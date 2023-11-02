@@ -140,13 +140,13 @@ void PBFGPU3DSim::onCreate() {
                 .addBinding({6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
                 .build();
 
-        debugRenderSystem.createPipelineLayout(debugDescriptorLayout.descriptorSetLayout(), 0);
-        debugRenderSystem.createPipeline(renderer.renderPass(), quadShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
+        shadingRenderSystem.createPipelineLayout(debugDescriptorLayout.descriptorSetLayout(), 0);
+        shadingRenderSystem.createPipeline(renderer.renderPass(), quadShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
             info.bindingDescription.clear();
             info.attributeDescription.clear();
             info.rasterizer.cullMode = VK_CULL_MODE_NONE;
         });
-        debugDescriptorSets = createDescriptorSets(
+        shadingDescriptorSets = createDescriptorSets(
                 debugDescriptorLayout,
                 {graphicsUniformBuffers[0]->descriptorInfo()},
                 {depthPass.descriptorInfo(), thicknessPass.descriptorInfo(), normalsPass.descriptorInfo(), smoothPass.descriptorInfo(),
@@ -454,17 +454,16 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
         skyboxSystem.bind(commandBuffer, &skyboxDescriptorSets[renderer.currentFrame()]);
         skybox.bindAndDraw(commandBuffer);
 
-        if (debugScene) {
-            debugRenderSystem.bind(commandBuffer, &debugDescriptorSets[renderer.currentFrame()]);
-            vkCmdDraw(commandBuffer, 3, 1, 0, 0);
-
-        } else {
+        if (showParticles) {
             particleSystem.bind(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()]);
             vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
             VkBuffer vbDens = densityBuffer->getBuffer();
             vkCmdBindVertexBuffers(commandBuffer, 1, 1, &vbDens, offsets);
             vkCmdBindIndexBuffer(commandBuffer, idxBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
             vkCmdDrawIndexed(commandBuffer, INSTANCE_COUNT, 1, 0, 0, 0);
+        } else {
+            shadingRenderSystem.bind(commandBuffer, &shadingDescriptorSets[renderer.currentFrame()]);
+            vkCmdDraw(commandBuffer, 3, 1, 0, 0);
         }
 
         defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
@@ -594,7 +593,7 @@ void PBFGPU3DSim::showImGui(){
             }
             ImGui::EndCombo();
         }
-        debugScene = gUbo.renderType != 0;
+        showParticles = gUbo.renderType == 0;
 
         ImGui::SetCursorPosX(10.0f);
         if (ImGui::CollapsingHeader("Blur Options", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -770,7 +769,7 @@ void PBFGPU3DSim::onResize(int width, int height) {
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
             .addSameTypeBindings(1, 6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
             .build();
-    debugDescriptorSets = createDescriptorSets(
+    shadingDescriptorSets = createDescriptorSets(
             debugDescriptorLayout,
             {graphicsUniformBuffers[0]->descriptorInfo()},
             {depthPass.descriptorInfo(), thicknessPass.descriptorInfo(), normalsPass.descriptorInfo(), smoothPass.descriptorInfo(),
