@@ -31,8 +31,8 @@ void main()
 
     // enforce boundary conditions
     float nearEPS = ubo.EPS*(1 + 0.01);
-    if (predPos[i].x - ubo.EPS < 0.0f) {
-        predPos[i].x = nearEPS;
+    if (predPos[i].x - ubo.EPS < ubo.wallX) {
+        predPos[i].x = ubo.wallX + nearEPS;
     } else if (predPos[i].x + ubo.EPS > ubo.BOUNDARY_SIZE.x) {
         predPos[i].x = ubo.BOUNDARY_SIZE.x - nearEPS;
     }
@@ -41,8 +41,8 @@ void main()
     } else if (predPos[i].z + ubo.EPS > ubo.BOUNDARY_SIZE.z) {
         predPos[i].z = ubo.BOUNDARY_SIZE.z - nearEPS;
     }
-    if (predPos[i].y - ubo.EPS < ubo.planeY) {
-        predPos[i].y = ubo.planeY + nearEPS;
+    if (predPos[i].y - ubo.EPS < 0.0f) {
+        predPos[i].y = 0.0f + nearEPS;
     } else if (predPos[i].y + ubo.EPS > ubo.BOUNDARY_SIZE.y) {
         predPos[i].y = ubo.BOUNDARY_SIZE.y - nearEPS;
     }

@@ -27,7 +27,7 @@ public:
     VulkanApp(width, height, appName, type) {}
 
 private:
-//    uint32_t INSTANCE_COUNT = 65536;
+//    uint32_t NUM_PARTICLES = 65536;
     uint32_t INSTANCE_COUNT = 64;
 
     const std::string planeModelPath = "../Models/quadXZ.obj";

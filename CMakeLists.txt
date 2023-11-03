@@ -37,6 +37,7 @@ add_library( VkFluidSim
         src/SPH/PBFGPU3DSim/PbfGpuSpatialGridHandler.cpp src/SPH/PBFGPU3DSim/PbfGpuSpatialGridHandler.h
         src/lib/CubeMapModel.cpp
         src/lib/CubeMapModel.h
+        external/imgui/imgui_stdlib.h
 )
 
 set( GENERAL_APPS

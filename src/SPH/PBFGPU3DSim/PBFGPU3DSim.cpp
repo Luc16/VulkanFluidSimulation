@@ -6,6 +6,11 @@
 
 void PBFGPU3DSim::onCreate() {
     vkDeviceWaitIdle(device.device());
+    presets.clear();
+    for (const auto & entry : std::filesystem::directory_iterator(PRESET_DIR)){
+        presets.emplace_back(entry.path());
+    }
+
     compileShaders();
 //    camera.m_translation = {-174.012f, 194.745f, 193.005f};
 //    camera.m_rotation = {0.569391f, 1.95856f, 3.14159f};
@@ -241,12 +246,13 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     gUbo.inverseView = glm::inverse(gUbo.view);
     gUbo.proj = camera.getProjection();
     gUbo.planeSize = cUbo.BOUNDARY_SIZE;
-    cUbo.numParticles = INSTANCE_COUNT;
+    cUbo.numParticles = NUM_PARTICLES;
     GRID_SIZE = uint32_t(cUbo.BOUNDARY_SIZE.x/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.y/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.z/cUbo.H) + 1;
+    activateWaves = false;
 
     vkDeviceWaitIdle(device.device());
 
-    particles.resize(INSTANCE_COUNT);
+    particles.resize(NUM_PARTICLES);
 
     plane.setScale(cUbo.BOUNDARY_SIZE);
 
@@ -350,7 +356,7 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     }
     createComputeDescriptorSets();
 
-    std::vector<uint32_t> idxs(INSTANCE_COUNT);
+    std::vector<uint32_t> idxs(NUM_PARTICLES);
     std::iota(std::begin(idxs), std::end(idxs), 0);
     idxBuffer = std::make_unique<vkb::Buffer>(device, idxs.size() * sizeof(uint32_t),
                                               VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -382,7 +388,7 @@ void PBFGPU3DSim::createUniformBuffers() {
 void PBFGPU3DSim::mainLoop(float deltaTime) {
     auto currentTime = std::chrono::high_resolution_clock::now();
 
-    cameraController.moveCamera(window.window(), deltaTime, camera);
+    keyboardControl(deltaTime);
     updateUniformBuffers(renderer.currentFrame(), deltaTime);
 
     if (activateTimer) {
@@ -420,7 +426,7 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
     depthPass.run(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()],
                   [this, &vb, &offsets](VkCommandBuffer &commandBuffer) {
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
-        vkCmdDraw(commandBuffer, INSTANCE_COUNT, 1, 0, 0);
+        vkCmdDraw(commandBuffer, NUM_PARTICLES, 1, 0, 0);
     });
 
     smoothPass.run(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()],
@@ -441,7 +447,7 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
                       (blurIterations % 2 == 0) ? &smooth1DescriptorSets[renderer.currentFrame()] : &smooth2DescriptorSets[renderer.currentFrame()],
                       [this, &vb, &offsets](VkCommandBuffer &commandBuffer) {
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
-        vkCmdDraw(commandBuffer, INSTANCE_COUNT, 1, 0, 0);
+        vkCmdDraw(commandBuffer, NUM_PARTICLES, 1, 0, 0);
     });
 
     normalsPass.run(commandBuffer,
@@ -460,7 +466,7 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
             VkBuffer vbDens = densityBuffer->getBuffer();
             vkCmdBindVertexBuffers(commandBuffer, 1, 1, &vbDens, offsets);
             vkCmdBindIndexBuffer(commandBuffer, idxBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
-            vkCmdDrawIndexed(commandBuffer, INSTANCE_COUNT, 1, 0, 0, 0);
+            vkCmdDrawIndexed(commandBuffer, NUM_PARTICLES, 1, 0, 0, 0);
         } else {
             shadingRenderSystem.bind(commandBuffer, &shadingDescriptorSets[renderer.currentFrame()]);
             vkCmdDraw(commandBuffer, 3, 1, 0, 0);
@@ -476,7 +482,7 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
 void PBFGPU3DSim::updateSimulation() {
 
     computeHandler.runCompute(renderer.currentFrame(), [this](VkCommandBuffer computeCommandBuffer){
-        uint32_t blockSize = INSTANCE_COUNT/256 + (1 - (INSTANCE_COUNT%256 == 0));
+        uint32_t blockSize = NUM_PARTICLES / 256 + (1 - (NUM_PARTICLES % 256 == 0));
 
         for (uint32_t _ = 0; _ < substeps; _++) {
             predictPositionKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
@@ -527,16 +533,63 @@ void PBFGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){
     gUbo.restDens = cUbo.REST_DENS;
     graphicsUniformBuffers[frameIndex]->write(&gUbo);
 
-    cUbo.planeY = plane.m_translation.y;
+    if (activateWaves) {
+        cUbo.wallX += curSpeed * cUbo.DT;
+        if (cUbo.wallX >= wallLimit) {
+            curSpeed = -wallBackwardSpeed;
+        } else if (cUbo.wallX <= 0) {
+            cUbo.wallX = 0;
+            curSpeed = wallForwardSpeed;
+        }
+    } else cUbo.wallX = 0;
+
+//    cUbo.wallX = plane.m_translation.y;
 //    cUbo.DT = std::clamp(deltaTime, 0.001f, 0.016f);
 //    cUbo.G = 0.0f*glm::vec3(0.0f, -9.8f, 0.0f);
     computeUniformBuffer->write(&cUbo);
 }
 
+void PBFGPU3DSim::keyboardControl(float deltaTime) {
+    if (disableKeyboardControl) return;
+    cameraController.moveCamera(window.window(), deltaTime, camera);
+
+    static bool pWasReleased = false;
+    if (pWasReleased && glfwGetKey(window.window(), GLFW_KEY_P) == GLFW_PRESS) {
+        singleStep = true;
+        pausedSimulation = false;
+
+    } else if (glfwGetKey(window.window(), GLFW_KEY_P) == GLFW_RELEASE){
+        pWasReleased = true;
+    }
+
+    static bool rWasReleased = false;
+    if (rWasReleased && glfwGetKey(window.window(), GLFW_KEY_R) == GLFW_PRESS) {
+        initializeObjects(true);
+        controlMode = false;
+    } else if (glfwGetKey(window.window(), GLFW_KEY_R) == GLFW_RELEASE){
+        rWasReleased = true;
+    }
+
+    static bool wasReleased = false;
+    if (wasReleased && glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_PRESS) {
+        pausedSimulation = !pausedSimulation;
+        wasReleased = false;
+        if (controlMode) {
+            initializeObjects(true);
+            controlMode = false;
+        }
+
+//        std::cout << "camera.m_translation = {" << camera.m_translation.x << "f, " << camera.m_translation.y << "f, " << camera.m_translation.z << "f};\n";
+//        std::cout << "camera.m_rotation = {" << camera.m_rotation.x << "f, " << camera.m_rotation.y << "f, " << camera.m_rotation.z << "f};\n";
+    } else if (glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_RELEASE){
+        wasReleased = true;
+    }
+}
+
 void PBFGPU3DSim::showImGui(){
     ImGui::Begin("Control Panel");
 
-    ImGui::Text("Rendering %d instances", INSTANCE_COUNT);
+    ImGui::Text("Rendering %d instances", NUM_PARTICLES);
     ImGui::Text("Grid size: %d", GRID_SIZE);
     ImGui::Checkbox("Display time", &activateTimer);
     if(activateTimer){
@@ -545,9 +598,12 @@ void PBFGPU3DSim::showImGui(){
         ImGui::Text("Draw time: %f ms", drawTime);
     }
 
-    if (ImGui::Button("Reset and enter control mode")) {
+    if (ImGui::Button("Load Configurations")) {
         pausedSimulation = true;
-        controlMode = true;
+        isLoadWindowOpen = true;
+        saveFileName = "Enter file name";
+        disableKeyboardControl = true;
+
     }
 
     if (ImGui::CollapsingHeader("Simulation constants", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -570,8 +626,10 @@ void PBFGPU3DSim::showImGui(){
     }
     ImGui::NewLine();
 
-    if (ImGui::CollapsingHeader("Boundaries", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::SliderFloat("Plane Y", &plane.m_translation.y, -100.0f, 100.0f);
+    if (ImGui::CollapsingHeader("Waves", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Checkbox("Activate waves", &activateWaves);
+        ImGui::DragFloat("Wall forward speed", &wallForwardSpeed, 0.001f);
+        ImGui::DragFloat("Wall backward speed", &wallBackwardSpeed, 0.001f);
     }
     ImGui::NewLine();
 
@@ -630,27 +688,15 @@ void PBFGPU3DSim::showImGui(){
         singleStep = false;
     }
 
-    static bool pWasReleased = false;
-    if (ImGui::Button("Step") || pWasReleased && glfwGetKey(window.window(), GLFW_KEY_P) == GLFW_PRESS) {
+    if (ImGui::Button("Step")) {
         singleStep = true;
         pausedSimulation = false;
-
-    } else if (glfwGetKey(window.window(), GLFW_KEY_P) == GLFW_RELEASE){
-        pWasReleased = true;
     }
 
     if (ImGui::Button("Reset")) {
         initializeObjects(true);
         controlMode = false;
         pausedSimulation = false;
-    }
-
-    static bool rWasReleased = false;
-    if (rWasReleased && glfwGetKey(window.window(), GLFW_KEY_R) == GLFW_PRESS) {
-        initializeObjects(true);
-        controlMode = false;
-    } else if (glfwGetKey(window.window(), GLFW_KEY_R) == GLFW_RELEASE){
-        rWasReleased = true;
     }
 
     if (hardResetFrame > 2) {
@@ -666,40 +712,34 @@ void PBFGPU3DSim::showImGui(){
     }
     hardResetFrame++;
 
+    if (ImGui::Button("Reset and enter control mode")) {
+        pausedSimulation = true;
+        controlMode = true;
+    }
 
+    if (ImGui::Button("Save Configurations")) {
+        pausedSimulation = true;
+        isSaveWindowOpen = true;
+        saveFileName = "Enter file name";
+        disableKeyboardControl = true;
+    }
 
     ImGui::Text("Using %s", device.getPhysicalDeviceName().c_str());
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                 ImGui::GetIO().Framerate);
     ImGui::End();
 
-    static bool wasReleased = false;
-    if (wasReleased && glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_PRESS) {
-        pausedSimulation = !pausedSimulation;
-        wasReleased = false;
-        if (controlMode) {
-            initializeObjects(true);
-            controlMode = false;
-        }
-
-//        std::cout << "camera.m_translation = {" << camera.m_translation.x << "f, " << camera.m_translation.y << "f, " << camera.m_translation.z << "f};\n";
-//        std::cout << "camera.m_rotation = {" << camera.m_rotation.x << "f, " << camera.m_rotation.y << "f, " << camera.m_rotation.z << "f};\n";
-    } else if (glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_RELEASE){
-        wasReleased = true;
-    }
-
-
     if (controlMode) {
         ImGui::Begin("Control Mode");
 
         auto getParticleShapeSize = [this]() -> glm::vec3 {
             return {float(numParticlesXZ.x) * particleSpacing + cUbo.H,
-                    float(INSTANCE_COUNT) / float(numParticlesXZ.x * numParticlesXZ.y) * particleSpacing + cUbo.H,
+                    float(NUM_PARTICLES) / float(numParticlesXZ.x * numParticlesXZ.y) * particleVerticalSpacing + cUbo.H,
                     float(numParticlesXZ.y) * particleSpacing + cUbo.H
             };
         };
 
-        int temp = (int) INSTANCE_COUNT;
+        int temp = (int) NUM_PARTICLES;
         ImGui::SliderInt("Num Particles", &temp, 16, MAX_PARTICLES);
 
         ImGui::DragFloat("Spacing", &particleSpacing, 0.01f*cUbo.H, 0.2f*cUbo.H, 2*cUbo.H);
@@ -707,8 +747,8 @@ void PBFGPU3DSim::showImGui(){
 
         auto particleShapeSize = getParticleShapeSize();
 
-        if (temp != INSTANCE_COUNT) {
-            INSTANCE_COUNT = (uint32_t) temp;
+        if (temp != NUM_PARTICLES) {
+            NUM_PARTICLES = (uint32_t) temp;
 
             numParticlesXZ = glm::ivec2(int(std::cbrt(float(temp))));
             particleShapeSize = getParticleShapeSize();
@@ -733,7 +773,7 @@ void PBFGPU3DSim::showImGui(){
         ImGui::CSliderFloatRanged3("Initial Pos", &initialPos[0], &minPos[0], &maxPos[0]);
 
         auto numParticleMin = glm::ivec2(2);
-        auto numParticleMax = glm::ivec2(int(cUbo.BOUNDARY_SIZE.x/cUbo.H - cUbo.H), int(cUbo.BOUNDARY_SIZE.z/cUbo.H - cUbo.H));
+        auto numParticleMax = glm::ivec2(int(cUbo.BOUNDARY_SIZE.x/particleSpacing - cUbo.H), int(cUbo.BOUNDARY_SIZE.z/particleSpacing - cUbo.H));
         ImGui::CSliderIntRanged2("Num Particles XZ", &numParticlesXZ[0], &numParticleMin[0], &numParticleMax[0]);
 
         particleShapeSize = getParticleShapeSize();
@@ -753,6 +793,64 @@ void PBFGPU3DSim::showImGui(){
             controlMode = false;
             pausedSimulation = false;
         }
+        ImGui::End();
+    }
+
+    if (isSaveWindowOpen) {
+        ImGui::Begin("Save Configuration");
+
+        ImGui::InputText("File Name", &saveFileName);
+
+
+        if (ImGui::Button("Save") && saveFileName != "Enter file name") {
+            saveToJson(saveFileName + ".json");
+            isSaveWindowOpen = false;
+            pausedSimulation = false;
+            disableKeyboardControl = false;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) {
+            isSaveWindowOpen = false;
+            pausedSimulation = false;
+            disableKeyboardControl = false;
+        }
+
+        ImGui::End();
+    }
+
+    if (isLoadWindowOpen) {
+        ImGui::Begin("Save Configuration");
+
+        ImGui::Text("Choose preset file");
+
+        static std::string_view curFile{"default.json"}; // this file must always exist
+        if (ImGui::BeginCombo("##combo", curFile.data())) {
+            for (const std::string_view preset : presets){
+                const std::string_view name = preset.substr(preset.find_last_of('/')+1);
+                bool isSelected = (curFile == name);
+                if (ImGui::Selectable(name.data(), isSelected)) {
+                    curFile = name;
+                }
+                if (isSelected)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+
+        if (ImGui::Button("Load")) {
+            loadDataFromJson(PRESET_DIR + curFile.data());
+            isLoadWindowOpen = false;
+            pausedSimulation = false;
+            initializeObjects(true);
+            disableKeyboardControl = false;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) {
+            isLoadWindowOpen = false;
+            pausedSimulation = false;
+            disableKeyboardControl = false;
+        }
+
         ImGui::End();
     }
 
@@ -786,6 +884,98 @@ void PBFGPU3DSim::onResize(int width, int height) {
                                                  {graphicsUniformBuffers[0]->descriptorInfo()}, {smoothPass.descriptorInfo()});
     smooth2DescriptorSets = createDescriptorSets(defaultDescriptorLayout,
                                                  {graphicsUniformBuffers[0]->descriptorInfo()}, {smoothPass.additionalImageDescriptorInfo()});
+}
+
+void PBFGPU3DSim::loadDataFromJson(const std::string &fileName) {
+    nlohmann::json jsonData;
+    std::ifstream fileData(fileName);
+    fileData >> jsonData;
+
+    NUM_PARTICLES = jsonData["NUM_PARTICLES"];
+    substeps = jsonData["substeps"];
+
+    // rendering param
+    gUbo.radius = jsonData["rendering"]["radius"];
+    gUbo.renderType = jsonData["rendering"]["renderType"];
+    gUbo.blurMode = jsonData["rendering"]["blurMode"];
+    blurIterations = jsonData["rendering"]["blurIterations"];
+    gUbo.filterRadius = jsonData["rendering"]["filterRadius"];
+    gUbo.blurScale = jsonData["rendering"]["blurScale"];
+    gUbo.blurDepthFalloff = jsonData["rendering"]["blurDepthFalloff"];
+
+    // simulation params
+    jacobiIterations = jsonData["simulation"]["jacobiIterations"];
+    cUbo.BOUNDARY_SIZE[0] = jsonData["simulation"]["BOUNDARY_SIZE"][0];
+    cUbo.BOUNDARY_SIZE[1] = jsonData["simulation"]["BOUNDARY_SIZE"][1];
+    cUbo.BOUNDARY_SIZE[2] = jsonData["simulation"]["BOUNDARY_SIZE"][2];
+    cUbo.REST_DENS = jsonData["simulation"]["REST_DENS"];
+    cUbo.VISC = jsonData["simulation"]["VISC"];
+    cUbo.ART_PRESSURE_COEF = jsonData["simulation"]["ART_PRESSURE_COEF"];
+    cUbo.VORTICITY_COEF = jsonData["simulation"]["VORTICITY_COEF"];
+    cUbo.CFM = jsonData["simulation"]["CFM"];
+    cUbo.activateVort = jsonData["simulation"]["activateVort"];
+    activateVisc = jsonData["simulation"]["activateVisc"];
+    activateVorticity = jsonData["simulation"]["activateVorticity"];
+
+    // walls
+    wallForwardSpeed = jsonData["walls"]["wallForwardSpeed"];
+    wallBackwardSpeed = jsonData["walls"]["wallBackwardSpeed"];
+
+    // initial params
+    numParticlesXZ[0] = jsonData["initial params"]["numParticlesXZ"][0];
+    numParticlesXZ[1] = jsonData["initial params"]["numParticlesXZ"][1];
+    particleSpacing = jsonData["initial params"]["particleSpacing"];
+    particleVerticalSpacing = jsonData["initial params"]["particleVerticalSpacing"];
+    initialPos[0] = jsonData["initial params"]["initialPos"][0];
+    initialPos[1] = jsonData["initial params"]["initialPos"][1];
+    initialPos[2] = jsonData["initial params"]["initialPos"][2];
+}
+
+void PBFGPU3DSim::saveToJson(const std::string &fileName) {
+    nlohmann::json saveData = {
+            {"NUM_PARTICLES",   NUM_PARTICLES},
+            {"substeps", substeps},
+            {"rendering",             {
+                    {"radius", gUbo.radius},
+                    {"renderType", gUbo.renderType},
+                    {"blurMode", gUbo.blurMode},
+                    {"blurIterations",   blurIterations},
+                    {"filterRadius", gUbo.filterRadius},
+                    {"blurScale", gUbo.blurScale},
+                    {"blurDepthFalloff", gUbo.blurDepthFalloff},
+                },
+            },
+            {"simulation", {
+                    {"jacobiIterations", jacobiIterations},
+                    {"BOUNDARY_SIZE", {cUbo.BOUNDARY_SIZE.x, cUbo.BOUNDARY_SIZE.y, cUbo.BOUNDARY_SIZE.z}},
+                    {"REST_DENS", cUbo.REST_DENS},
+                    {"VISC", cUbo.VISC},
+                    {"ART_PRESSURE_COEF", cUbo.ART_PRESSURE_COEF},
+                    {"VORTICITY_COEF", cUbo.VORTICITY_COEF},
+                    {"CFM", cUbo.CFM},
+                    {"activateVort", cUbo.activateVort},
+                    {"activateVisc", activateVisc},
+                    {"activateVorticity", activateVorticity},
+                },
+            },
+            {"walls", {
+                    {"wallForwardSpeed", wallForwardSpeed},
+                    {"wallBackwardSpeed", wallBackwardSpeed},
+                },
+            },
+            {"initial params", {
+                    {"numParticlesXZ", {numParticlesXZ.x, numParticlesXZ.y}},
+                    {"particleSpacing", particleSpacing},
+                    {"particleVerticalSpacing", particleVerticalSpacing},
+                    {"initialPos", {initialPos.x, initialPos.y, initialPos.z}},
+                }
+            }
+    };
+
+    std::ofstream o(PRESET_DIR + fileName);
+    o << std::setw(4) << saveData << std::endl;
+    presets.emplace_back(PRESET_DIR + fileName);
+
 }
 
 void PBFGPU3DSim::compileShaders() {

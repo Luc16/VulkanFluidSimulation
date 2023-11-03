@@ -7,7 +7,9 @@
 
 #define GLM_GTX_norm
 #include <sstream>
+#include <filesystem>
 #include "../../../external/imgui/imgui.h"
+#include "../../../external/imgui/imgui_stdlib.h"
 #include "../../../external/objloader/tiny_obj_loader.h"
 #include "../../lib/SwapChain.h"
 #include "../../lib/Buffer.h"
@@ -26,6 +28,7 @@
 #include "PbfGpuSpatialGridHandler.h"
 #include "OffscreenPass.h"
 #include "../../lib/CubeMapModel.h"
+#include "../../../external/nlohmann_json/json.hpp"
 
 
 class PBFGPU3DSim: public vkb::VulkanApp {
@@ -36,14 +39,17 @@ public:
     void compileShaders();
 
 private:
-    const std::string SHADER_DIR = std::string("../src/SPH/PBFGPU3DSim/Shaders/");
-    const std::string RENDER_SHADER_DIR = SHADER_DIR + "/rendering/";
-    const std::string GRID_SHADER_DIR = SHADER_DIR + "/grid/";
-    const std::string SIMULATIONS_SHADER_DIR = SHADER_DIR + "/simulation/";
-    const std::string COMPILED_SHADER_DIR = std::string("../src/SPH/PBFGPU3DSim/Shaders/bin/");
+
+    const std::string SIM_DIR = std::string("../src/SPH/PBFGPU3DSim/");
+    const std::string SHADER_DIR = SIM_DIR + "Shaders/";
+    const std::string RENDER_SHADER_DIR = SHADER_DIR + "rendering/";
+    const std::string GRID_SHADER_DIR = SHADER_DIR + "grid/";
+    const std::string SIMULATIONS_SHADER_DIR = SHADER_DIR + "simulation/";
+    const std::string COMPILED_SHADER_DIR = SHADER_DIR + "bin/";
+    const std::string PRESET_DIR = SIM_DIR + "presets/";
 
 
-    uint32_t INSTANCE_COUNT = 200'000;
+    uint32_t NUM_PARTICLES = 200'000;
     static constexpr uint32_t MAX_PARTICLES = 1'000'000;
     static constexpr float MAX_BOUND = 100.0f;
     uint32_t jacobiIterations = 2;
@@ -181,7 +187,7 @@ private:
         alignas(16) glm::vec3 BOUNDARY_SIZE = glm::vec3(7.0f);
         alignas(16) glm::vec3 G = glm::vec3(0.0f, -9.8f, 0.0f);
 
-        float planeY = 0.0f;
+        float wallX = 0.0f;
         float REST_DENS = 6378.0f;  // rest density
         float H = 0.1f;           // kernel radius
         float HSQ = H * H;        // radius^2 for optimization
@@ -196,7 +202,7 @@ private:
 
         float CFM = 600.0f;
         float EPS = H; // boundary epsilon
-        bool activateVort = 1;
+        bool activateVort = true;
     };
 
     vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, planeModelPath), std::make_shared<vkb::Texture>(device, planeTexPath)};
@@ -333,13 +339,19 @@ private:
     vkb::Camera camera{};
     vkb::CameraMovementController cameraController{};
 
-    glm::ivec2 numParticlesXZ = glm::ivec2(int(std::cbrt(INSTANCE_COUNT)));
+    glm::ivec2 numParticlesXZ = glm::ivec2(int(std::cbrt(NUM_PARTICLES)));
     float particleSpacing = cUbo.H*0.56f;
     float particleVerticalSpacing = cUbo.H*0.50f;
     glm::vec4 initialPos = {cUbo.EPS, cUbo.EPS, cUbo.EPS, 0};
     float drawTime = 0, cpuTime = 0, computeTime = 0;
-    bool activateTimer = false, controlMode = false, objectsInitialized = false, pausedSimulation = false, showParticles = false, singleStep = false;
+
+    std::string saveFileName;
+    std::vector<std::string> presets;
+    bool isSaveWindowOpen = false, isLoadWindowOpen = false, disableKeyboardControl = false;
+    bool activateTimer = false, controlMode = false, objectsInitialized = false, pausedSimulation = false;
+    bool activateWaves = false, showParticles = false, singleStep = false;
     bool activateVisc = true, activateVorticity = true;
+    float wallForwardSpeed = 0.4f * cUbo.H / cUbo.DT, wallBackwardSpeed = 0.1f * cUbo.H / cUbo.DT, wallLimit = 0.2f * cUbo.BOUNDARY_SIZE.x, curSpeed = 0.0f;
     uint32_t hardResetFrame = 0;
 
     void onCreate() override;
@@ -350,8 +362,12 @@ private:
     void mainLoop(float deltaTime) override;
     void renderObjects(VkCommandBuffer commandBuffer);
     void updateSimulation();
+    void keyboardControl(float deltaTime);
     void updateUniformBuffers(uint32_t frameIndex, float deltaTime);
     void showImGui();
+    void loadDataFromJson(const std::string& file);
+    void saveToJson(const std::string& file);
+
 
 };
 
