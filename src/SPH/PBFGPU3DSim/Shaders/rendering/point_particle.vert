@@ -32,7 +32,5 @@ void main() {
 
     if (type != 0) {
         fragColor = vec4(0, 1, 0, 1);
-    } else {
-        fragColor = vec4(0, 0, 0, 0);
     }
 }

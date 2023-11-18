@@ -49,7 +49,6 @@ void PBFGPU3DSim::onCreate() {
             info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
             info.attributeDescription.push_back({1, 1, VK_FORMAT_R32_SFLOAT, 0});
             info.attributeDescription.push_back({2, 2, VK_FORMAT_R32_UINT, 0});
-            info.enableAlphaBlending();
 
         });
     }
@@ -279,7 +278,11 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
                     randomFloat((accPos.z != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
                     0.0f);
         particles.velocity[i] = glm::vec4(0.0f);
-        particles.type[i] = (i < 20) ? 1 : 0;
+        particles.density[i] = cUbo.REST_DENS;
+        particles.type[i] = 0;
+        if (i < 20) {
+            particles.type[i] = 1;
+        }
         accPos.x += particleSpacing;
 
         if (i % numParticlesXZ.x == numParticlesXZ.x - 1) {
@@ -316,6 +319,7 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
 
             if (i == 0) {
                 vkb::Buffer::writeVectorToBuffer(device, positionBuffers[i], particles.position);
+                vkb::Buffer::writeVectorToBuffer(device, predPosBuffers[i], particles.position);
                 vkb::Buffer::writeVectorToBuffer(device, velocityBuffers[i], particles.velocity);
                 vkb::Buffer::writeVectorToBuffer(device, particleTypeBuffers[i], particles.type);
             }
@@ -325,6 +329,9 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
         densityBuffer = std::make_unique<vkb::Buffer>(device, particles.density.size() * sizeof(float),
                                                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        vkb::Buffer::writeVectorToBuffer(device, densityBuffer, particles.density);
+
+
         lambdaBuffer = makeBuffer(particles.lambda.size()*sizeof(float));
         gridIdxBuffer = makeBuffer(particles.gIdx.size() * sizeof(uint32_t));
     }

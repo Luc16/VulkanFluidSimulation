@@ -36,11 +36,11 @@ layout(std430, binding = 7) buffer OutPredPositionSSBO {
 };
 
 layout(std430, binding = 8) readonly buffer ParticleTypeSSBO {
-    vec3 type[ ];
+    uint type[ ];
 };
 
 layout(std430, binding = 9) buffer OutParticleTypeSSBO {
-    vec3 outType[ ];
+    uint outType[ ];
 };
 
 layout(std430, binding = 10) buffer ParticleIdxSSBO {
