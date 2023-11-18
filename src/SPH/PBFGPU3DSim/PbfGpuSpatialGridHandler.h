@@ -45,7 +45,8 @@ namespace vkb {
                                                                      const std::unique_ptr<Buffer>& particleIdxBuffer,
                                                                      const std::array<std::unique_ptr<Buffer>, 2>& particlePosBuffers,
                                                                      const std::array<std::unique_ptr<Buffer>, 2>& particleVelBuffers,
-                                                                     const std::array<std::unique_ptr<Buffer>, 2>& particlePredPosBuffers);
+                                                                     const std::array<std::unique_ptr<Buffer>, 2>& particlePredPosBuffers,
+                                                                     const std::array<std::unique_ptr<Buffer>, 2>& particleTypeBuffers);
 
         void resetGrid(VkCommandBuffer commandBuffer);
         void insertParticles(u_char frameIdx, VkCommandBuffer commandBuffer);
@@ -91,14 +92,8 @@ namespace vkb {
                 .build();
         vkb::DescriptorSetLayout m_sortDescriptorLayout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                 .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
-                .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // particles pos in
-                .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // particles pos out
-                .addBinding({4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // particles vel in
-                .addBinding({5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // particles vel out
-                .addBinding({6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // particles pred in
-                .addBinding({7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // particles pred out
-                .addBinding({8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // particles grid idx
+                // grid, pos in, pos out, vel in, vel out, pred in, pred out, type in, type out, grid idx
+                .addSameTypeBindings(1, 10, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                 .build();
 
         VkDescriptorSet m_resetDescriptorSet{};

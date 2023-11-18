@@ -1,7 +1,7 @@
 # Simple Grid Fluid Simulation
 [![pt-br](https://img.shields.io/badge/LEIAME-PT--BR-A3BE8C.svg?style=for-the-badge)](README-ptbr.md)
 
-This is a simple m_gridBuffer fluid simulation implementation. The main idea is to use a m_gridBuffer to simulate
+This is a simple fluid simulation implementation. The main idea is to use a grid to simulate
 fluid attributes, such as density and velocity. Then the fluid can be updated using 
 algorithms based on the Navier-Stokes equations.
 

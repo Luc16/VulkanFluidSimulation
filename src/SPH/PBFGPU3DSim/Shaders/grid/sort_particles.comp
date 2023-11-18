@@ -35,7 +35,15 @@ layout(std430, binding = 7) buffer OutPredPositionSSBO {
     vec3 outPredPos[ ];
 };
 
-layout(std430, binding = 8) buffer ParticleIdxSSBO {
+layout(std430, binding = 8) readonly buffer ParticleTypeSSBO {
+    vec3 type[ ];
+};
+
+layout(std430, binding = 9) buffer OutParticleTypeSSBO {
+    vec3 outType[ ];
+};
+
+layout(std430, binding = 10) buffer ParticleIdxSSBO {
     uint gridIdx[ ];
 };
 
@@ -58,6 +66,7 @@ void main()
     outPos[k-1] = pos[i];
     outVel[k-1] = vel[i];
     outPredPos[k-1] = predPos[i];
+    outType[k-1] = type[i];
     gridIdx[k-1] = gidx;
 
 }

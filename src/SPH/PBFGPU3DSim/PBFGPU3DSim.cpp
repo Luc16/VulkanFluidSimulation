@@ -12,8 +12,6 @@ void PBFGPU3DSim::onCreate() {
     }
 
     compileShaders();
-//    camera.m_translation = {-174.012f, 194.745f, 193.005f};
-//    camera.m_rotation = {0.569391f, 1.95856f, 3.14159f};
     camera.m_translation = {-9.31845f, 14.2878f, 15.5649f};
     camera.m_rotation = {0.569391f, 2.26887f, 3.14159f};
     camera.updateView();
@@ -31,6 +29,8 @@ void PBFGPU3DSim::onCreate() {
             .build();
     defaultDescriptorSets = createDescriptorSets(defaultDescriptorLayout,
                                                  {graphicsUniformBuffers[0]->descriptorInfo()}, {plane.textureInfo()});
+    rockDescriptorSets = createDescriptorSets(defaultDescriptorLayout,
+                                                {graphicsUniformBuffers[0]->descriptorInfo()}, {rockA.textureInfo()});
     {
         defaultSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(),
                                            sizeof(vkb::DrawableObject::PushConstantData));
@@ -44,9 +44,13 @@ void PBFGPU3DSim::onCreate() {
             info.bindingDescription.clear();
             info.bindingDescription.push_back({0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX});
             info.bindingDescription.push_back({1, sizeof(float), VK_VERTEX_INPUT_RATE_VERTEX});
+            info.bindingDescription.push_back({2, sizeof(uint32_t), VK_VERTEX_INPUT_RATE_VERTEX});
             info.attributeDescription.clear();
             info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
             info.attributeDescription.push_back({1, 1, VK_FORMAT_R32_SFLOAT, 0});
+            info.attributeDescription.push_back({2, 2, VK_FORMAT_R32_UINT, 0});
+            info.enableAlphaBlending();
+
         });
     }
 
@@ -194,6 +198,7 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
                 {positionBuffers[i]->descriptorInfo()},
                 {velocityBuffers[i]->descriptorInfo()},
                 {predPosBuffers[i]->descriptorInfo()},
+                {particleTypeBuffers[i]->descriptorInfo()},
         });
 
         lambdaKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, lambdaKernel.layout, {
@@ -203,6 +208,7 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
                 {lambdaBuffer->descriptorInfo()},
                 {densityBuffer->descriptorInfo()},
                 {gridIdxBuffer->descriptorInfo()},
+                {particleTypeBuffers[(i + 1) % particleTypeBuffers.size()]->descriptorInfo()},
         });
 
         posCorrectionKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, posCorrectionKernel.layout, {
@@ -211,6 +217,7 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
                 {predPosBuffers[(i + 1) % predPosBuffers.size()]->descriptorInfo()},
                 {lambdaBuffer->descriptorInfo()},
                 {gridIdxBuffer->descriptorInfo()},
+                {particleTypeBuffers[(i + 1) % particleTypeBuffers.size()]->descriptorInfo()},
         });
 
         updateVelocitiesKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, updateVelocitiesKernel.layout, {
@@ -218,6 +225,7 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
                 {positionBuffers[(i + 1) % positionBuffers.size()]->descriptorInfo()},
                 {velocityBuffers[(i + 1) % velocityBuffers.size()]->descriptorInfo()},
                 {predPosBuffers[(i + 1) % predPosBuffers.size()]->descriptorInfo()},
+                {particleTypeBuffers[(i + 1) % particleTypeBuffers.size()]->descriptorInfo()},
         });
 
         applyViscAndComputeVortKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, applyViscAndComputeVortKernel.layout, {
@@ -227,6 +235,7 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
                 {velocityBuffers[(i + 1) % velocityBuffers.size()]->descriptorInfo()},
                 {vorticityBuffer->descriptorInfo()},
                 {gridIdxBuffer->descriptorInfo()},
+                {particleTypeBuffers[(i + 1) % particleTypeBuffers.size()]->descriptorInfo()},
         });
 
         applyVortAndUpdatePos.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, applyVortAndUpdatePos.layout, {
@@ -237,6 +246,7 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
                 {velocityBuffers[(i + 1) % velocityBuffers.size()]->descriptorInfo()},
                 {vorticityBuffer->descriptorInfo()},
                 {gridIdxBuffer->descriptorInfo()},
+                {particleTypeBuffers[(i + 1) % particleTypeBuffers.size()]->descriptorInfo()},
         });
     }
 }
@@ -255,6 +265,8 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     particles.resize(NUM_PARTICLES);
 
     plane.setScale(cUbo.BOUNDARY_SIZE);
+    rockA.setScale(glm::vec3(0.1f));
+    rockA.m_translation = {5.7f, 0.2f, 7.0f};
 
     auto accPos = initialPos;
 
@@ -267,7 +279,7 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
                     randomFloat((accPos.z != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
                     0.0f);
         particles.velocity[i] = glm::vec4(0.0f);
-        particles.density[i] = cUbo.REST_DENS;
+        particles.type[i] = (i < 20) ? 1 : 0;
         accPos.x += particleSpacing;
 
         if (i % numParticlesXZ.x == numParticlesXZ.x - 1) {
@@ -298,9 +310,14 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
                                                                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
             velocityBuffers[i] = makeBuffer(particles.velocity.size() * sizeof(glm::vec4));
             predPosBuffers[i] = makeBuffer(particles.predPos.size() * sizeof(glm::vec4));
+            particleTypeBuffers[i] = std::make_unique<vkb::Buffer>(device, particles.type.size() * sizeof(uint32_t),
+                                                                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);;
+
             if (i == 0) {
                 vkb::Buffer::writeVectorToBuffer(device, positionBuffers[i], particles.position);
                 vkb::Buffer::writeVectorToBuffer(device, velocityBuffers[i], particles.velocity);
+                vkb::Buffer::writeVectorToBuffer(device, particleTypeBuffers[i], particles.type);
             }
 
         }
@@ -308,9 +325,8 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
         densityBuffer = std::make_unique<vkb::Buffer>(device, particles.density.size() * sizeof(float),
                                                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        vkb::Buffer::writeVectorToBuffer(device, densityBuffer, particles.density);
         lambdaBuffer = makeBuffer(particles.lambda.size()*sizeof(float));
-        gridIdxBuffer = makeBuffer(particles.idx.size() * sizeof(uint32_t));
+        gridIdxBuffer = makeBuffer(particles.gIdx.size() * sizeof(uint32_t));
     }
 
     // create barriers
@@ -319,6 +335,7 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
                 positionBuffers[(i+1) % positionBuffers.size()]->getBarrierData(),
                 velocityBuffers[(i+1) % velocityBuffers.size()]->getBarrierData(),
                 predPosBuffers[(i+1) % predPosBuffers.size()]->getBarrierData(),
+                particleTypeBuffers[(i+1) % particleTypeBuffers.size()]->getBarrierData(),
                 vorticityBuffer->getBarrierData(),
                 densityBuffer->getBarrierData(),
                 lambdaBuffer->getBarrierData(),
@@ -334,7 +351,8 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
                 gridIdxBuffer,
                 positionBuffers,
                 velocityBuffers,
-                predPosBuffers);
+                predPosBuffers,
+                particleTypeBuffers);
     }
 
     //free descriptor sets
@@ -465,6 +483,8 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
             vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
             VkBuffer vbDens = densityBuffer->getBuffer();
             vkCmdBindVertexBuffers(commandBuffer, 1, 1, &vbDens, offsets);
+            VkBuffer vbType = particleTypeBuffers[computeFrameIdx]->getBuffer();
+            vkCmdBindVertexBuffers(commandBuffer, 2, 1, &vbType, offsets);
             vkCmdBindIndexBuffer(commandBuffer, idxBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
             vkCmdDrawIndexed(commandBuffer, NUM_PARTICLES, 1, 0, 0, 0);
         } else {
@@ -474,6 +494,10 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
 
         defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
         plane.render(defaultSystem, commandBuffer);
+        if (showRock) {
+            defaultSystem.bind(commandBuffer, &rockDescriptorSets[renderer.currentFrame()]);
+            rockA.render(defaultSystem, commandBuffer);
+        }
 
     });
 
@@ -592,11 +616,21 @@ void PBFGPU3DSim::showImGui(){
     ImGui::Text("Rendering %d instances", NUM_PARTICLES);
     ImGui::Text("Grid size: %d", GRID_SIZE);
     ImGui::Checkbox("Display time", &activateTimer);
-    if(activateTimer){
+    if(activateTimer) {
         ImGui::Text("Cpu time: %f ms", cpuTime);
         ImGui::Text("Compute time: %f ms", computeTime);
         ImGui::Text("Draw time: %f ms", drawTime);
     }
+
+//    static float rockScale = 0.1f;
+//    static auto rockPos = rockA.m_translation;
+//
+//    ImGui::DragFloat("rock scale", &rockScale, 0.0001f, 0.0001f, 1.0f);
+//    ImGui::DragFloat3("rock pos", reinterpret_cast<float*>(&rockPos), 0.1f, -7.0f, 7.0f);
+//    rockA.setScale(rockScale);
+//    rockA.m_translation = rockPos;
+    ImGui::Checkbox("show rock", &showRock);
+
 
     if (ImGui::Button("Load Configurations")) {
         pausedSimulation = true;

@@ -37,7 +37,8 @@ namespace vkb {
                                                             const std::unique_ptr<Buffer>& gridIdxBuffer,
                                                             const std::array<std::unique_ptr<Buffer>, 2>& particlePosBuffers,
                                                             const std::array<std::unique_ptr<Buffer>, 2>& particleVelBuffers,
-                                                            const std::array<std::unique_ptr<Buffer>, 2>& particlePredPosBuffers
+                                                            const std::array<std::unique_ptr<Buffer>, 2>& particlePredPosBuffers,
+                                                            const std::array<std::unique_ptr<Buffer>, 2>& particleTypeBuffers
                                                             ) {
         if (!m_created){
             m_gridUniformBuffer = std::make_unique<Buffer>(m_deviceRef, sizeof(GridUniformBufferObject), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -86,6 +87,8 @@ namespace vkb {
                     {particleVelBuffers[(i + 1) % particleVelBuffers.size()]->descriptorInfo()},
                     {particlePredPosBuffers[i]->descriptorInfo()},
                     {particlePredPosBuffers[(i + 1) % particlePredPosBuffers.size()]->descriptorInfo()},
+                    {particleTypeBuffers[i]->descriptorInfo()},
+                    {particleTypeBuffers[(i + 1) % particleTypeBuffers.size()]->descriptorInfo()},
                     {gridIdxBuffer->descriptorInfo()}
             });
         }

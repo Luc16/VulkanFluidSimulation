@@ -140,7 +140,7 @@ void main()
     if (depth == 1) {
         discard;
     }
-    gl_FragDepth = -depth;
+    gl_FragDepth = depth;
     switch(ubo.renderType) {
         case 1:
             outFragColor = vec4(vec3(linearizeDepth(depth)), 1.0);

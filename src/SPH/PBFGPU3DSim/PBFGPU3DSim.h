@@ -89,8 +89,6 @@ private:
             "apply_vort.comp",
     };
 
-    const std::string planeModelPath = "../Models/quadXZ1.obj";
-    const std::string planeTexPath = "../textures/chess_tex.png";
     const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
             COMPILED_SHADER_DIR + shaders[0] + ".spv",
             COMPILED_SHADER_DIR + shaders[1] + ".spv"
@@ -148,7 +146,7 @@ private:
     struct ParticleData {
         std::vector<glm::vec4> position{}, velocity{}, correction{}, predPos{}, vorticity{};
         std::vector<float> density{}, lambda{};
-        std::vector<uint32_t> idx{};
+        std::vector<uint32_t> gIdx{}, type{};
 
         void resize(size_t newSize) {
             position.resize(newSize);
@@ -158,7 +156,8 @@ private:
             vorticity.resize(newSize);
             density.resize(newSize);
             lambda.resize(newSize);
-            idx.resize(newSize);
+            gIdx.resize(newSize);
+            type.resize(newSize);
         }
     };
 
@@ -171,7 +170,7 @@ private:
         float screenHeight;
         float screenWidth;
         float tanHalfFov = std::tan(glm::radians(50.0f)/2);
-        uint32_t renderType = 8;
+        uint32_t renderType = 0;
         float zNear = 0.1f;
         float zFar = 500.0f;
         uint32_t blurMode = 0;
@@ -205,7 +204,10 @@ private:
         bool activateVort = true;
     };
 
-    vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, planeModelPath), std::make_shared<vkb::Texture>(device, planeTexPath)};
+    vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, "../Models/quadXZ1.obj"), std::make_shared<vkb::Texture>(device, "../textures/chess_tex.png")};
+//    vkb::DrawableObject city{vkb::Model::createModelFromFile(device, "../Models/city.obj")};
+    vkb::DrawableObject rockA{vkb::Model::createModelFromFile(device, "../Models/rockA.obj"), std::make_shared<vkb::Texture>(device, "../textures/rock_tex.png")};
+    bool showRock = true;
 
     std::vector<std::unique_ptr<vkb::Buffer>> graphicsUniformBuffers;
     UniformBufferObject gUbo{};
@@ -222,6 +224,7 @@ private:
     vkb::RenderSystem skyboxSystem{device};
 
     std::vector<VkDescriptorSet> defaultDescriptorSets;
+    std::vector<VkDescriptorSet> rockDescriptorSets;
     std::vector<VkDescriptorSet> simulationDescriptorSets;
     std::vector<VkDescriptorSet> smooth1DescriptorSets;
     std::vector<VkDescriptorSet> smooth2DescriptorSets;
@@ -239,10 +242,11 @@ private:
 
 
     ParticleData particles{};
-    std::unique_ptr<vkb::Buffer> idxBuffer;
+    std::unique_ptr<vkb::Buffer> idxBuffer; // index buffer for rendering
     std::array<std::unique_ptr<vkb::Buffer>, 2> positionBuffers;
     std::array<std::unique_ptr<vkb::Buffer>, 2> velocityBuffers;
     std::array<std::unique_ptr<vkb::Buffer>, 2> predPosBuffers;
+    std::array<std::unique_ptr<vkb::Buffer>, 2> particleTypeBuffers; // 0 for fluid 1 for solid
     std::unique_ptr<vkb::Buffer> vorticityBuffer;
     std::unique_ptr<vkb::Buffer> densityBuffer;
     std::unique_ptr<vkb::Buffer> lambdaBuffer;
@@ -269,9 +273,8 @@ private:
             .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                    .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pos
-                    .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // vel
-                    .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // predPos
+                    // pos, vel, predPos, type
+                    .addSameTypeBindings(1, 4,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 
@@ -279,11 +282,8 @@ private:
             .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 1] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                    .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
-                    .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // predPos
-                    .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // lambda
-                    .addBinding({4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // density
-                    .addBinding({5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid idx
+                    // grid, predPos, lambda, density, grid idx, type
+                    .addSameTypeBindings(1, 6,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 
@@ -291,10 +291,8 @@ private:
             .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 2] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                    .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
-                    .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // predPos
-                    .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // lambda
-                    .addBinding({4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid idx
+                    // grid, predPos, lambda, grid idx, type
+                    .addSameTypeBindings(1, 5,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 
@@ -302,9 +300,8 @@ private:
             .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 3] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                    .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pos
-                    .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // vel
-                    .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // predPos
+                    // pos, vel, predPos, type
+                    .addSameTypeBindings(1, 4,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 
@@ -312,11 +309,8 @@ private:
             .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 4] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                    .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
-                    .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // predPos
-                    .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // vel
-                    .addBinding({4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // vorticity
-                    .addBinding({5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid idx
+                    // grid, predPos, vel, vorticity, grid idx, type
+                    .addSameTypeBindings(1, 6,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 
@@ -324,12 +318,8 @@ private:
             .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 5] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                    .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid
-                    .addBinding({2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // predPos
-                    .addBinding({3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // pos
-                    .addBinding({4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // vel
-                    .addBinding({5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // vorticity
-                    .addBinding({6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}) // grid idx
+                    // grid, predPos, pos, vel, vorticity, grid idx, type
+                    .addSameTypeBindings(1, 7,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 
