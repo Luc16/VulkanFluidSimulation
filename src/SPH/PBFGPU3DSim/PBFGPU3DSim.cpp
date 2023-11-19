@@ -280,12 +280,13 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
                     randomFloat((accPos.x != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
                     randomFloat((accPos.y != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
                     randomFloat((accPos.z != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
-                    0.0f);
+                    1.0f);
         particles.velocity[i] = glm::vec4(0.0f);
-        particles.density[i] = 10*cUbo.REST_DENS;
+        particles.density[i] = cUbo.REST_DENS;
         particles.type[i] = 0;
         if (accPos.x < 1.2 && accPos.z < 1.2 && accPos.y < 1.2) {
             particles.type[i] = 1;
+            cUbo.numRigidParticles++;
         }
         accPos.x += particleSpacing;
 

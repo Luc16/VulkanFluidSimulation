@@ -15,6 +15,7 @@ struct computeUBO {
     float ART_PRESSURE_COEF;
     float VORTICITY_COEF;
     uint numParticles;
+    uint numRigidParticles;
     float POLY6;
     float SPIKY_GRAD;
 

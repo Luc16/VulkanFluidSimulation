@@ -195,7 +195,8 @@ private:
 //        float DT = 1/60.0f;       // integration timestep
         float ART_PRESSURE_COEF = 0.00025f;
         float VORTICITY_COEF = 0.0004f;
-        uint numParticles = 0;
+        uint32_t numParticles = 0;
+        uint32_t numRigidParticles = 0;
         float POLY6 = 315.0f / (64.0f * glm::pi<float>() *H*H*H *H*H*H *H*H*H);
         float SPIKY_GRAD = -45.0f / (glm::pi<float>() * H*H*H *H*H*H);
 
@@ -251,6 +252,7 @@ private:
     std::unique_ptr<vkb::Buffer> densityBuffer;
     std::unique_ptr<vkb::Buffer> lambdaBuffer;
     std::unique_ptr<vkb::Buffer> gridIdxBuffer;
+//    std::unique_ptr<vkb::Buffer> rigidParticlesIdxBuffer;
 
     std::array<std::vector<std::pair<VkBuffer, VkDeviceSize>>, 2> particleBarrierData;
 
@@ -322,8 +324,6 @@ private:
                     .addSameTypeBindings(1, 7,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
-
-
 
 
     vkb::Camera camera{};
