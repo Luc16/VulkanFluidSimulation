@@ -74,8 +74,10 @@ void PBFGPU3DSim::onCreate() {
             info.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
             info.bindingDescription.clear();
             info.bindingDescription.push_back({0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX});
+            info.bindingDescription.push_back({1, sizeof(uint32_t), VK_VERTEX_INPUT_RATE_VERTEX});
             info.attributeDescription.clear();
             info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
+            info.attributeDescription.push_back({1, 1, VK_FORMAT_R32_UINT, 0});
             info.multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
             info.colorBlending.attachmentCount = 0;
             info.rasterizer.cullMode = VK_CULL_MODE_NONE;
@@ -93,8 +95,10 @@ void PBFGPU3DSim::onCreate() {
             info.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
             info.bindingDescription.clear();
             info.bindingDescription.push_back({0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX});
+            info.bindingDescription.push_back({1, sizeof(uint32_t), VK_VERTEX_INPUT_RATE_VERTEX});
             info.attributeDescription.clear();
             info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
+            info.attributeDescription.push_back({1, 1, VK_FORMAT_R32_UINT, 0});
             info.multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
             info.rasterizer.cullMode = VK_CULL_MODE_NONE;
 //            info.enableAlphaBlending();
@@ -272,15 +276,15 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     uint32_t count = 0;
     for (uint32_t i = 0; i < particles.position.size(); i++) {
         particles.position[i] = accPos;
-        if (activateRandomOffsets) particles.position[i] += glm::vec4(
+        if (activateRandomOffsets && !(accPos.x < 1.2 && accPos.z < 1.2 && accPos.y < 1.2)) particles.position[i] += glm::vec4(
                     randomFloat((accPos.x != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
                     randomFloat((accPos.y != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
                     randomFloat((accPos.z != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
                     0.0f);
         particles.velocity[i] = glm::vec4(0.0f);
-        particles.density[i] = cUbo.REST_DENS;
+        particles.density[i] = 10*cUbo.REST_DENS;
         particles.type[i] = 0;
-        if (i < 20) {
+        if (accPos.x < 1.2 && accPos.z < 1.2 && accPos.y < 1.2) {
             particles.type[i] = 1;
         }
         accPos.x += particleSpacing;
@@ -446,11 +450,13 @@ void PBFGPU3DSim::mainLoop(float deltaTime) {
 void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
     showImGui();
     VkBuffer vb = positionBuffers[computeFrameIdx]->getBuffer();
+    VkBuffer vbType = particleTypeBuffers[computeFrameIdx]->getBuffer();
     VkDeviceSize offsets[] = {0};
 
     depthPass.run(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()],
-                  [this, &vb, &offsets](VkCommandBuffer &commandBuffer) {
+                  [this, &vb, &vbType, &offsets](VkCommandBuffer &commandBuffer) {
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
+        vkCmdBindVertexBuffers(commandBuffer, 1, 1, &vbType, offsets);
         vkCmdDraw(commandBuffer, NUM_PARTICLES, 1, 0, 0);
     });
 
@@ -470,8 +476,9 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
 
     thicknessPass.run(commandBuffer,
                       (blurIterations % 2 == 0) ? &smooth1DescriptorSets[renderer.currentFrame()] : &smooth2DescriptorSets[renderer.currentFrame()],
-                      [this, &vb, &offsets](VkCommandBuffer &commandBuffer) {
+                      [this, &vb, &vbType, &offsets](VkCommandBuffer &commandBuffer) {
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
+        vkCmdBindVertexBuffers(commandBuffer, 1, 1, &vbType, offsets);
         vkCmdDraw(commandBuffer, NUM_PARTICLES, 1, 0, 0);
     });
 
@@ -481,7 +488,7 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
         vkCmdDraw(commandBuffer, 3, 1, 0, 0);
     });
 
-    renderer.runRenderPass([this, &vb, &offsets](VkCommandBuffer& commandBuffer){
+    renderer.runRenderPass([this, &vb, &vbType, &offsets](VkCommandBuffer& commandBuffer){
         skyboxSystem.bind(commandBuffer, &skyboxDescriptorSets[renderer.currentFrame()]);
         skybox.bindAndDraw(commandBuffer);
 
@@ -490,7 +497,7 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
             vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
             VkBuffer vbDens = densityBuffer->getBuffer();
             vkCmdBindVertexBuffers(commandBuffer, 1, 1, &vbDens, offsets);
-            VkBuffer vbType = particleTypeBuffers[computeFrameIdx]->getBuffer();
+
             vkCmdBindVertexBuffers(commandBuffer, 2, 1, &vbType, offsets);
             vkCmdBindIndexBuffer(commandBuffer, idxBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
             vkCmdDrawIndexed(commandBuffer, NUM_PARTICLES, 1, 0, 0, 0);
