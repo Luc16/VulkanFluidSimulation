@@ -296,7 +296,7 @@ void SPHGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){
     graphicsUniformBuffers[frameIndex]->write(&gUbo);
 
     cUbo.deltaTime = deltaTime;
-    cUbo.planeY = plane.m_translation.y;
+    cUbo.planeY = plane.translation.y;
     cUbo.G = gravityFactor*glm::vec3(0.0f, -10.0f, 0.0f);
     computeUniformBuffer->write(&cUbo);
 }
@@ -319,7 +319,7 @@ void SPHGPU3DSim::showImGui(){
     ImGui::DragFloat("Viscosity", &cUbo.VISC, 1.f, 10.0f, 500.f);
     ImGui::DragFloat("DeltaTime", &cUbo.DT, 0.00005f, 0.0005f, 0.002f, "%.5f");
 
-    ImGui::SliderFloat("Plane Y", &plane.m_translation.y, -100.0f, 100.0f);
+    ImGui::SliderFloat("Plane Y", &plane.translation.y, -100.0f, 100.0f);
 
     if (ImGui::Button("Reset")) initializeObjects(true);
 

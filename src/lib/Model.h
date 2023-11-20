@@ -9,6 +9,10 @@
 #include "utils.h"
 #include "Buffer.h"
 #include <GLFW/glfw3.h>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
+
+
 
 namespace vkb {
     class Model {
@@ -53,6 +57,16 @@ namespace vkb {
     };
 }
 
+namespace std {
+    template <>
+    struct hash<vkb::Model::Vertex> {
+        size_t operator()(vkb::Model::Vertex const &vertex) const {
+            size_t seed = 0;
+            hashCombine(seed, vertex.pos, vertex.color, vertex.normal, vertex.texCoord);
+            return seed;
+        }
+    };
+}
 
 
 #endif //VULKANBASE_MODEL_H

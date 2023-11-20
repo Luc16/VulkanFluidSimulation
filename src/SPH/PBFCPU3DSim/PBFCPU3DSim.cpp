@@ -193,7 +193,7 @@ void PBFCPU3DSim::showImGui(){
 //    ImGui::DragFloat("Color upate", &colorUpdate, 0.0005f, 0.0f, 1.0f);
 //    ImGui::DragFloat("Color thresh", &densColorThreshold, 0.005f, 0.5f, 10.0f);
 
-    ImGui::SliderFloat("Plane Y", &plane.m_translation.y, -100.0f, 100.0f);
+    ImGui::SliderFloat("Plane Y", &plane.translation.y, -100.0f, 100.0f);
 //    if (ImGui::SliderFloat("Bound X", &BOUNDARY_SIZE.x, 20.0f, 75.0f))
 //        plane.setScale(BOUNDARY_SIZE);
 
@@ -213,8 +213,8 @@ void PBFCPU3DSim::showImGui(){
             pausedSimulation = false;
         }
 
-//        std::cout << "camera.m_translation = {" << camera.m_translation.x << "f, " << camera.m_translation.y << "f, " << camera.m_translation.z << "f};\n";
-//        std::cout << "camera.m_rotation = {" << camera.m_rotation.x << "f, " << camera.m_rotation.y << "f, " << camera.m_rotation.z << "f};\n";
+//        std::cout << "camera.translation = {" << camera.translation.x << "f, " << camera.translation.y << "f, " << camera.translation.z << "f};\n";
+//        std::cout << "camera.rotation = {" << camera.rotation.x << "f, " << camera.rotation.y << "f, " << camera.rotation.z << "f};\n";
     } else if (glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_RELEASE){
         wasReleased = true;
     }
@@ -361,8 +361,8 @@ void PBFCPU3DSim::createFunctions() {
         } else if (pos.z + EPS > BOUNDARY_SIZE.z) {
             pos.z = BOUNDARY_SIZE.z - nearEPS;
         }
-        if (pos.y - EPS < plane.m_translation.y) {
-            pos.y = plane.m_translation.y + nearEPS;
+        if (pos.y - EPS < plane.translation.y) {
+            pos.y = plane.translation.y + nearEPS;
         } else if (pos.y + EPS > BOUNDARY_SIZE.y) {
             pos.y = BOUNDARY_SIZE.y - nearEPS;
         }

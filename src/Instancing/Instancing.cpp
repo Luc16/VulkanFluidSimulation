@@ -45,7 +45,7 @@ void Instancing::createInstances() {
     iter.resize(INSTANCE_COUNT);
 
     auto planeScale = sqrtf((float) INSTANCE_COUNT);
-    plane.m_translation = {1.5*planeScale/2, -1.0f, -1.5*planeScale/2};
+    plane.translation = {1.5 * planeScale / 2, -1.0f, -1.5 * planeScale / 2};
     plane.setScale(planeScale);
 
     auto accPos = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -118,8 +118,8 @@ void Instancing::updateSpheres(float deltaTime){
 
         sphere.position.y += deltaTime * sphereSpeeds[i];
         sphereSpeeds[i] -= a*deltaTime;
-        if (sphere.position.y < plane.m_translation.y) {
-            sphere.position.y = plane.m_translation.y;
+        if (sphere.position.y < plane.translation.y) {
+            sphere.position.y = plane.translation.y;
             sphereSpeeds[i] *= (damping - 1);
         }
     }
@@ -160,7 +160,7 @@ void Instancing::showImGui(){
 
         if (ImGui::CollapsingHeader("Plane", ImGuiTreeNodeFlags_DefaultOpen)) {
 
-            ImGui::SliderFloat("y", &plane.m_translation.y, -100.0f, 10.0f);
+            ImGui::SliderFloat("y", &plane.translation.y, -100.0f, 10.0f);
             if (ImGui::Button("Reset")) createInstances();
 
         }

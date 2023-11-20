@@ -172,7 +172,7 @@ void Grid3DSim::showImGui(){
 
     if (ImGui::CollapsingHeader("Plane", ImGuiTreeNodeFlags_DefaultOpen)) {
 
-        ImGui::SliderFloat("y", &plane.m_translation.y, -100.0f, 10.0f);
+        ImGui::SliderFloat("y", &plane.translation.y, -100.0f, 10.0f);
 
     }
 

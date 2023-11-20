@@ -170,7 +170,7 @@ void SPHCPU3DSim::showImGui(){
 //    ImGui::DragFloat("Color upate", &colorUpdate, 0.0005f, 0.0f, 1.0f);
 //    ImGui::DragFloat("Color thresh", &densColorThreshold, 0.005f, 0.5f, 10.0f);
 
-    ImGui::SliderFloat("Plane Y", &plane.m_translation.y, -100.0f, 100.0f);
+    ImGui::SliderFloat("Plane Y", &plane.translation.y, -100.0f, 100.0f);
 //    if (ImGui::SliderFloat("Bound X", &BOUNDARY_SIZE.x, 20.0f, 75.0f))
 //        plane.setScale(BOUNDARY_SIZE);
 
@@ -331,9 +331,9 @@ void SPHCPU3DSim::updateParticles(float deltaTime){
                 particles.velocity[idx].z *= BOUND_DAMPING;
                 particles.position[idx].z = BOUNDARY_SIZE.z - EPS;
             }
-            if (particles.position[idx].y - EPS < plane.m_translation.y) {
+            if (particles.position[idx].y - EPS < plane.translation.y) {
                 particles.velocity[idx].y *= BOUND_DAMPING;
-                particles.position[idx].y = plane.m_translation.y + EPS;
+                particles.position[idx].y = plane.translation.y + EPS;
             } else if (particles.position[idx].y + EPS > BOUNDARY_SIZE.y) {
                 particles.velocity[idx].y *= BOUND_DAMPING;
                 particles.position[idx].y = BOUNDARY_SIZE.y - EPS;

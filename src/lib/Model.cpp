@@ -1,22 +1,9 @@
 //
 // Created by luc on 28/10/22.
 //
-#define TINYOBJLOADER_IMPLEMENTATION
-#define GLM_ENABLE_EXPERIMENTAL
 #include "Model.h"
-#include "../../external/objloader/tiny_obj_loader.h"
-#include <glm/gtx/hash.hpp>
+#define TINYOBJLOADER_IMPLEMENTATION
 
-namespace std {
-    template <>
-    struct hash<vkb::Model::Vertex> {
-        size_t operator()(vkb::Model::Vertex const &vertex) const {
-            size_t seed = 0;
-            hashCombine(seed, vertex.pos, vertex.color, vertex.normal, vertex.texCoord);
-            return seed;
-        }
-    };
-}
 
 namespace vkb {
 

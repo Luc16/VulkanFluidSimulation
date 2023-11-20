@@ -27,17 +27,17 @@ namespace vkb {
 
         void setScale(float scale) { m_scale = glm::vec3(scale); }
         void setScale(const glm::vec3& scale) { m_scale = scale; }
-        void translate(glm::vec3 move) { m_translation += move; }
-        void rotateAxis(int axis, float angle) { m_rotation[axis] += angle;}
-        void resetRotation(int axis) {m_rotation[axis] = 0; }
+        void translate(glm::vec3 move) { translation += move; }
+        void rotateAxis(int axis, float angle) { rotation[axis] += angle;}
+        void resetRotation(int axis) { rotation[axis] = 0; }
         virtual void render(vkb::RenderSystem& renderSystem, VkCommandBuffer commandBuffer);
 
         [[nodiscard]] glm::mat4 modelMatrix() const;
         [[nodiscard]] VkDescriptorImageInfo textureInfo() const { return m_texture->descriptorInfo();}
-        glm::vec3 m_translation{};
+        glm::vec3 translation{};
+        glm::vec3 rotation{};
     private:
         glm::vec3 m_scale{1.f, 1.f, 1.f};
-        glm::vec3 m_rotation{};
 
         std::shared_ptr<vkb::Texture> m_texture;
     protected:

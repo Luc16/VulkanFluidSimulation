@@ -30,7 +30,7 @@ void PBFGPU3DSim::onCreate() {
     defaultDescriptorSets = createDescriptorSets(defaultDescriptorLayout,
                                                  {graphicsUniformBuffers[0]->descriptorInfo()}, {plane.textureInfo()});
     rockDescriptorSets = createDescriptorSets(defaultDescriptorLayout,
-                                                {graphicsUniformBuffers[0]->descriptorInfo()}, {rockA.textureInfo()});
+                                                {graphicsUniformBuffers[0]->descriptorInfo()}, {rockTex->descriptorInfo()});
     {
         defaultSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(),
                                            sizeof(vkb::DrawableObject::PushConstantData));
@@ -255,6 +255,7 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
 }
 
 void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
+    computeFrameIdx = 0;
     gUbo.view = camera.getView();
     gUbo.inverseView = glm::inverse(gUbo.view);
     gUbo.proj = camera.getProjection();
@@ -263,31 +264,33 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     GRID_SIZE = uint32_t(cUbo.BOUNDARY_SIZE.x/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.y/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.z/cUbo.H) + 1;
     activateWaves = false;
 
+
     vkDeviceWaitIdle(device.device());
 
     particles.resize(NUM_PARTICLES);
 
     plane.setScale(cUbo.BOUNDARY_SIZE);
-    rockA.setScale(glm::vec3(0.1f));
-    rockA.m_translation = {5.7f, 0.2f, 7.0f};
+    NUM_RIGID_PARTICLES = 0;
+    for (const auto& rock : rocks) {
+        NUM_RIGID_PARTICLES += rock.numParticles();
+    }
+    NUM_FLUID_PARTICLES = NUM_PARTICLES - NUM_RIGID_PARTICLES;
+
 
     auto accPos = initialPos;
 
     uint32_t count = 0;
-    for (uint32_t i = 0; i < particles.position.size(); i++) {
+    for (uint32_t i = 0; i < NUM_FLUID_PARTICLES; i++) {
         particles.position[i] = accPos;
-        if (activateRandomOffsets && !(accPos.x < 1.2 && accPos.z < 1.2 && accPos.y < 1.2)) particles.position[i] += glm::vec4(
+        if (activateRandomOffsets) {
+            particles.position[i] += glm::vec4(
                     randomFloat((accPos.x != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
                     randomFloat((accPos.y != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
                     randomFloat((accPos.z != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
                     1.0f);
-        particles.velocity[i] = glm::vec4(0.0f);
+        }
         particles.density[i] = cUbo.REST_DENS;
         particles.type[i] = 0;
-        if (accPos.x < 1.2 && accPos.z < 1.2 && accPos.y < 1.2) {
-            particles.type[i] = 1;
-            cUbo.numRigidParticles++;
-        }
         accPos.x += particleSpacing;
 
         if (i % numParticlesXZ.x == numParticlesXZ.x - 1) {
@@ -302,7 +305,23 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
         }
     }
 
-    computeFrameIdx = 0;
+    accPos = glm::vec4(0.75*cUbo.BOUNDARY_SIZE.x + cUbo.EPS, cUbo.EPS, cUbo.EPS, 0.0f);
+
+    auto rockSpheres = rocks[0].getPositions();
+    uint32_t rockIdx = 0;
+    uint32_t initialIdx = NUM_FLUID_PARTICLES;
+    for (uint32_t i = NUM_FLUID_PARTICLES; i < NUM_PARTICLES; i++) {
+        particles.density[i] = cUbo.REST_DENS;
+        particles.type[i] = 1;
+
+        if (i - initialIdx >= rockSpheres.size()) {
+            rockIdx++;
+            initialIdx = i;
+            rockSpheres = rocks[rockIdx].getPositions();
+        }
+        particles.position[i] = glm::vec4(rockSpheres[i - initialIdx], 0);
+    }
+
 
     //create buffers
     {
@@ -317,7 +336,7 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
                                                                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                                                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
             velocityBuffers[i] = makeBuffer(particles.velocity.size() * sizeof(glm::vec4));
-            predPosBuffers[i] = makeBuffer(particles.predPos.size() * sizeof(glm::vec4));
+            predPosBuffers[i] = makeBuffer(particles.position.size() * sizeof(glm::vec4));
             particleTypeBuffers[i] = std::make_unique<vkb::Buffer>(device, particles.type.size() * sizeof(uint32_t),
                                                                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                                                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);;
@@ -330,14 +349,14 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
             }
 
         }
-        vorticityBuffer = makeBuffer(particles.vorticity.size()*sizeof(glm::vec4));
+        vorticityBuffer = makeBuffer(particles.position.size()*sizeof(glm::vec4));
         densityBuffer = std::make_unique<vkb::Buffer>(device, particles.density.size() * sizeof(float),
                                                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
         vkb::Buffer::writeVectorToBuffer(device, densityBuffer, particles.density);
 
 
-        lambdaBuffer = makeBuffer(particles.lambda.size()*sizeof(float));
+        lambdaBuffer = makeBuffer(particles.position.size()*sizeof(float));
         gridIdxBuffer = makeBuffer(particles.gIdx.size() * sizeof(uint32_t));
     }
 
@@ -355,6 +374,7 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     }
 
 
+    // create grid
     if (activateRandomOffsets){
         gridHandler.createDescriptorsAndBuffers(
                 globalDescriptorPool,
@@ -386,6 +406,7 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     }
     createComputeDescriptorSets();
 
+    // create idx buffer for rendering
     std::vector<uint32_t> idxs(NUM_PARTICLES);
     std::iota(std::begin(idxs), std::end(idxs), 0);
     idxBuffer = std::make_unique<vkb::Buffer>(device, idxs.size() * sizeof(uint32_t),
@@ -509,9 +530,9 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
 
         defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
         plane.render(defaultSystem, commandBuffer);
-        if (showRock) {
-            defaultSystem.bind(commandBuffer, &rockDescriptorSets[renderer.currentFrame()]);
-            rockA.render(defaultSystem, commandBuffer);
+        defaultSystem.bind(commandBuffer, &rockDescriptorSets[renderer.currentFrame()]);
+        for (const auto& rock : rocks) {
+            rock.render(defaultSystem, commandBuffer);
         }
 
     });
@@ -582,7 +603,6 @@ void PBFGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){
         }
     } else cUbo.wallX = 0;
 
-//    cUbo.wallX = plane.m_translation.y;
 //    cUbo.DT = std::clamp(deltaTime, 0.001f, 0.016f);
 //    cUbo.G = 0.0f*glm::vec3(0.0f, -9.8f, 0.0f);
     computeUniformBuffer->write(&cUbo);
@@ -618,8 +638,8 @@ void PBFGPU3DSim::keyboardControl(float deltaTime) {
             controlMode = false;
         }
 
-//        std::cout << "camera.m_translation = {" << camera.m_translation.x << "f, " << camera.m_translation.y << "f, " << camera.m_translation.z << "f};\n";
-//        std::cout << "camera.m_rotation = {" << camera.m_rotation.x << "f, " << camera.m_rotation.y << "f, " << camera.m_rotation.z << "f};\n";
+//        std::cout << "camera.translation = {" << camera.translation.x << "f, " << camera.translation.y << "f, " << camera.translation.z << "f};\n";
+//        std::cout << "camera.rotation = {" << camera.rotation.x << "f, " << camera.rotation.y << "f, " << camera.rotation.z << "f};\n";
     } else if (glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_RELEASE){
         wasReleased = true;
     }
@@ -636,16 +656,6 @@ void PBFGPU3DSim::showImGui(){
         ImGui::Text("Compute time: %f ms", computeTime);
         ImGui::Text("Draw time: %f ms", drawTime);
     }
-
-//    static float rockScale = 0.1f;
-//    static auto rockPos = rockA.m_translation;
-//
-//    ImGui::DragFloat("rock scale", &rockScale, 0.0001f, 0.0001f, 1.0f);
-//    ImGui::DragFloat3("rock pos", reinterpret_cast<float*>(&rockPos), 0.1f, -7.0f, 7.0f);
-//    rockA.setScale(rockScale);
-//    rockA.m_translation = rockPos;
-    ImGui::Checkbox("show rock", &showRock);
-
 
     if (ImGui::Button("Load Configurations")) {
         pausedSimulation = true;
@@ -679,6 +689,7 @@ void PBFGPU3DSim::showImGui(){
         ImGui::Checkbox("Activate waves", &activateWaves);
         ImGui::DragFloat("Wall forward speed", &wallForwardSpeed, 0.001f);
         ImGui::DragFloat("Wall backward speed", &wallBackwardSpeed, 0.001f);
+        ImGui::DragFloat("Wave limit", &wallLimit, 0.001f);
     }
     ImGui::NewLine();
 
@@ -836,6 +847,32 @@ void PBFGPU3DSim::showImGui(){
                     initialPos[i] = cUbo.BOUNDARY_SIZE[i] - particleShapeSize[i]  + newEps;
             }
         }
+
+        ImGui::NewLine();
+        if (ImGui::CollapsingHeader("Rigid Objects", ImGuiTreeNodeFlags_DefaultOpen)) {
+            glm::vec3 rockTranslation = rocks[selectedRock].getTranslation();
+            glm::vec3 minObjPos = -2.0f*cUbo.BOUNDARY_SIZE;
+            glm::vec3 maxObjPos = 2.0f*cUbo.BOUNDARY_SIZE;
+            ImGui::CDragFloatRanged3("Translation", &rockTranslation[0], 0.1f*cUbo.H, &minObjPos[0], &maxObjPos[0]);
+            rocks[selectedRock].translate(rockTranslation - rocks[selectedRock].getTranslation());
+
+
+
+            static std::array<std::string, 3> rockTypes = {"Rock A", "Rock B", "Rock C"};
+            std::string curItem = rockTypes[selectedRock];
+            if (ImGui::BeginCombo("##combo", curItem.c_str())) {
+                for (uint32_t i = 0; i < rockTypes.size(); i++){
+                    bool isSelected = (curItem == rockTypes[i]);
+                    if (ImGui::Selectable(rockTypes[i].c_str(), isSelected)) {
+                        selectedRock = i;
+                    }
+                    if (isSelected)
+                        ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndCombo();
+            }
+        }
+
 
         if (ImGui::Button("Launch and close")){
             initializeObjects(true);
