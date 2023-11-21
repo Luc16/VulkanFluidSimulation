@@ -305,6 +305,7 @@ private:
     void keyboardControl(float deltaTime);
     void updateUniformBuffers(uint32_t frameIndex, float deltaTime);
     void showImGui();
+    void addRigidObject(uint32_t type);
     void loadDataFromJson(const std::string& file);
     void saveToJson(const std::string& file);
 

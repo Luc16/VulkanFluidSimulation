@@ -905,21 +905,7 @@ void PBFGPU3DSim::showImGui(){
         }
 
         if (ImGui::Button("Add") && saveFileName != "Enter file name") {
-            rigidObjectsNames.push_back("rock" + std::to_string(numRocks++));
-            switch (selectedType) {
-                case 0:
-                    rigidObjects.emplace_back(device, "../Models/rockA.obj", rockTex, 0.1f, cUbo.H/2);
-                    break;
-                case 1:
-                    rigidObjects.emplace_back(device, "../Models/rockB.obj", rockTex, 0.1f, cUbo.H/2);
-                    break;
-                case 2:
-                    rigidObjects.emplace_back(device, "../Models/rockC.obj", rockTex, 0.1f, cUbo.H/2);
-                    break;
-                default:
-                    break;
-            }
-            NUM_PARTICLES += rigidObjects[rigidObjects.size()-1].numParticles();
+            addRigidObject(selectedType);
             isAddWindowOpen = false;
         }
         ImGui::SameLine();
@@ -986,6 +972,24 @@ void PBFGPU3DSim::showImGui(){
         ImGui::End();
     }
 
+}
+
+void PBFGPU3DSim::addRigidObject(uint32_t type) {
+    rigidObjectsNames.push_back("rock" + std::to_string(numRocks++));
+    switch (type) {
+        case 0:
+            rigidObjects.emplace_back(device, "../Models/rockA.obj", rockTex, 0.1f, cUbo.H/2);
+            break;
+        case 1:
+            rigidObjects.emplace_back(device, "../Models/rockB.obj", rockTex, 0.1f, cUbo.H/2);
+            break;
+        case 2:
+            rigidObjects.emplace_back(device, "../Models/rockC.obj", rockTex, 0.1f, cUbo.H/2);
+            break;
+        default:
+            break;
+    }
+    NUM_PARTICLES += rigidObjects[rigidObjects.size()-1].numParticles();
 }
 
 void PBFGPU3DSim::onResize(int width, int height) {
