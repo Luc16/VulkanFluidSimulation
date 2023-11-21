@@ -873,6 +873,12 @@ void PBFGPU3DSim::showImGui(){
                     }
                     ImGui::EndCombo();
                 }
+                if (ImGui::Button("Remove this object")) {
+                    vkDeviceWaitIdle(device.device());
+                    rigidObjects.erase(rigidObjects.begin() + selectedRigidObj);
+                    rigidObjectsNames.erase(rigidObjectsNames.begin() + selectedRigidObj);
+                    selectedRigidObj = 0;
+                }
             }
 
             ImGui::SetCursorPosX(10.0f);
@@ -888,10 +894,9 @@ void PBFGPU3DSim::showImGui(){
         }
         ImGui::End();
     }
-
+    static uint32_t selectedType = 0;
     if (isAddWindowOpen) {
-        static uint32_t selectedType = 0;
-        std::string curItem = rigidObjectTypes[selectedRigidObj];
+        std::string curItem = rigidObjectTypes[selectedType];
         if (ImGui::BeginCombo("##combo", curItem.c_str())) {
             for (uint32_t i = 0; i < rigidObjectTypes.size(); i++){
                 bool isSelected = (curItem == rigidObjectTypes[i]);
@@ -1105,8 +1110,13 @@ void PBFGPU3DSim::saveToJson(const std::string &fileName) {
                     {"particleVerticalSpacing", particleVerticalSpacing},
                     {"initialPos", {initialPos.x, initialPos.y, initialPos.z}},
                 }
-            }
+            },
+            // TODO save objs
+            {"rigid objects", {}}
     };
+
+    saveData["rigid objects"].emplace_back(std::make_pair<uint32_t, std::vector<float>>(1, {1, 2, 3}));
+
 
     std::ofstream o(PRESET_DIR + fileName);
     o << std::setw(4) << saveData << std::endl;
