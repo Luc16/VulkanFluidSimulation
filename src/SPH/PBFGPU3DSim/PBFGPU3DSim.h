@@ -273,12 +273,11 @@ private:
     vkb::CameraMovementController cameraController{};
 
     std::shared_ptr<vkb::Texture> rockTex = std::make_shared<vkb::Texture>(device, "../textures/rock_tex.png");
-    std::array<RigidObject, 3> rocks  = {
-            RigidObject(device, "../Models/rockA.obj", rockTex, 0.1f, cUbo.H/2),
-            RigidObject(device, "../Models/rockB.obj", rockTex, 0.1f, cUbo.H/2),
-            RigidObject(device, "../Models/rockC.obj", rockTex, 0.1f, cUbo.H/2),
-    };
-    uint32_t selectedRock = 0;
+    std::array<std::string, 3> rigidObjectTypes = {"Rock A", "Rock B", "Rock C"};
+    std::vector<RigidObject> rigidObjects{};
+    std::vector<std::string> rigidObjectsNames{};
+    uint32_t numRocks = 0;
+    uint32_t selectedRigidObj = 0;
 
     glm::ivec2 numParticlesXZ = glm::ivec2(int(std::cbrt(NUM_PARTICLES)));
     float particleSpacing = cUbo.H*0.56f;
@@ -288,7 +287,7 @@ private:
 
     std::string saveFileName;
     std::vector<std::string> presets;
-    bool isSaveWindowOpen = false, isLoadWindowOpen = false, disableKeyboardControl = false;
+    bool isSaveWindowOpen = false, isLoadWindowOpen = false, disableKeyboardControl = false, isAddWindowOpen = false;
     bool activateTimer = false, controlMode = false, objectsInitialized = false, pausedSimulation = false;
     bool activateWaves = false, showParticles = false, singleStep = false;
     bool activateVisc = true, activateVorticity = true;

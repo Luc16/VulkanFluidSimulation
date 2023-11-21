@@ -271,8 +271,8 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
 
     plane.setScale(cUbo.BOUNDARY_SIZE);
     NUM_RIGID_PARTICLES = 0;
-    for (const auto& rock : rocks) {
-        NUM_RIGID_PARTICLES += rock.numParticles();
+    for (const auto& rigidObj : rigidObjects) {
+        NUM_RIGID_PARTICLES += rigidObj.numParticles();
     }
     NUM_FLUID_PARTICLES = NUM_PARTICLES - NUM_RIGID_PARTICLES;
 
@@ -307,19 +307,21 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
 
     accPos = glm::vec4(0.75*cUbo.BOUNDARY_SIZE.x + cUbo.EPS, cUbo.EPS, cUbo.EPS, 0.0f);
 
-    auto rockSpheres = rocks[0].getPositions();
-    uint32_t rockIdx = 0;
-    uint32_t initialIdx = NUM_FLUID_PARTICLES;
-    for (uint32_t i = NUM_FLUID_PARTICLES; i < NUM_PARTICLES; i++) {
-        particles.density[i] = cUbo.REST_DENS;
-        particles.type[i] = 1;
+    if (!rigidObjects.empty()) {
+        auto rigidObjParticles = rigidObjects[0].getPositions();
+        uint32_t rigidObjIdx = 0;
+        uint32_t initialIdx = NUM_FLUID_PARTICLES;
+        for (uint32_t i = NUM_FLUID_PARTICLES; i < NUM_PARTICLES; i++) {
+            particles.density[i] = cUbo.REST_DENS;
+            particles.type[i] = 1;
 
-        if (i - initialIdx >= rockSpheres.size()) {
-            rockIdx++;
-            initialIdx = i;
-            rockSpheres = rocks[rockIdx].getPositions();
+            if (i - initialIdx >= rigidObjParticles.size()) {
+                rigidObjIdx++;
+                initialIdx = i;
+                rigidObjParticles = rigidObjects[rigidObjIdx].getPositions();
+            }
+            particles.position[i] = glm::vec4(rigidObjParticles[i - initialIdx], 0);
         }
-        particles.position[i] = glm::vec4(rockSpheres[i - initialIdx], 0);
     }
 
 
@@ -457,11 +459,13 @@ void PBFGPU3DSim::mainLoop(float deltaTime) {
         }
 
         renderer.runFrame([this](VkCommandBuffer commandBuffer){
+            showImGui();
             renderObjects(commandBuffer);
         }, computeHandler.currentSemaphore(renderer.currentFrame()), vkb::ComputeShaderHandler::waitStages());
     } else {
-        if (controlMode) initializeObjects(false);
         renderer.runFrame([this](VkCommandBuffer commandBuffer){
+            showImGui();
+            if (controlMode) initializeObjects(false);
             renderObjects(commandBuffer);
         });
     }
@@ -470,7 +474,6 @@ void PBFGPU3DSim::mainLoop(float deltaTime) {
 }
 
 void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
-    showImGui();
     VkBuffer vb = positionBuffers[computeFrameIdx]->getBuffer();
     VkBuffer vbType = particleTypeBuffers[computeFrameIdx]->getBuffer();
     VkDeviceSize offsets[] = {0};
@@ -531,8 +534,8 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
         defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
         plane.render(defaultSystem, commandBuffer);
         defaultSystem.bind(commandBuffer, &rockDescriptorSets[renderer.currentFrame()]);
-        for (const auto& rock : rocks) {
-            rock.render(defaultSystem, commandBuffer);
+        for (const auto& rigidObject : rigidObjects) {
+            rigidObject.render(defaultSystem, commandBuffer);
         }
 
     });
@@ -665,7 +668,7 @@ void PBFGPU3DSim::showImGui(){
 
     }
 
-    if (ImGui::CollapsingHeader("Simulation constants", ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (ImGui::CollapsingHeader("Simulation constants")) {
         int iJac = int(jacobiIterations);
         ImGui::DragInt("Num iterations", &iJac, 1, 1, 8);
         jacobiIterations = iJac;
@@ -685,7 +688,7 @@ void PBFGPU3DSim::showImGui(){
     }
     ImGui::NewLine();
 
-    if (ImGui::CollapsingHeader("Waves", ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (ImGui::CollapsingHeader("Waves")) {
         ImGui::Checkbox("Activate waves", &activateWaves);
         ImGui::DragFloat("Wall forward speed", &wallForwardSpeed, 0.001f);
         ImGui::DragFloat("Wall backward speed", &wallBackwardSpeed, 0.001f);
@@ -693,7 +696,7 @@ void PBFGPU3DSim::showImGui(){
     }
     ImGui::NewLine();
 
-    if (ImGui::CollapsingHeader("Rendering", ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (ImGui::CollapsingHeader("Rendering")) {
         ImGui::DragFloat("Particle Radius", &gUbo.radius, 0.1f, 0.1f, 100.0f);
 
         ImGui::Text("View mode");
@@ -711,10 +714,9 @@ void PBFGPU3DSim::showImGui(){
             }
             ImGui::EndCombo();
         }
-        showParticles = gUbo.renderType == 0;
 
         ImGui::SetCursorPosX(10.0f);
-        if (ImGui::CollapsingHeader("Blur Options", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (ImGui::CollapsingHeader("Blur Options")) {
             ImGui::SetCursorPosX(15.0f);
             ImGui::Text("Blur mode");
             static std::array<std::string, 3> blurTypes = {"Bilateral", "Gaussian", "Bilateral 2"};
@@ -741,6 +743,7 @@ void PBFGPU3DSim::showImGui(){
             ImGui::DragFloat("Blur Fall Off", &gUbo.blurDepthFalloff, 10.0f, 100.0f, 10000.0f);
         }
     }
+    showParticles = gUbo.renderType == 0;
     ImGui::NewLine();
 
     if (singleStep) {
@@ -850,29 +853,33 @@ void PBFGPU3DSim::showImGui(){
 
         ImGui::NewLine();
         if (ImGui::CollapsingHeader("Rigid Objects", ImGuiTreeNodeFlags_DefaultOpen)) {
-            glm::vec3 rockTranslation = rocks[selectedRock].getTranslation();
-            glm::vec3 minObjPos = -2.0f*cUbo.BOUNDARY_SIZE;
-            glm::vec3 maxObjPos = 2.0f*cUbo.BOUNDARY_SIZE;
-            ImGui::CDragFloatRanged3("Translation", &rockTranslation[0], 0.1f*cUbo.H, &minObjPos[0], &maxObjPos[0]);
-            rocks[selectedRock].translate(rockTranslation - rocks[selectedRock].getTranslation());
+            if (!rigidObjects.empty()) {
+                glm::vec3 rigidObjTranslation = rigidObjects[selectedRigidObj].getTranslation();
+                glm::vec3 minObjPos = -2.0f*cUbo.BOUNDARY_SIZE;
+                glm::vec3 maxObjPos = 2.0f*cUbo.BOUNDARY_SIZE;
+                ImGui::SetCursorPosX(10.0f);
+                ImGui::CDragFloatRanged3("Translation", &rigidObjTranslation[0], 0.25f*cUbo.H, &minObjPos[0], &maxObjPos[0]);
+                rigidObjects[selectedRigidObj].translate(rigidObjTranslation - rigidObjects[selectedRigidObj].getTranslation());
 
-
-
-            static std::array<std::string, 3> rockTypes = {"Rock A", "Rock B", "Rock C"};
-            std::string curItem = rockTypes[selectedRock];
-            if (ImGui::BeginCombo("##combo", curItem.c_str())) {
-                for (uint32_t i = 0; i < rockTypes.size(); i++){
-                    bool isSelected = (curItem == rockTypes[i]);
-                    if (ImGui::Selectable(rockTypes[i].c_str(), isSelected)) {
-                        selectedRock = i;
+                std::string curItem = rigidObjectsNames[selectedRigidObj];
+                if (ImGui::BeginCombo("##combo", curItem.c_str())) {
+                    for (uint32_t i = 0; i < rigidObjectsNames.size(); i++){
+                        bool isSelected = (curItem == rigidObjectsNames[i]);
+                        if (ImGui::Selectable(rigidObjectsNames[i].c_str(), isSelected)) {
+                            selectedRigidObj = i;
+                        }
+                        if (isSelected)
+                            ImGui::SetItemDefaultFocus();
                     }
-                    if (isSelected)
-                        ImGui::SetItemDefaultFocus();
+                    ImGui::EndCombo();
                 }
-                ImGui::EndCombo();
+            }
+
+            ImGui::SetCursorPosX(10.0f);
+            if(ImGui::Button("Add rigid object")) {
+                isAddWindowOpen = true;
             }
         }
-
 
         if (ImGui::Button("Launch and close")){
             initializeObjects(true);
@@ -880,6 +887,45 @@ void PBFGPU3DSim::showImGui(){
             pausedSimulation = false;
         }
         ImGui::End();
+    }
+
+    if (isAddWindowOpen) {
+        static uint32_t selectedType = 0;
+        std::string curItem = rigidObjectTypes[selectedRigidObj];
+        if (ImGui::BeginCombo("##combo", curItem.c_str())) {
+            for (uint32_t i = 0; i < rigidObjectTypes.size(); i++){
+                bool isSelected = (curItem == rigidObjectTypes[i]);
+                if (ImGui::Selectable(rigidObjectTypes[i].c_str(), isSelected)) {
+                    selectedType = i;
+                }
+                if (isSelected)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+
+        if (ImGui::Button("Add") && saveFileName != "Enter file name") {
+            rigidObjectsNames.push_back("rock" + std::to_string(numRocks++));
+            switch (selectedType) {
+                case 0:
+                    rigidObjects.emplace_back(device, "../Models/rockA.obj", rockTex, 0.1f, cUbo.H/2);
+                    break;
+                case 1:
+                    rigidObjects.emplace_back(device, "../Models/rockB.obj", rockTex, 0.1f, cUbo.H/2);
+                    break;
+                case 2:
+                    rigidObjects.emplace_back(device, "../Models/rockC.obj", rockTex, 0.1f, cUbo.H/2);
+                    break;
+                default:
+                    break;
+            }
+            NUM_PARTICLES += rigidObjects[rigidObjects.size()-1].numParticles();
+            isAddWindowOpen = false;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) {
+            isAddWindowOpen = false;
+        }
     }
 
     if (isSaveWindowOpen) {
