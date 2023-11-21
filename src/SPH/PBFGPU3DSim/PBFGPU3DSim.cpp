@@ -875,6 +875,7 @@ void PBFGPU3DSim::showImGui(){
                 }
                 if (ImGui::Button("Remove this object")) {
                     vkDeviceWaitIdle(device.device());
+                    NUM_PARTICLES -= rigidObjects[selectedRigidObj].numParticles();
                     rigidObjects.erase(rigidObjects.begin() + selectedRigidObj);
                     rigidObjectsNames.erase(rigidObjectsNames.begin() + selectedRigidObj);
                     selectedRigidObj = 0;
@@ -896,11 +897,11 @@ void PBFGPU3DSim::showImGui(){
     }
     static uint32_t selectedType = 0;
     if (isAddWindowOpen) {
-        std::string curItem = rigidObjectTypes[selectedType];
+        std::string curItem = rigidObjectTypes[selectedType].second;
         if (ImGui::BeginCombo("##combo", curItem.c_str())) {
             for (uint32_t i = 0; i < rigidObjectTypes.size(); i++){
-                bool isSelected = (curItem == rigidObjectTypes[i]);
-                if (ImGui::Selectable(rigidObjectTypes[i].c_str(), isSelected)) {
+                bool isSelected = (curItem == rigidObjectTypes[i].second);
+                if (ImGui::Selectable(rigidObjectTypes[i].second.c_str(), isSelected)) {
                     selectedType = i;
                 }
                 if (isSelected)
@@ -980,7 +981,7 @@ void PBFGPU3DSim::showImGui(){
 }
 
 void PBFGPU3DSim::addRigidObject(uint32_t type) {
-    rigidObjectsNames.push_back("rock" + std::to_string(numRocks++));
+    rigidObjectsNames.push_back(rigidObjectTypes[type].second + std::to_string(rigidObjectTypes[type].first++));
     switch (type) {
         case 0:
             rigidObjects.emplace_back(device, "../Models/rockA.obj", rockTex, 0.1f, cUbo.H/2);

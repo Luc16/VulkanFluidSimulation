@@ -273,10 +273,11 @@ private:
     vkb::CameraMovementController cameraController{};
 
     std::shared_ptr<vkb::Texture> rockTex = std::make_shared<vkb::Texture>(device, "../textures/rock_tex.png");
-    std::array<std::string, 3> rigidObjectTypes = {"Rock A", "Rock B", "Rock C"};
+    std::array<std::pair<uint32_t, std::string>, 3> rigidObjectTypes = {
+            std::make_pair(0, "RockA"), std::make_pair(0, "RockB"), std::make_pair(0, "RockC")
+    };
     std::vector<RigidObject> rigidObjects{};
     std::vector<std::string> rigidObjectsNames{};
-    uint32_t numRocks = 0;
     uint32_t selectedRigidObj = 0;
 
     glm::ivec2 numParticlesXZ = glm::ivec2(int(std::cbrt(NUM_PARTICLES)));
