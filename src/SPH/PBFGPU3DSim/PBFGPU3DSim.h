@@ -150,7 +150,7 @@ private:
 
     vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, "../Models/quadXZ1.obj"),
                               std::make_shared<vkb::Texture>(device, "../textures/chess_tex.png")};
-
+    std::shared_ptr<vkb::Texture> rockTex = std::make_shared<vkb::Texture>(device, "../textures/rock_tex.png");
 
 
     std::vector<std::unique_ptr<vkb::Buffer>> graphicsUniformBuffers;
@@ -271,7 +271,6 @@ private:
     vkb::Camera camera{};
     vkb::CameraMovementController cameraController{};
 
-    std::shared_ptr<vkb::Texture> rockTex = std::make_shared<vkb::Texture>(device, "../textures/rock_tex.png");
     std::array<std::pair<uint32_t, std::string>, 3> rigidObjectTypes = {
             std::make_pair(0, "RockA"), std::make_pair(0, "RockB"), std::make_pair(0, "RockC")
     };
