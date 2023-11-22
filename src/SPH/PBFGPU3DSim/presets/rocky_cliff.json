@@ -1,5 +1,5 @@
 {
-    "NUM_PARTICLES": 200000,
+    "NUM_PARTICLES": 229512,
     "initial params": {
         "initialPos": [
             0.10000000149011612,
@@ -8,7 +8,7 @@
         ],
         "numParticlesXZ": [
             58,
-            73
+            141
         ],
         "particleSpacing": 0.0560000017285347,
         "particleVerticalSpacing": 0.05000000074505806
@@ -22,12 +22,30 @@
         "radius": 0.05000000074505806,
         "renderType": 8
     },
+    "rigid objects": [
+        [
+            0,
+            [
+                10.75,
+                1.0499999523162842,
+                2.700000047683716
+            ]
+        ],
+        [
+            1,
+            [
+                10.925000190734863,
+                0.9750000238418579,
+                6.275000095367432
+            ]
+        ]
+    ],
     "simulation": {
         "ART_PRESSURE_COEF": 0.0002500000118743628,
         "BOUNDARY_SIZE": [
-            8.75,
+            15.149999618530273,
             7.0,
-            4.400000095367432
+            8.699999809265137
         ],
         "CFM": 600.0,
         "REST_DENS": 6378.0,
@@ -42,6 +60,6 @@
     "walls": {
         "wallBackwardSpeed": 1.2000000476837158,
         "wallForwardSpeed": 4.800000190734863,
-        "wallLimit": 1.4
+        "wallLimit": 2.1
     }
 }

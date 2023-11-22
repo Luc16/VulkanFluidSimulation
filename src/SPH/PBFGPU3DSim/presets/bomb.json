@@ -41,6 +41,7 @@
     "substeps": 2,
     "walls": {
         "wallBackwardSpeed": 1.2000000476837158,
-        "wallForwardSpeed": 4.800000190734863
+        "wallForwardSpeed": 4.800000190734863,
+        "wallLimit": 1.4
     }
 }

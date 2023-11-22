@@ -417,7 +417,6 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     vkb::Buffer::writeVectorToBuffer(device, idxBuffer, idxs);
 
     objectsInitialized = true;
-
 }
 
 void PBFGPU3DSim::createUniformBuffers() {
@@ -616,7 +615,7 @@ void PBFGPU3DSim::keyboardControl(float deltaTime) {
     cameraController.moveCamera(window.window(), deltaTime, camera);
 
     static bool pWasReleased = false;
-    if (pWasReleased && glfwGetKey(window.window(), GLFW_KEY_P) == GLFW_PRESS) {
+    if (!controlMode && pWasReleased && glfwGetKey(window.window(), GLFW_KEY_P) == GLFW_PRESS) {
         singleStep = true;
         pausedSimulation = false;
 
@@ -751,7 +750,7 @@ void PBFGPU3DSim::showImGui(){
         singleStep = false;
     }
 
-    if (ImGui::Button("Step")) {
+    if (ImGui::Button("Step") && !controlMode) {
         singleStep = true;
         pausedSimulation = false;
     }
@@ -910,7 +909,7 @@ void PBFGPU3DSim::showImGui(){
             ImGui::EndCombo();
         }
 
-        if (ImGui::Button("Add") && saveFileName != "Enter file name") {
+        if (ImGui::Button("Add")) {
             addRigidObject(selectedType);
             isAddWindowOpen = false;
         }
@@ -925,17 +924,16 @@ void PBFGPU3DSim::showImGui(){
 
         ImGui::InputText("File Name", &saveFileName);
 
-
         if (ImGui::Button("Save") && saveFileName != "Enter file name") {
             saveToJson(saveFileName + ".json");
             isSaveWindowOpen = false;
-            pausedSimulation = false;
+            pausedSimulation = controlMode;
             disableKeyboardControl = false;
         }
         ImGui::SameLine();
         if (ImGui::Button("Cancel")) {
             isSaveWindowOpen = false;
-            pausedSimulation = false;
+            pausedSimulation = controlMode;
             disableKeyboardControl = false;
         }
 
@@ -964,14 +962,16 @@ void PBFGPU3DSim::showImGui(){
         if (ImGui::Button("Load")) {
             loadDataFromJson(PRESET_DIR + curFile.data());
             isLoadWindowOpen = false;
-            pausedSimulation = false;
-            initializeObjects(true);
+            pausedSimulation = controlMode;
+            if (!pausedSimulation) {
+                initializeObjects(true);
+            }
             disableKeyboardControl = false;
         }
         ImGui::SameLine();
         if (ImGui::Button("Cancel")) {
             isLoadWindowOpen = false;
-            pausedSimulation = false;
+            pausedSimulation = controlMode;
             disableKeyboardControl = false;
         }
 
@@ -1029,6 +1029,7 @@ void PBFGPU3DSim::onResize(int width, int height) {
 }
 
 void PBFGPU3DSim::loadDataFromJson(const std::string &fileName) {
+    vkDeviceWaitIdle(device.device());
     nlohmann::json jsonData;
     std::ifstream fileData(fileName);
     fileData >> jsonData;
@@ -1062,6 +1063,7 @@ void PBFGPU3DSim::loadDataFromJson(const std::string &fileName) {
     // walls
     wallForwardSpeed = jsonData["walls"]["wallForwardSpeed"];
     wallBackwardSpeed = jsonData["walls"]["wallBackwardSpeed"];
+    wallLimit = jsonData["walls"]["wallLimit"];
 
     // initial params
     numParticlesXZ[0] = jsonData["initial params"]["numParticlesXZ"][0];
@@ -1071,6 +1073,21 @@ void PBFGPU3DSim::loadDataFromJson(const std::string &fileName) {
     initialPos[0] = jsonData["initial params"]["initialPos"][0];
     initialPos[1] = jsonData["initial params"]["initialPos"][1];
     initialPos[2] = jsonData["initial params"]["initialPos"][2];
+
+    NUM_RIGID_PARTICLES = 0;
+    for (const auto& rigidObj : rigidObjects) {
+        NUM_RIGID_PARTICLES += rigidObj.numParticles();
+    }
+    NUM_PARTICLES -= NUM_RIGID_PARTICLES;
+    rigidObjects.clear();
+    rigidObjectsNames.clear();
+    std::for_each(rigidObjectTypes.begin(), rigidObjectTypes.end(),[](auto& elem){elem.first = 0;});
+    if (jsonData["rigid objects"] != nullptr) {
+        for (const auto& rigidObjData : jsonData["rigid objects"]){
+            addRigidObject(rigidObjData[0]);
+            rigidObjects[rigidObjects.size()-1].translate(glm::vec3(rigidObjData[1][0], rigidObjData[1][1], rigidObjData[1][2]));
+        }
+    }
 }
 
 void PBFGPU3DSim::saveToJson(const std::string &fileName) {
@@ -1103,6 +1120,7 @@ void PBFGPU3DSim::saveToJson(const std::string &fileName) {
             {"walls", {
                     {"wallForwardSpeed", wallForwardSpeed},
                     {"wallBackwardSpeed", wallBackwardSpeed},
+                    {"wallLimit", wallLimit},
                 },
             },
             {"initial params", {
@@ -1112,11 +1130,20 @@ void PBFGPU3DSim::saveToJson(const std::string &fileName) {
                     {"initialPos", {initialPos.x, initialPos.y, initialPos.z}},
                 }
             },
-            // TODO save objs
             {"rigid objects", {}}
     };
 
-    saveData["rigid objects"].emplace_back(std::make_pair<uint32_t, std::vector<float>>(1, {1, 2, 3}));
+    for (uint32_t i = 0; i < rigidObjects.size(); i++) {
+        uint32_t idx = 0;
+        for (uint32_t j = 0; j < rigidObjectTypes.size(); j++) {
+            if (rigidObjectsNames[i].contains(rigidObjectTypes[j].second)) {
+                idx = j;
+                break;
+            }
+        }
+        glm::vec3 pos = rigidObjects[i].getTranslation();
+        saveData["rigid objects"].emplace_back(std::pair<const uint32_t, const std::vector<float>>(idx, {pos.x, pos.y, pos.z}));
+    }
 
 
     std::ofstream o(PRESET_DIR + fileName);

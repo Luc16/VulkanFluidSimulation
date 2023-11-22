@@ -2,13 +2,13 @@
     "NUM_PARTICLES": 200000,
     "initial params": {
         "initialPos": [
+            1.684999942779541,
             0.10000000149011612,
-            0.10000000149011612,
-            0.10000000149011612
+            2.009000062942505
         ],
         "numParticlesXZ": [
             58,
-            73
+            58
         ],
         "particleSpacing": 0.0560000017285347,
         "particleVerticalSpacing": 0.05000000074505806
@@ -25,9 +25,9 @@
     "simulation": {
         "ART_PRESSURE_COEF": 0.0002500000118743628,
         "BOUNDARY_SIZE": [
-            8.75,
             7.0,
-            4.400000095367432
+            7.0,
+            7.0
         ],
         "CFM": 600.0,
         "REST_DENS": 6378.0,

@@ -1,5 +1,5 @@
 {
-    "NUM_PARTICLES": 200000,
+    "NUM_PARTICLES": 216047,
     "initial params": {
         "initialPos": [
             0.10000000149011612,
@@ -8,7 +8,7 @@
         ],
         "numParticlesXZ": [
             58,
-            73
+            58
         ],
         "particleSpacing": 0.0560000017285347,
         "particleVerticalSpacing": 0.05000000074505806
@@ -20,14 +20,24 @@
         "blurScale": 0.20000000298023224,
         "filterRadius": 5,
         "radius": 0.05000000074505806,
-        "renderType": 8
+        "renderType": 0
     },
+    "rigid objects": [
+        [
+            0,
+            [
+                5.275000095367432,
+                1.0499999523162842,
+                5.275000095367432
+            ]
+        ]
+    ],
     "simulation": {
         "ART_PRESSURE_COEF": 0.0002500000118743628,
         "BOUNDARY_SIZE": [
-            8.75,
+            9.75,
             7.0,
-            4.400000095367432
+            8.350000381469727
         ],
         "CFM": 600.0,
         "REST_DENS": 6378.0,
