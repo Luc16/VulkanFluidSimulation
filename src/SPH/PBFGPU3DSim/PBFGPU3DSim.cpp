@@ -894,8 +894,11 @@ void PBFGPU3DSim::showImGui(){
         }
         ImGui::End();
     }
+
     static uint32_t selectedType = 0;
     if (isAddWindowOpen) {
+        ImGui::Begin("Add Rigid Object");
+
         std::string curItem = rigidObjectTypes[selectedType].second;
         if (ImGui::BeginCombo("##combo", curItem.c_str())) {
             for (uint32_t i = 0; i < rigidObjectTypes.size(); i++){
@@ -917,6 +920,7 @@ void PBFGPU3DSim::showImGui(){
         if (ImGui::Button("Cancel")) {
             isAddWindowOpen = false;
         }
+        ImGui::End();
     }
 
     if (isSaveWindowOpen) {
@@ -941,7 +945,7 @@ void PBFGPU3DSim::showImGui(){
     }
 
     if (isLoadWindowOpen) {
-        ImGui::Begin("Save Configuration");
+        ImGui::Begin("Load Preset");
 
         ImGui::Text("Choose preset file");
 

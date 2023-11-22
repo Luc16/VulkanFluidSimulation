@@ -195,7 +195,6 @@ private:
     std::unique_ptr<vkb::Buffer> densityBuffer;
     std::unique_ptr<vkb::Buffer> lambdaBuffer;
     std::unique_ptr<vkb::Buffer> gridIdxBuffer;
-//    std::unique_ptr<vkb::Buffer> rigidParticlesIdxBuffer;
 
     std::array<std::vector<std::pair<VkBuffer, VkDeviceSize>>, 2> particleBarrierData;
 
