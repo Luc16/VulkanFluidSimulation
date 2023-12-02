@@ -25,6 +25,8 @@ namespace vkb {
             };
         }
 
+        [[nodiscard]] VkRenderPass renderPass() const { return m_renderPass;}
+
         [[nodiscard]] VkDescriptorImageInfo additionalImageDescriptorInfo() const {
             if (!m_hasMultipleImages) throw std::runtime_error("cant get additional image descriptor without multiple images");
 

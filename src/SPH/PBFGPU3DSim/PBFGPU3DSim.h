@@ -149,7 +149,7 @@ private:
 
 
     vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, "../Models/quadXZ1.obj"),
-                              std::make_shared<vkb::Texture>(device, "../textures/chess_tex.png")};
+                              std::make_shared<vkb::Texture>(device, "../textures/sand_tex.jpg")};
     std::shared_ptr<vkb::Texture> rockTex = std::make_shared<vkb::Texture>(device, "../textures/rock_tex.png");
 
 
@@ -166,6 +166,7 @@ private:
             "../textures/skybox/back.jpg",
     }, true};
     vkb::RenderSystem skyboxSystem{device};
+    vkb::RenderSystem skyboxTexSystem{device};
 
     std::vector<VkDescriptorSet> defaultDescriptorSets;
     std::vector<VkDescriptorSet> rockDescriptorSets;

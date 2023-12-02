@@ -53,21 +53,6 @@ void PBFGPU3DSim::onCreate() {
         });
     }
 
-    {
-        skyboxSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
-        skyboxSystem.createPipeline(renderer.renderPass(), skyboxShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
-            info.depthStencilInfo.depthTestEnable = VK_FALSE;
-            info.depthStencilInfo.depthWriteEnable = VK_FALSE;
-            info.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-            info.colorBlendAttachment.blendEnable = VK_FALSE;
-
-            info.bindingDescription.clear();
-            info.bindingDescription.push_back({0, sizeof(glm::vec3), VK_VERTEX_INPUT_RATE_VERTEX});
-            info.attributeDescription.clear();
-            info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
-        });
-    }
-
     // create offscreen passes
     {
         depthPass.createPass(defaultDescriptorLayout.descriptorSetLayout(), depthShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
@@ -134,6 +119,36 @@ void PBFGPU3DSim::onCreate() {
             info.dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
             info.dynamicState.dynamicStateCount = static_cast<uint32_t>(info.dynamicStateEnables.size());
             info.dynamicState.pDynamicStates = info.dynamicStateEnables.data();
+        });
+    }
+
+    //create skybox
+    {
+        skyboxSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
+        skyboxSystem.createPipeline(renderer.renderPass(), skyboxShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
+            info.depthStencilInfo.depthTestEnable = VK_FALSE;
+            info.depthStencilInfo.depthWriteEnable = VK_FALSE;
+            info.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+            info.colorBlendAttachment.blendEnable = VK_FALSE;
+
+            info.bindingDescription.clear();
+            info.bindingDescription.push_back({0, sizeof(glm::vec3), VK_VERTEX_INPUT_RATE_VERTEX});
+            info.attributeDescription.clear();
+            info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
+        });
+
+        skyboxTexSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
+        skyboxTexSystem.createPipeline(normalsPass.renderPass(), skyboxShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
+            info.depthStencilInfo.depthTestEnable = VK_FALSE;
+            info.depthStencilInfo.depthWriteEnable = VK_FALSE;
+            info.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+            info.colorBlendAttachment.blendEnable = VK_FALSE;
+            info.multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+            info.bindingDescription.clear();
+            info.bindingDescription.push_back({0, sizeof(glm::vec3), VK_VERTEX_INPUT_RATE_VERTEX});
+            info.attributeDescription.clear();
+            info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
         });
     }
 
@@ -512,6 +527,9 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
     normalsPass.run(commandBuffer,
                     &defaultDescriptorSets[renderer.currentFrame()],
                     [this](VkCommandBuffer &commandBuffer) {
+        skyboxTexSystem.bind(commandBuffer, &skyboxDescriptorSets[renderer.currentFrame()]);
+        skybox.bindAndDraw(commandBuffer);
+        normalsPass.bindRenderSystem(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
         plane.render(defaultSystem, commandBuffer);
         normalsPass.bindRenderSystem(commandBuffer, &rockDescriptorSets[renderer.currentFrame()]);
         for (const auto& rigidObject : rigidObjects) {

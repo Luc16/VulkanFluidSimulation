@@ -13,7 +13,7 @@ layout(binding = 0) uniform UBO {
 
 layout (binding = 1) uniform sampler2D samplerDepth;
 layout (binding = 2) uniform sampler2D samplerThick;
-layout (binding = 3) uniform sampler2D samplerNormals;
+layout (binding = 3) uniform sampler2D samplerScene;
 layout (binding = 4) uniform sampler2D samplerSmoothedDepth;
 layout (binding = 5) uniform sampler2D samplerPlane;
 layout (binding = 6) uniform samplerCube samplerCubeMap;
@@ -96,7 +96,7 @@ void main()
     }  else if (ubo.renderType == 4) {
 //        float smoothDepth = texture(samplerSmoothedDepth, inUV).r;
 //        outFragColor = vec4(vec3(linearizeDepth(smoothDepth)), 1.0);
-        outFragColor = texture(samplerNormals, inUV);
+        outFragColor = texture(samplerScene, inUV);
         return;
     }
 
@@ -116,7 +116,6 @@ void main()
         ddy = ddy2;
     }
     vec3 normal = cross(ddx, ddy);
-    debugPrintfEXT("normal: %f %f %f, ddx: %f %f %f, ddy: %f %f %f, posz = %f", normal.x, normal.y, normal.z, ddx.x, ddx.y, ddx.z, ddy.x, ddy.y, ddy.z, pos.z);
     normal = normalize(normal);
 
     if (ubo.renderType == 3) {
@@ -133,9 +132,16 @@ void main()
 //    r = (r == 1) ? 0.25 : r;
 
     vec3 reflectedDir = worldDir - 2 * normal * dot(normal, worldDir);
-    vec3 refractedDir = worldDir - 0.0008*normal;
 
-    vec3 refractColor = mix(defaultColor, traceColor(worldPos, refractedDir), getThickness(inUV));
+    float ior = 1.333;
+    float refractScale = ior*0.025;
+    // attenuate refraction near ground (hack)
+    refractScale *= smoothstep(0.1, 0.4, worldPos.y);
+    vec2 texScale = vec2(0.75, 1.0);	// to account for backbuffer aspect ratio
+
+    vec2 refractCoord = inUV + normal.xy*refractScale*texScale;
+
+    vec3 refractColor = mix(defaultColor, texture(samplerScene, refractCoord).rgb, getThickness(inUV));
     vec3 reflectColor = traceColor(worldPos, reflectedDir);
 
 
