@@ -41,7 +41,7 @@ struct UniformBufferObject {
     float blurDepthFalloff = 1000;
     alignas(16) glm::vec3 planeSize;
     float restDens;
-
+    float transparency = 0.8f;
 };
 
 struct ComputeUniformBufferObject {

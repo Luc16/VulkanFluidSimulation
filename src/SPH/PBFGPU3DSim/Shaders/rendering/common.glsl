@@ -19,6 +19,7 @@ struct UniformBufferObject {
     float blurDepthFalloff;
     vec3 planeSize;
     float restDens;
+    float transparency;
 };
 
 #endif //COMMON_SHADER_H

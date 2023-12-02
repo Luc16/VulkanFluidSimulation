@@ -722,7 +722,8 @@ void PBFGPU3DSim::showImGui(){
     ImGui::NewLine();
 
     if (ImGui::CollapsingHeader("Rendering")) {
-        ImGui::DragFloat("Particle Radius", &gUbo.radius, 0.1f, 0.1f, 100.0f);
+        ImGui::DragFloat("Particle Radius", &gUbo.radius, 0.0001f, 0.0001f, 0.2f);
+        ImGui::DragFloat("Transparency", &gUbo.transparency, 0.001f, 0.001f, 4.0f);
 
         ImGui::Text("View mode");
         static std::array<std::string, 9> renderTypes = {"Particles", "Depth", "Thickness", "Normals", "Smooth",

@@ -21,12 +21,10 @@ layout (binding = 6) uniform samplerCube samplerCubeMap;
 
 layout (location = 0) out vec4 outFragColor;
 
-const float r0 = 0.142857;
 const vec3 defaultColor = vec3(6, 105, 217) / 256;
-const float attenuateConst = 0.8;
-const float fresnel_bias = 0;
-const float fresnel_scale = 0.8f;
-const float fresnel_power = 20.0f;
+const float fresnel_bias = 0.1;
+const float fresnel_scale = 1.5f;
+const float fresnel_power = 3.0f;
 const float iior = 0.75; // inverse of water index of refraction
 
 float linearizeDepth(float depth){
@@ -49,7 +47,7 @@ float getDepth(vec2 uv) {
 
 float getThickness(vec2 uv) {
     float thickness = texture(samplerThick, inUV).r;
-    return clamp(exp(attenuateConst*-thickness), 0.01, 1.0);
+    return clamp(exp(ubo.transparency*-thickness), 0.01, 1.0);
 }
 
 vec3 toEyeSpace(vec2 uv) {
@@ -63,9 +61,9 @@ vec3 toEyeSpace(vec2 uv) {
 
 float fresnelScale(vec3 dir, vec3 normal) {
     // http://developer.download.nvidia.com/CgTutorial/cg_tutorial_chapter07.html
-//    return clamp(fresnel_bias + fresnel_scale * pow(1 + dot(dir, normal), fresnel_power), 0, 1);
+    return clamp(fresnel_bias + fresnel_scale * pow(1 - max(dot(normal, -dir), 0.0), fresnel_power), 0, 1);
 //    return clamp(r0 + (1 - r0) * pow(1 - dot(dir, normal), 10), 0, 1);
-    return 0.1 + (1.0 - 0.1)*pow(1.0-max(dot(normal, -dir), 0.0), 3);
+//    return 0.1 + (2 - 0.1)*pow(1.0-max(dot(normal, -dir), 0.0), 3);
 }
 
 void main()
