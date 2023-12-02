@@ -27,6 +27,7 @@ const float attenuateConst = 0.8;
 const float fresnel_bias = 0;
 const float fresnel_scale = 0.8f;
 const float fresnel_power = 20.0f;
+const float iior = 0.75; // inverse of water index of refraction
 
 float linearizeDepth(float depth){
     float n = ubo.zNear;
@@ -67,18 +68,6 @@ float fresnelScale(vec3 dir, vec3 normal) {
     return 0.1 + (1.0 - 0.1)*pow(1.0-max(dot(normal, -dir), 0.0), 3);
 }
 
-vec3 traceColor(vec4 pos, vec3 dir) {
-    float t = -pos.y / dir.y;
-    vec3 planeIntersect = pos.xyz + t * dir;
-
-    if (t >= 0 && planeIntersect.x > 0 && planeIntersect.x < ubo.planeSize.x && planeIntersect.z > 0 && planeIntersect.z < ubo.planeSize.z) {
-        return texture(samplerPlane, vec2(planeIntersect.x/ubo.planeSize.x, planeIntersect.z/ubo.planeSize.z)).rgb;
-    } else {
-        dir.z *= -1; // flip z for cube map
-        return texture(samplerCubeMap, dir).rgb;
-    }
-}
-
 void main()
 {
     float depth = texture(samplerSmoothedDepth, inUV).r;
@@ -94,9 +83,8 @@ void main()
         outFragColor = vec4(getThickness(inUV));
         return;
     }  else if (ubo.renderType == 4) {
-//        float smoothDepth = texture(samplerSmoothedDepth, inUV).r;
-//        outFragColor = vec4(vec3(linearizeDepth(smoothDepth)), 1.0);
-        outFragColor = texture(samplerScene, inUV);
+        float smoothDepth = texture(samplerSmoothedDepth, inUV).r;
+        outFragColor = vec4(vec3(linearizeDepth(smoothDepth)), 1.0);
         return;
     }
 
@@ -131,18 +119,27 @@ void main()
     float r = fresnelScale(dir, normal);
 //    r = (r == 1) ? 0.25 : r;
 
-    vec3 reflectedDir = worldDir - 2 * normal * dot(normal, worldDir);
-
-    float ior = 1.333;
-    float refractScale = ior*0.025;
+    float refractScale = iior*0.015;
+    float reflectScale = iior*0.1;
     // attenuate refraction near ground (hack)
     refractScale *= smoothstep(0.1, 0.4, worldPos.y);
     vec2 texScale = vec2(0.75, 1.0);	// to account for backbuffer aspect ratio
 
     vec2 refractCoord = inUV + normal.xy*refractScale*texScale;
-
     vec3 refractColor = mix(defaultColor, texture(samplerScene, refractCoord).rgb, getThickness(inUV));
-    vec3 reflectColor = traceColor(worldPos, reflectedDir);
+
+    vec3 skyColor = vec3(0.1, 0.2, 0.4)*1.2;
+    vec3 groundColor = vec3(0.1, 0.1, 0.2);
+    vec3 reflectedDir = reflect(-dir, normal);
+    vec3 reflectedWorldDir = mat3(ubo.inverseView) * dir;
+
+    vec2 sceneReflectCoord = inUV - reflectedDir.xy*texScale*reflectScale/pos.z;
+    vec3 sceneReflect = texture(samplerScene, sceneReflectCoord).rgb*0.1;
+
+//    reflectedDir.z *= -1; // flip z for cube map
+//    vec3 reflectColor = texture(samplerCubeMap, reflectedDir).rgb;
+
+    vec3 reflectColor = mix(vec3(0), sceneReflect, smoothstep(0.05, 0.3, worldPos.y)) + mix(groundColor, skyColor, smoothstep(0.15, 0.25, reflectedWorldDir.y));
 
 
     if (ubo.renderType == 5) {
