@@ -116,12 +116,9 @@ void PBFGPU3DSim::onCreate() {
 
         });
 
-        normalsPass.createPass(defaultDescriptorLayout.descriptorSetLayout(), normalsShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
-            info.bindingDescription.clear();
-            info.attributeDescription.clear();
-            info.multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-            info.rasterizer.cullMode = VK_CULL_MODE_NONE;
-        });
+        normalsPass.createPass(defaultDescriptorLayout.descriptorSetLayout(), shaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info){
+                info.multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+        }, sizeof(vkb::DrawableObject::PushConstantData));
 
         smoothPass.createPass(defaultDescriptorLayout.descriptorSetLayout(), smoothShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
             info.bindingDescription.clear();
@@ -484,13 +481,14 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
         vkCmdDraw(commandBuffer, NUM_PARTICLES, 1, 0, 0);
     });
 
-    smoothPass.run(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()],
-                   [](VkCommandBuffer commandBuffer) {
-        vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+    if (blurIterations > 0) {
+        smoothPass.run(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()],
+                       [](VkCommandBuffer commandBuffer) {
+            vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+        });
+    }
 
-    });
-
-    for (uint32_t _ = 0; _ < blurIterations; _++){
+    for (uint32_t _ = 1; _ < blurIterations; _++){
         smoothPass.runAlternating(commandBuffer, {&smooth1DescriptorSets[renderer.currentFrame()], &smooth2DescriptorSets[renderer.currentFrame()]},
                                   [](VkCommandBuffer commandBuffer) {
             vkCmdDraw(commandBuffer, 3, 1, 0, 0);
@@ -506,10 +504,20 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
         vkCmdDraw(commandBuffer, NUM_PARTICLES, 1, 0, 0);
     });
 
+    VkDescriptorSet* normalDescriptorSet;
+    if (blurIterations == 0) normalDescriptorSet = &simulationDescriptorSets[renderer.currentFrame()];
+    else if (blurIterations % 2 == 0) normalDescriptorSet = &smooth2DescriptorSets[renderer.currentFrame()];
+    else normalDescriptorSet = &smooth1DescriptorSets[renderer.currentFrame()];
+
     normalsPass.run(commandBuffer,
-                    (blurIterations % 2 == 0) ? &smooth1DescriptorSets[renderer.currentFrame()] : &smooth2DescriptorSets[renderer.currentFrame()],
-                    [](VkCommandBuffer &commandBuffer) {
-        vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+                    &defaultDescriptorSets[renderer.currentFrame()],
+                    [this](VkCommandBuffer &commandBuffer) {
+        plane.render(defaultSystem, commandBuffer);
+        normalsPass.bindRenderSystem(commandBuffer, &rockDescriptorSets[renderer.currentFrame()]);
+        for (const auto& rigidObject : rigidObjects) {
+            rigidObject.render(defaultSystem, commandBuffer);
+        }
+//        vkCmdDraw(commandBuffer, 3, 1, 0, 0);
     });
 
     renderer.runRenderPass([this, &vb, &vbType, &offsets](VkCommandBuffer& commandBuffer){
@@ -595,7 +603,7 @@ void PBFGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){
     gUbo.restDens = cUbo.REST_DENS;
     graphicsUniformBuffers[frameIndex]->write(&gUbo);
 
-    if (activateWaves) {
+    if (activateWaves && !pausedSimulation) {
         cUbo.wallX += curSpeed * cUbo.DT;
         if (cUbo.wallX >= wallLimit) {
             curSpeed = -wallBackwardSpeed;
@@ -603,7 +611,7 @@ void PBFGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){
             cUbo.wallX = 0;
             curSpeed = wallForwardSpeed;
         }
-    } else cUbo.wallX = 0;
+    } else if (!pausedSimulation) cUbo.wallX = 0;
 
 //    cUbo.DT = std::clamp(deltaTime, 0.001f, 0.016f);
 //    cUbo.G = 0.0f*glm::vec3(0.0f, -9.8f, 0.0f);
@@ -986,20 +994,11 @@ void PBFGPU3DSim::showImGui(){
 
 void PBFGPU3DSim::addRigidObject(uint32_t type) {
     rigidObjectsNames.push_back(rigidObjectTypes[type].second + std::to_string(rigidObjectTypes[type].first++));
-    switch (type) {
-        case 0:
-            rigidObjects.emplace_back(device, "../Models/rockA.obj", rockTex, 0.1f, cUbo.H/2);
-            break;
-        case 1:
-            rigidObjects.emplace_back(device, "../Models/rockB.obj", rockTex, 0.1f, cUbo.H/2);
-            break;
-        case 2:
-            rigidObjects.emplace_back(device, "../Models/rockC.obj", rockTex, 0.1f, cUbo.H/2);
-            break;
-        default:
-            break;
-    }
+    rigidObjects.emplace_back(device, "../Models/"+rigidObjectTypes[type].second+".obj", rockTex, 0.1f, cUbo.H/2);
+    selectedRigidObj = rigidObjects.size() - 1;
     NUM_PARTICLES += rigidObjects[rigidObjects.size()-1].numParticles();
+    hardResetFrame = 0;
+    disableEmergencyExit();
 }
 
 void PBFGPU3DSim::onResize(int width, int height) {

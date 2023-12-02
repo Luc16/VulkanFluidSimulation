@@ -272,7 +272,7 @@ private:
     vkb::CameraMovementController cameraController{};
 
     std::array<std::pair<uint32_t, std::string>, 3> rigidObjectTypes = {
-            std::make_pair(0, "RockA"), std::make_pair(0, "RockB"), std::make_pair(0, "RockC")
+            std::make_pair(0, "rockA"), std::make_pair(0, "rockB"), std::make_pair(0, "rockC")
     };
     std::vector<RigidObject> rigidObjects{};
     std::vector<std::string> rigidObjectsNames{};

@@ -35,8 +35,10 @@ namespace vkb {
             };
         }
 
+        void bindRenderSystem(VkCommandBuffer commandBuffer,VkDescriptorSet* descriptorSet) { m_renderSystem.bind(commandBuffer, descriptorSet); }
+
         void createPass(VkDescriptorSetLayout globalSetLayout, const RenderSystem::ShaderPaths& shaderPaths,
-                        const std::function<void(GraphicsPipeline::PipelineConfigInfo&)>& configurePipeline);
+                        const std::function<void(GraphicsPipeline::PipelineConfigInfo&)>& configurePipeline = {}, uint32_t PushConstantSize = 0);
 
         void changeImageSize(VkExtent2D extent);
 

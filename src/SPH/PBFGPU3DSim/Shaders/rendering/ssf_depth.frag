@@ -22,6 +22,8 @@ void main()
     vec4 nviewPos = vec4(viewPos.xyz + normal*ubo.radius, 1.0);
     vec4 nclipPos = ubo.proj*nviewPos;
     float depth = nclipPos.z / nclipPos.w;
+//    float q = ubo.zFar/(ubo.zFar - ubo.zNear);
+//    debugPrintfEXT("depth = (%f/%f) = %f -> view: %f = converted %f ", nclipPos.z, nclipPos.w, depth, nviewPos.z, -ubo.zNear*q/(depth - q));
 
     gl_FragDepth = depth;
 

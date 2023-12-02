@@ -26,14 +26,14 @@ namespace vkb {
     }
 
     void OffscreenPass::createPass(VkDescriptorSetLayout descriptorSetLayout, const RenderSystem::ShaderPaths &shaderPaths,
-                                   const std::function<void(GraphicsPipeline::PipelineConfigInfo &)> &configurePipeline) {
+                                   const std::function<void(GraphicsPipeline::PipelineConfigInfo &)> &configurePipeline, uint32_t pushConstantSize) {
         if (m_created)
             destroyObjects();
 
         if (m_isDepthOnly) createDepthFrameBuffer();
         else createFrameBuffer();
 
-        m_renderSystem.createPipelineLayout(descriptorSetLayout, 0);
+        m_renderSystem.createPipelineLayout(descriptorSetLayout, pushConstantSize);
         m_renderSystem.createPipeline(m_renderPass, shaderPaths, configurePipeline);
         m_created = true;
     }
