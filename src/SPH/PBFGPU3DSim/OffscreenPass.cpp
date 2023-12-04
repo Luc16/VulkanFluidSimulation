@@ -300,10 +300,18 @@ namespace vkb {
         renderPassInfo.renderArea.offset = {0, 0};
         renderPassInfo.renderArea.extent = m_extent;
 
-        std::array<VkClearValue, 1> clearValues{};
-        clearValues[0].depthStencil = {1.0f, 0};
+        size_t numClearValues = m_isDepthOnly ? 1 : 2;
+        std::vector<VkClearValue> clearValues{numClearValues};
+        if (m_isDepthOnly) clearValues[0].depthStencil = {1.0f, 0};
+        else {
+            clearValues[0].color = {{0.1*27.0f/255.0f, 0.1*26.0f/255.0f, 0.1*26.0f/255.0f, 1.0f}};
+            clearValues[1].depthStencil = {1.0f, 0};
+        }
         renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
         renderPassInfo.pClearValues = clearValues.data();
+        if (m_isDepthOnly) {
+
+        }
 
         vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
