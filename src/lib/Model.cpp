@@ -2,8 +2,10 @@
 // Created by luc on 28/10/22.
 //
 #include "Model.h"
+#ifndef TINYOBJLOADER_IMPLEMENTATION
 #define TINYOBJLOADER_IMPLEMENTATION
-
+#include "../../external/objloader/tiny_obj_loader.h"
+#endif // TINYOBJLOADER_IMPLEMENTATION
 
 namespace vkb {
 

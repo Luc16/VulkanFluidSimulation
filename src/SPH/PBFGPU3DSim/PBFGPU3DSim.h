@@ -173,14 +173,14 @@ private:
     std::vector<VkDescriptorSet> simulationDescriptorSets;
     std::vector<VkDescriptorSet> smooth1DescriptorSets;
     std::vector<VkDescriptorSet> smooth2DescriptorSets;
-    std::vector<VkDescriptorSet> shadingDescriptorSets;
+    std::array<std::vector<VkDescriptorSet>, 3> shadingDescriptorSets;
     std::vector<VkDescriptorSet> skyboxDescriptorSets;
     vkb::RenderSystem particleSystem{device};
 
     // rendering with screen space fluids
     vkb::OffscreenPass depthPass{device, renderer.getSwapChainExtent(), true};
     vkb::OffscreenPass thicknessPass{device, renderer.getSwapChainExtent()};
-    vkb::OffscreenPass normalsPass{device, renderer.getSwapChainExtent()};
+    vkb::OffscreenPass scenePass{device, renderer.getSwapChainExtent()};
     vkb::OffscreenPass smoothPass{device, renderer.getSwapChainExtent(), true, true};
 
     vkb::RenderSystem shadingRenderSystem{device};
@@ -290,7 +290,7 @@ private:
     bool isSaveWindowOpen = false, isLoadWindowOpen = false, disableKeyboardControl = false, isAddWindowOpen = false;
     bool activateTimer = false, controlMode = false, objectsInitialized = false, pausedSimulation = false;
     bool activateWaves = false, showParticles = false, singleStep = false;
-    bool activateVisc = true, activateVorticity = true;
+    bool activateVisc = true, activateVorticity = true, renderSkybox = true;
     float wallForwardSpeed = 0.4f * cUbo.H / cUbo.DT, wallBackwardSpeed = 0.1f * cUbo.H / cUbo.DT, wallLimit = 0.2f * cUbo.BOUNDARY_SIZE.x, curSpeed = 0.0f;
     uint32_t hardResetFrame = 0;
 

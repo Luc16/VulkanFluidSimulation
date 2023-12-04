@@ -12,8 +12,10 @@ void PBFGPU3DSim::onCreate() {
     }
 
     compileShaders();
-    camera.m_translation = {-9.31845f, 14.2878f, 15.5649f};
-    camera.m_rotation = {0.569391f, 2.26887f, 3.14159f};
+//    camera.m_translation = {-9.31845f, 14.2878f, 15.5649f};
+//    camera.m_rotation = {0.569391f, 2.26887f, 3.14159f};
+    camera.m_translation = {-13.6108f, 6.82289f, 7.21078f};
+    camera.m_rotation = {0.284774f, 1.74578f, 3.14159f};
     camera.updateView();
     gUbo.radius = cUbo.H/2;
     gUbo.screenHeight = (float) window.height();
@@ -101,7 +103,7 @@ void PBFGPU3DSim::onCreate() {
 
         });
 
-        normalsPass.createPass(defaultDescriptorLayout.descriptorSetLayout(), shaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info){
+        scenePass.createPass(defaultDescriptorLayout.descriptorSetLayout(), shaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info){
                 info.multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
         }, sizeof(vkb::DrawableObject::PushConstantData));
 
@@ -138,7 +140,7 @@ void PBFGPU3DSim::onCreate() {
         });
 
         skyboxTexSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
-        skyboxTexSystem.createPipeline(normalsPass.renderPass(), skyboxShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
+        skyboxTexSystem.createPipeline(scenePass.renderPass(), skyboxShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
             info.depthStencilInfo.depthTestEnable = VK_FALSE;
             info.depthStencilInfo.depthWriteEnable = VK_FALSE;
             info.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
@@ -170,10 +172,23 @@ void PBFGPU3DSim::onCreate() {
             info.attributeDescription.clear();
             info.rasterizer.cullMode = VK_CULL_MODE_NONE;
         });
-        shadingDescriptorSets = createDescriptorSets(
+
+        shadingDescriptorSets[0] = createDescriptorSets(
                 debugDescriptorLayout,
                 {graphicsUniformBuffers[0]->descriptorInfo()},
-                {depthPass.descriptorInfo(), thicknessPass.descriptorInfo(), normalsPass.descriptorInfo(), smoothPass.descriptorInfo(),
+                {depthPass.descriptorInfo(), thicknessPass.descriptorInfo(), scenePass.descriptorInfo(), depthPass.descriptorInfo(),
+                 plane.textureInfo(), skybox.descriptorInfo()}
+        );
+        shadingDescriptorSets[1] = createDescriptorSets(
+                debugDescriptorLayout,
+                {graphicsUniformBuffers[0]->descriptorInfo()},
+                {depthPass.descriptorInfo(), thicknessPass.descriptorInfo(), scenePass.descriptorInfo(), smoothPass.descriptorInfo(),
+                 plane.textureInfo(), skybox.descriptorInfo()}
+        );
+        shadingDescriptorSets[2] = createDescriptorSets(
+                debugDescriptorLayout,
+                {graphicsUniformBuffers[0]->descriptorInfo()},
+                {depthPass.descriptorInfo(), thicknessPass.descriptorInfo(), scenePass.descriptorInfo(), smoothPass.additionalImageDescriptorInfo(),
                  plane.textureInfo(), skybox.descriptorInfo()}
         );
 
@@ -519,28 +534,26 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
         vkCmdDraw(commandBuffer, NUM_PARTICLES, 1, 0, 0);
     });
 
-    VkDescriptorSet* normalDescriptorSet;
-    if (blurIterations == 0) normalDescriptorSet = &simulationDescriptorSets[renderer.currentFrame()];
-    else if (blurIterations % 2 == 0) normalDescriptorSet = &smooth2DescriptorSets[renderer.currentFrame()];
-    else normalDescriptorSet = &smooth1DescriptorSets[renderer.currentFrame()];
-
-    normalsPass.run(commandBuffer,
-                    &defaultDescriptorSets[renderer.currentFrame()],
-                    [this](VkCommandBuffer &commandBuffer) {
-        skyboxTexSystem.bind(commandBuffer, &skyboxDescriptorSets[renderer.currentFrame()]);
-        skybox.bindAndDraw(commandBuffer);
-        normalsPass.bindRenderSystem(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
+    scenePass.run(commandBuffer,
+                  &defaultDescriptorSets[renderer.currentFrame()],
+                  [this](VkCommandBuffer &commandBuffer) {
+        if (renderSkybox) {
+            skyboxTexSystem.bind(commandBuffer, &skyboxDescriptorSets[renderer.currentFrame()]);
+            skybox.bindAndDraw(commandBuffer);
+        }
+        scenePass.bindRenderSystem(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
         plane.render(defaultSystem, commandBuffer);
-        normalsPass.bindRenderSystem(commandBuffer, &rockDescriptorSets[renderer.currentFrame()]);
+        scenePass.bindRenderSystem(commandBuffer, &rockDescriptorSets[renderer.currentFrame()]);
         for (const auto& rigidObject : rigidObjects) {
             rigidObject.render(defaultSystem, commandBuffer);
         }
-//        vkCmdDraw(commandBuffer, 3, 1, 0, 0);
     });
 
     renderer.runRenderPass([this, &vb, &vbType, &offsets](VkCommandBuffer& commandBuffer){
-        skyboxSystem.bind(commandBuffer, &skyboxDescriptorSets[renderer.currentFrame()]);
-        skybox.bindAndDraw(commandBuffer);
+        if (renderSkybox) {
+            skyboxSystem.bind(commandBuffer, &skyboxDescriptorSets[renderer.currentFrame()]);
+            skybox.bindAndDraw(commandBuffer);
+        }
 
         if (showParticles) {
             particleSystem.bind(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()]);
@@ -552,7 +565,10 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
             vkCmdBindIndexBuffer(commandBuffer, idxBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
             vkCmdDrawIndexed(commandBuffer, NUM_PARTICLES, 1, 0, 0, 0);
         } else {
-            shadingRenderSystem.bind(commandBuffer, &shadingDescriptorSets[renderer.currentFrame()]);
+            VkDescriptorSet* finalSceneDescriptorSet;
+            if (blurIterations == 0) finalSceneDescriptorSet = &shadingDescriptorSets[0][renderer.currentFrame()];
+            else finalSceneDescriptorSet = &shadingDescriptorSets[(blurIterations % 2 == 0) + 1][renderer.currentFrame()];
+            shadingRenderSystem.bind(commandBuffer, finalSceneDescriptorSet);
             vkCmdDraw(commandBuffer, 3, 1, 0, 0);
         }
 
@@ -666,8 +682,8 @@ void PBFGPU3DSim::keyboardControl(float deltaTime) {
             controlMode = false;
         }
 
-//        std::cout << "camera.translation = {" << camera.translation.x << "f, " << camera.translation.y << "f, " << camera.translation.z << "f};\n";
-//        std::cout << "camera.rotation = {" << camera.rotation.x << "f, " << camera.rotation.y << "f, " << camera.rotation.z << "f};\n";
+//        std::cout << "camera.m_translation = {" << camera.m_translation.x << "f, " << camera.m_translation.y << "f, " << camera.m_translation.z << "f};\n";
+//        std::cout << "camera.m_rotation = {" << camera.m_rotation.x << "f, " << camera.m_rotation.y << "f, " << camera.m_rotation.z << "f};\n";
     } else if (glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_RELEASE){
         wasReleased = true;
     }
@@ -724,6 +740,7 @@ void PBFGPU3DSim::showImGui(){
     if (ImGui::CollapsingHeader("Rendering")) {
         ImGui::DragFloat("Particle Radius", &gUbo.radius, 0.0001f, 0.0001f, 0.2f);
         ImGui::DragFloat("Transparency", &gUbo.transparency, 0.001f, 0.001f, 4.0f);
+        ImGui::Checkbox("Render SkyBox", &renderSkybox);
 
         ImGui::Text("View mode");
         static std::array<std::string, 9> renderTypes = {"Particles", "Depth", "Thickness", "Normals", "Smooth",
@@ -1025,16 +1042,31 @@ void PBFGPU3DSim::onResize(int width, int height) {
     gUbo.screenWidth = (float) width;
     depthPass.changeImageSize(renderer.getSwapChainExtent());
     thicknessPass.changeImageSize(renderer.getSwapChainExtent());
-    normalsPass.changeImageSize(renderer.getSwapChainExtent());
+    scenePass.changeImageSize(renderer.getSwapChainExtent());
     smoothPass.changeImageSize(renderer.getSwapChainExtent());
     auto debugDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
             .addSameTypeBindings(1, 6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
             .build();
-    shadingDescriptorSets = createDescriptorSets(
+
+    shadingDescriptorSets[0] = createDescriptorSets(
             debugDescriptorLayout,
             {graphicsUniformBuffers[0]->descriptorInfo()},
-            {depthPass.descriptorInfo(), thicknessPass.descriptorInfo(), normalsPass.descriptorInfo(), smoothPass.descriptorInfo(),
+            {depthPass.descriptorInfo(), thicknessPass.descriptorInfo(), scenePass.descriptorInfo(), depthPass.descriptorInfo(),
+             plane.textureInfo(), skybox.descriptorInfo()}
+    );
+
+    shadingDescriptorSets[1] = createDescriptorSets(
+            debugDescriptorLayout,
+            {graphicsUniformBuffers[0]->descriptorInfo()},
+            {depthPass.descriptorInfo(), thicknessPass.descriptorInfo(), scenePass.descriptorInfo(), smoothPass.descriptorInfo(),
+             plane.textureInfo(), skybox.descriptorInfo()}
+    );
+
+    shadingDescriptorSets[2] = createDescriptorSets(
+            debugDescriptorLayout,
+            {graphicsUniformBuffers[0]->descriptorInfo()},
+            {depthPass.descriptorInfo(), thicknessPass.descriptorInfo(), scenePass.descriptorInfo(), smoothPass.additionalImageDescriptorInfo(),
              plane.textureInfo(), skybox.descriptorInfo()}
     );
 

@@ -5,7 +5,6 @@
 
 #include <unordered_set>
 #include "RigidObject.h"
-#define TINYOBJLOADER_IMPLEMENTATION
 #include "../../../external/objloader/tiny_obj_loader.h"
 
 RigidObject::RigidObject(const vkb::Device& device, const std::string& modelFile, const std::shared_ptr<vkb::Texture>& tex,float scale, float particleRadius) {
