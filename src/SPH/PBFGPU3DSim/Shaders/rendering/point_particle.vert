@@ -30,9 +30,9 @@ void main() {
         fragColor = density/ubo.restDens * vec4(1, 1, 1, 1);
     }
 
+    fragColor = vec4(0.2f, 0.6f, 1.0f, 1);
     if (type != 0) {
         fragColor = vec4(0, 1, 0, 1);
     }
-    fragColor = vec4(0.2f, 0.6f, 1.0f, 1);
 
 }
