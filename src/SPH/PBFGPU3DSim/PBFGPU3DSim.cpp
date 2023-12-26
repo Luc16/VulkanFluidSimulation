@@ -368,7 +368,7 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
             predPosBuffers[i] = makeBuffer(particles.position.size() * sizeof(glm::vec4));
             particleTypeBuffers[i] = std::make_unique<vkb::Buffer>(device, particles.type.size() * sizeof(uint32_t),
                                                                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);;
+                                                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
             if (i == 0) {
                 vkb::Buffer::writeVectorToBuffer(device, positionBuffers[i], particles.position);
