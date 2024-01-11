@@ -49,7 +49,8 @@ set( GENERAL_APPS
         )
 
 foreach( testsourcefolder ${GENERAL_APPS} )
-    add_executable( ${testsourcefolder} src/${testsourcefolder}/main.cpp src/${testsourcefolder}/${testsourcefolder}.h src/${testsourcefolder}/${testsourcefolder}.cpp)
+    add_executable( ${testsourcefolder} src/${testsourcefolder}/main.cpp src/${testsourcefolder}/${testsourcefolder}.h src/${testsourcefolder}/${testsourcefolder}.cpp
+    src/FLIPCPU2DSim/structs.h)
     target_link_libraries( ${testsourcefolder} VkFluidSim GL glfw Vulkan::Vulkan)
 endforeach( testsourcefolder ${GENERAL_APPS} )
 

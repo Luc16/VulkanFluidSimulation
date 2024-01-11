@@ -6,7 +6,8 @@
 
 void FLIPCPU2DSim::onCreate() {
     initializeObjects();
-    createUniformBuffers();
+    createBuffers();
+    generateGridLines();
 
     // Default render system
     auto defaultDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
@@ -15,11 +16,18 @@ void FLIPCPU2DSim::onCreate() {
     defaultDescriptorSets = createDescriptorSets(defaultDescriptorLayout,{uniformBuffers[0]->descriptorInfo()});
     defaultSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
     defaultSystem.createPipeline(renderer.renderPass(), shaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& configInfo){
-        configInfo.colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
         configInfo.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
 
         configInfo.attributeDescription = Particle::getAttributeDescriptions();
         configInfo.bindingDescription = {Particle::getBindingDescription()};
+        configInfo.enableAlphaBlending();
+    });
+    lineSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
+    lineSystem.createPipeline(renderer.renderPass(), lineShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& configInfo){
+        configInfo.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+
+        configInfo.attributeDescription = Point::getAttributeDescriptions();
+        configInfo.bindingDescription = {Point::getBindingDescription()};
         configInfo.enableAlphaBlending();
     });
 
@@ -41,7 +49,7 @@ void FLIPCPU2DSim::resetGrid(bool hardReset) {
         }
         current.velX[i] = 0.0f;
         current.velY[i] = 0.0f;
-        cellTypes[i] = (solidCells[i] > 0.0f) ? SOLID: AIR;
+        cellTypes[i] = (solidCells[i] == 0.0f) ? SOLID: AIR;
         weightVelX[i] = 0.0f;
         weightVelY[i] = 0.0f;
     }
@@ -60,7 +68,8 @@ void FLIPCPU2DSim::initializeObjects() {
     vkDeviceWaitIdle(device.device());
 
     // initialize particles
-    auto accPos = glm::vec3(9*float(window.width())/20, 100, 0);
+    float startingX = 3*float(window.width())/8;
+    auto accPos = glm::vec3(startingX, 100, 0);
 
     for (uint32_t i = 0; i < PARTICLE_COUNT; i++) {
         auto& particle = particles[i];
@@ -70,27 +79,57 @@ void FLIPCPU2DSim::initializeObjects() {
 
         accPos.x += radius*1.5f;
 
-        if (accPos.x > (float) 11*float(window.width())/20) {
+        if (accPos.x > (float) 5*float(window.width())/8) {
             accPos.y += radius*1.5f;
-            accPos.x = 9*float(window.width())/20;
+            accPos.x = startingX;
         }
 
-    }
-
-    VkDeviceSize bufferSize = PARTICLE_COUNT * sizeof(Particle);
-
-    particleData.resize(vkb::SwapChain::MAX_FRAMES_IN_FLIGHT);
-    for (uint32_t i = 0; i < vkb::SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
-        particleData[i] = std::make_unique<vkb::Buffer>(device, bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-                                                                           VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        vkb::Buffer::writeVectorToBuffer(device, particleData[i], particles);
     }
 
     resetGrid(true);
 
 }
 
-void FLIPCPU2DSim::createUniformBuffers() {
+void FLIPCPU2DSim::generateGridLines() {
+    gridLines.reserve(numTilesX + numTilesY);
+    for (uint32_t i = 0; i < numTilesX; i++) {
+        auto x = float(i * SIZE);
+
+        gridLines.push_back(Line{
+                        {{x, 0.0f, 0.0f}, gridColor},
+                        {{x, float(window.height()), 0.0f}, gridColor}
+                });
+    }
+
+    for (uint32_t i = 0; i < numTilesY; i++) {
+        auto y = float(i * SIZE);
+
+        gridLines.push_back(Line{
+                        {{0.0f, y, 0.0f}, gridColor},
+                        {{float(window.width()), y, 0.0f}, gridColor}
+                });
+    }
+
+    for (uint32_t i = 0; i < vkb::SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
+        vkb::Buffer::writeVectorToBuffer(device, gridLineData[i], gridLines);
+    }
+}
+
+void FLIPCPU2DSim::createBuffers() {
+    VkDeviceSize particleBufferSize = PARTICLE_COUNT * sizeof(Particle);
+    VkDeviceSize gridBufferSize = (numTilesX + numTilesY) * sizeof(Line);
+
+    particleData.resize(vkb::SwapChain::MAX_FRAMES_IN_FLIGHT);
+    gridLineData.resize(vkb::SwapChain::MAX_FRAMES_IN_FLIGHT);
+    for (uint32_t i = 0; i < vkb::SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
+        particleData[i] = std::make_unique<vkb::Buffer>(device, particleBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                                                                            VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        vkb::Buffer::writeVectorToBuffer(device, particleData[i], particles);
+
+        gridLineData[i] = std::make_unique<vkb::Buffer>(device, gridBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                                                                                VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    }
+
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
     uniformBuffers.resize(vkb::SwapChain::MAX_FRAMES_IN_FLIGHT);
     for (size_t i = 0; i < vkb::SwapChain::MAX_FRAMES_IN_FLIGHT; ++i) {
@@ -104,7 +143,9 @@ void FLIPCPU2DSim::mainLoop(float deltaTime) {
     auto currentTime = std::chrono::high_resolution_clock::now();
 
     updateSimulation();
+
     updateBuffers(renderer.currentFrame());
+
 
     if (activateTimer) {
         auto time = std::chrono::high_resolution_clock::now();
@@ -112,6 +153,12 @@ void FLIPCPU2DSim::mainLoop(float deltaTime) {
         currentTime = time;
     }
 
+    renderObjects();
+
+    if (activateTimer) gpuTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
+}
+
+void FLIPCPU2DSim::renderObjects() {
     renderer.runFrame([this](VkCommandBuffer commandBuffer){
         showImGui();
 
@@ -124,28 +171,40 @@ void FLIPCPU2DSim::mainLoop(float deltaTime) {
             vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
             vkCmdDraw(commandBuffer, PARTICLE_COUNT, 1, 0, 0);
 
+            if (showGrid) drawGrid(commandBuffer);
         });
     });
-    if (activateTimer) gpuTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
+}
+
+void FLIPCPU2DSim::drawGrid(VkCommandBuffer commandBuffer) {
+    lineSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
+
+    VkBuffer vb = gridLineData[renderer.currentFrame()]->getBuffer();
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
+    vkCmdDraw(commandBuffer, PARTICLE_COUNT, 1, 0, 0);
+}
+
+void FLIPCPU2DSim::applyGridLineColor() {
+    for (auto& line : gridLines) {
+        line.setColor(gridColor);
+    }
+    for (uint32_t i = 0; i < vkb::SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
+        vkb::Buffer::writeVectorToBuffer(device, gridLineData[i], gridLines);
+    }
 }
 
 void FLIPCPU2DSim::updateBuffers(uint32_t frameIndex) {
     uniformBuffers[frameIndex]->write(&ubo);
 
-
-    VkDeviceSize bufferSize = PARTICLE_COUNT * sizeof(Particle);
-    vkb::Buffer stagingBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    stagingBuffer.singleWrite(particles.data());
-
-
-    particleData.resize(vkb::SwapChain::MAX_FRAMES_IN_FLIGHT);
-    for (uint32_t i = 0; i < vkb::SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
-        device.copyBuffer(stagingBuffer.getBuffer(), particleData[i]->getBuffer(), bufferSize);
-    }
+    vkb::Buffer::writeVectorToBuffer(device, particleData[frameIndex], particles);
 }
 
+
+
 void FLIPCPU2DSim::showImGui(){
+    static bool changeGridColorWindowOpen = false;
+
     ImGui::Begin("Control Panel");
 
     ImGui::Text("Rendering %d instances", PARTICLE_COUNT);
@@ -155,39 +214,52 @@ void FLIPCPU2DSim::showImGui(){
         ImGui::Text("Cpu time: %f ms", cpuTime);
     }
 
+    ImGui::Checkbox("Show Grid", &showGrid);
 
-    if (ImGui::Button("Reset")) onCreate();
+    if (showGrid) {
+        if (ImGui::Button("Change Grid Color")) {
+            changeGridColorWindowOpen = true;
+        }
+    }
+
+
+    if (ImGui::Button("Reset")) initializeObjects();
     ImGui::Text("Using %s", device.getPhysicalDeviceName().c_str());
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                 ImGui::GetIO().Framerate);
     ImGui::End();
 
+    if (changeGridColorWindowOpen) {
+        ImGui::Begin("Change Grid Color", &changeGridColorWindowOpen);
+        ImGui::ColorPicker3("Grid Color", &gridColor[0]);
+        applyGridLineColor();
+        if (ImGui::Button("Close")) {
+            changeGridColorWindowOpen = false;
+        }
+        ImGui::End();
+    }
 }
 
 void FLIPCPU2DSim::updateSimulation() {
-    integrateParticles();
-    particlesCollideParticles();
-    particlesCollideObjects();
+    // how it should be:
+
+    // advect particles
+    // transfer particles velocities to grid
+    // update grid (gravity)
+    // project velocities
+    // transfer grid velocities to particles
+    advectParticles();
     transferParticlesVelocitiesToGrid();
-    updateDensities();
     projectVelocities();
     transferGridVelocitiesToParticles();
 }
 
-void FLIPCPU2DSim::integrateParticles() {
-    for (auto &particle : particles) {
-        particle.velocity += 10 * dt * gravity;
-        particle.position += dt * particle.velocity;
-    }
-}
-
-void FLIPCPU2DSim::particlesCollideParticles() {
-    // TODO
-}
-
-void FLIPCPU2DSim::particlesCollideObjects() {
+void FLIPCPU2DSim::advectParticles() {
     static constexpr float BOUND_DAMPING = 0.f;
     for (auto &particle : particles) {
+//        particle.velocity += 10 * dt * gravity;
+        particle.position += dt * particle.velocity;
+
         if (particle.position.x - radius < 0.f) {
             particle.velocity.x = BOUND_DAMPING;
             particle.position.x = radius;
@@ -204,39 +276,8 @@ void FLIPCPU2DSim::particlesCollideObjects() {
             particle.velocity.y *= BOUND_DAMPING;
             particle.position.y = float(window.height()) - radius;
         }
-    }
-}
-
-void FLIPCPU2DSim::updateDensities() {
-
-    for (uint32_t i = 0; i < CELL_COUNT; i++) {
-        densities[i] = 0.0f;
-    }
-    for (auto& particle: particles) {
-        uint32_t xShift = SIZE/2, yShift = SIZE/2;
-        glm::ivec2 gridPos = particle.gridPos(xShift, yShift);
-        auto [wdl, wdr, wul, wur] = particleGridWeights(particle, gridPos, xShift, yShift);
-
-        if (gridPos.x < numTilesX && gridPos.y < numTilesY) densities(gridPos) += wdl;
-        if (gridPos.x + 1 < numTilesX && gridPos.y < numTilesY) densities(gridPos.x + 1, gridPos.y) += wdr;
-        if (gridPos.x < numTilesX && gridPos.y + 1 < numTilesY) densities(gridPos.x, + gridPos.y) += wul;
-        if (gridPos.x + 1 < numTilesX && gridPos.y + 1 < numTilesY) densities(gridPos.x + 1,  + gridPos.y + 1) += wur;
 
     }
-
-    if (restDensity == 0.0f) {
-        float sum = 0.0f;
-        float numFluidCells = 0.0f;
-        for (uint32_t i = 0; i < CELL_COUNT; i++) {
-            if (cellTypes[i] == FLUID) {
-                sum += densities[i];
-                numFluidCells++;
-            }
-        }
-        if (numFluidCells > 0.0f)
-            restDensity = sum / numFluidCells;
-    }
-
 }
 
 std::tuple<float, float, float, float> FLIPCPU2DSim::particleGridWeights(const Particle& particle, glm::ivec2 gridPos, uint32_t xShift, uint32_t yShift){
@@ -245,7 +286,6 @@ std::tuple<float, float, float, float> FLIPCPU2DSim::particleGridWeights(const P
     float dx = particle.position.x - float(SIZE * gridPos.x + xShift);
     float dy = particle.position.y - float(SIZE * gridPos.y + yShift);
 
-    // TODO isso pode ser mais eficiente?
     return {
         (1.0f - dx / fSize) * (1.0f - dy / fSize), // down left
         (dx / fSize) * (1.0f - dy / fSize), // down right
@@ -254,11 +294,21 @@ std::tuple<float, float, float, float> FLIPCPU2DSim::particleGridWeights(const P
     };
 }
 
+void FLIPCPU2DSim::applyWeightedValuesToMatrix(Matrix<float, CELL_COUNT, numTilesX> &matrix, glm::ivec2 gridPos,
+                                               std::tuple<float, float, float, float> weights, float value) {
+    matrix(gridPos) += std::get<0>(weights)*value;
+    matrix(gridPos.x + 1, gridPos.y) +=std::get<1>(weights)*value;
+    matrix(gridPos.x, gridPos.y + 1) += std::get<2>(weights)*value;
+    matrix(gridPos.x + 1, gridPos.y + 1) += std::get<3>(weights)*value;
+}
+
 void FLIPCPU2DSim::transferParticlesVelocitiesToGrid() {
 
     previous.velX.swap(current.velX);
     previous.velY.swap(current.velY);
+    // reset all cells (to air, and velocities and weights to 0)
     resetGrid();
+    // set all cells with particles to fluid
     for (auto& particle : particles) {
         cellTypes(particle.gridPos()) = FLUID;
     }
@@ -272,37 +322,56 @@ void FLIPCPU2DSim::transferParticlesVelocitiesToGrid() {
                 yShift = 0;
             }
             glm::ivec2 gridPos = particle.gridPos(xShift, yShift);
-            auto [wdl, wdr, wul, wur] = particleGridWeights(particle, gridPos, xShift, yShift);
-
-            velComponent(gridPos) += wdl*vel;
-            velComponent(gridPos.x + 1, gridPos.y) += wdr*vel;
-            velComponent(gridPos.x, gridPos.y + 1) += wul*vel;
-            velComponent(gridPos.x + 1, gridPos.y + 1) += wur*vel;
-
-            weightComponent(gridPos) += wdl;
-            weightComponent(gridPos.x + 1, gridPos.y) += wdr;
-            weightComponent(gridPos.x, gridPos.y + 1) += wul;
-            weightComponent(gridPos.x + 1, gridPos.y + 1) += wur;
-
+            auto weights = particleGridWeights(particle, gridPos, xShift, yShift);
+            applyWeightedValuesToMatrix(velComponent, gridPos, weights, vel);
+            applyWeightedValuesToMatrix(weightComponent, gridPos, weights, 1.0f);
         }
 
         for (uint32_t i = 0; i < CELL_COUNT; i++) {
             if (weightComponent[i] > 0) {
                 velComponent[i] /= weightComponent[i];
             }
-
-
+            // apply gravity
+            if (!isX) {
+                velComponent[i] -= 9.8f*dt;
+            }
         }
-
-        // TODO deal with solid cells
-
     };
 
     addVelComponent(current.velX, weightVelX, true);
     addVelComponent(current.velY, weightVelY, false);
+}
 
+void FLIPCPU2DSim::projectVelocities() {
+    for (uint32_t i = 0; i < CELL_COUNT; i++) {
+        previous.velX[i] = current.velX[i];
+        previous.velY[i] = current.velY[i];
+    }
 
+    for (uint32_t iter = 0; iter < numIterations; iter++){
+        for (uint32_t j = 1; j < numTilesY - 1; j++) {
+            for (uint32_t i = 1; i < numTilesX - 1; i++) {
+                if (cellTypes(i, j) != FLUID) continue;
 
+                float sum = solidCells(i - 1, j) + solidCells(i + 1, j) + solidCells(i, j - 1) + solidCells(i, j + 1);
+                if (sum == 0.0f) continue;
+
+                float divergent = current.velX(i + 1, j) - current.velX(i, j) + current.velY(i, j + 1) - current.velY(i, j);
+
+                if (restDensity > 0.0f && densities(i, j) > restDensity) {
+                    divergent -= gasCoefficient*(densities(i, j) - restDensity);
+                }
+
+                float pressureDiff = overRelaxation*divergent/sum;
+
+                current.velX(i, j) += pressureDiff*solidCells(i - 1, j);
+                current.velX(i + 1, j) -= pressureDiff*solidCells(i + 1, j);
+                current.velY(i, j) += pressureDiff*solidCells(i, j - 1);
+                current.velY(i, j + 1) -= pressureDiff*solidCells(i, j + 1);
+
+            }
+        }
+    }
 }
 
 void FLIPCPU2DSim::transferGridVelocitiesToParticles() {
@@ -353,38 +422,6 @@ void FLIPCPU2DSim::transferGridVelocitiesToParticles() {
     addVelComponent(current.velX, previous.velX, true);
     addVelComponent(current.velY, previous.velY, false);
 
-}
-
-void FLIPCPU2DSim::projectVelocities() {
-    for (uint32_t i = 0; i < CELL_COUNT; i++) {
-        previous.velX[i] = current.velX[i];
-        previous.velY[i] = current.velY[i];
-    }
-
-    for (uint32_t iter = 0; iter < numIterations; iter++){
-        for (uint32_t j = 1; j < numTilesY - 1; j++) {
-            for (uint32_t i = 1; i < numTilesX - 1; i++) {
-                if (cellTypes(i, j) != FLUID) continue;
-
-                float sum = solidCells(i - 1, j) + solidCells(i + 1, j) + solidCells(i, j - 1) + solidCells(i, j + 1);
-                if (sum == 0.0f) continue;
-
-                float divergent = current.velX(i + 1, j) - current.velX(i, j) + current.velY(i, j + 1) - current.velY(i, j);
-
-                if (restDensity > 0.0f && densities(i, j) > restDensity) {
-                    divergent -= gasCoefficient*(densities(i, j) - restDensity);
-                }
-
-                float pressureDiff = overRelaxation*divergent/sum;
-
-                current.velX(i, j) += pressureDiff*solidCells(i - 1, j);
-                current.velX(i + 1, j) -= pressureDiff*solidCells(i + 1, j);
-                current.velY(i, j) += pressureDiff*solidCells(i, j - 1);
-                current.velY(i, j + 1) -= pressureDiff*solidCells(i, j + 1);
-
-            }
-        }
-    }
 }
 
 

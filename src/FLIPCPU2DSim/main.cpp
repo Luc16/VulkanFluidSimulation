@@ -11,7 +11,7 @@ int main() {
     FLIPCPU2DSim app{APP_NAME, vkb::Device::INTEL};
 
     try {
-        app.run(nullptr, 0, <#initializer#>);
+        app.run();
     } catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
         return EXIT_FAILURE;
