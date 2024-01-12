@@ -286,7 +286,7 @@ void FLIPCPU2DSim::showImGui(){
 
 
 
-    if (ImGui::Button("Reset")) initializeObjects();
+    if (ImGui::Button("Reset") || glfwIsKeyJustPressed(GLFW_KEY_R)) initializeObjects();
     ImGui::Text("Using %s", device.getPhysicalDeviceName().c_str());
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                 ImGui::GetIO().Framerate);
@@ -311,7 +311,7 @@ void FLIPCPU2DSim::updateSimulation() {
     // update grid (gravity)
     // project velocities
     // transfer grid velocities to particles
-    advectParticles();
+//    advectParticles();
     transferParticlesVelocitiesToGrid();
 //    projectVelocities();
     transferGridVelocitiesToParticles();

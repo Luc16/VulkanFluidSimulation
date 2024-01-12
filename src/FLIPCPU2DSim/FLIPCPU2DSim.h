@@ -136,7 +136,7 @@ private:
     // render fluid quads
     std::vector<GridQuad> fluidQuads;
     std::unique_ptr<vkb::Buffer> fluidQuadBuffer;
-    bool showFluidQuads = true;
+    bool showFluidQuads = false;
 
 
     void onCreate() override;

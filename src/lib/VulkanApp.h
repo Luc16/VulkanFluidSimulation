@@ -52,6 +52,7 @@ namespace vkb{
         void enableEmergencyExit() { m_emergencyExit = true; }
         void disableEmergencyExit() { m_emergencyExit = false; }
         bool isEmergencyExitEnabled() { return m_emergencyExit; }
+        bool glfwIsKeyJustPressed(int key);
 
         vkb::Window window;
         vkb::Device device;

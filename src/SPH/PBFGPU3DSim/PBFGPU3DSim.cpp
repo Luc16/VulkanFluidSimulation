@@ -665,13 +665,13 @@ void PBFGPU3DSim::keyboardControl(float deltaTime) {
         pWasReleased = true;
     }
 
-    static bool rWasReleased = false;
-    if (rWasReleased && glfwGetKey(window.window(), GLFW_KEY_R) == GLFW_PRESS) {
-        initializeObjects(true);
-        controlMode = false;
-    } else if (glfwGetKey(window.window(), GLFW_KEY_R) == GLFW_RELEASE){
-        rWasReleased = true;
-    }
+//    static bool rWasReleased = false;
+//    if (rWasReleased && glfwGetKey(window.window(), GLFW_KEY_R) == GLFW_PRESS) {
+//        initializeObjects(true);
+//        controlMode = false;
+//    } else if (glfwGetKey(window.window(), GLFW_KEY_R) == GLFW_RELEASE){
+//        rWasReleased = true;
+//    }
 
     static bool wasReleased = false;
     if (wasReleased && glfwGetKey(window.window(), GLFW_KEY_SPACE) == GLFW_PRESS) {
@@ -799,10 +799,10 @@ void PBFGPU3DSim::showImGui(){
         pausedSimulation = false;
     }
 
-    if (ImGui::Button("Reset")) {
+    if (ImGui::Button("Reset") || glfwIsKeyJustPressed(GLFW_KEY_R)) {
         initializeObjects(true);
         controlMode = false;
-        pausedSimulation = false;
+//        pausedSimulation = false;
     }
 
     if (hardResetFrame > 2) {
