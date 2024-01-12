@@ -48,14 +48,14 @@ private:
         AIR, SOLID, FLUID
     };
 
-    const vkb::RenderSystem::ShaderPaths shaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../src/FLIPCPU2DSim/Shaders/default.vert.spv",
-            "../src/FLIPCPU2DSim/Shaders/default.frag.spv"
+    const vkb::RenderSystem::ShaderPaths particleShaderPaths = vkb::RenderSystem::ShaderPaths {
+            "../src/FLIPCPU2DSim/Shaders/particle.vert.spv",
+            "../src/FLIPCPU2DSim/Shaders/particle.frag.spv"
     };
 
-    const vkb::RenderSystem::ShaderPaths lineShaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../src/FLIPCPU2DSim/Shaders/line.vert.spv",
-            "../src/FLIPCPU2DSim/Shaders/line.frag.spv"
+    const vkb::RenderSystem::ShaderPaths defaultShaderPaths = vkb::RenderSystem::ShaderPaths {
+            "../src/FLIPCPU2DSim/Shaders/default.vert.spv",
+            "../src/FLIPCPU2DSim/Shaders/default.frag.spv"
     };
 
 
@@ -93,12 +93,6 @@ private:
             (uint32_t(std::clamp(position.y, float(yShift), float(SIZE*(numTilesY - 1)))) - yShift) / SIZE}; }
     };
 
-    struct UniformBufferObject {
-        glm::mat4 view;
-        glm::mat4 proj;
-        float radius;
-    };
-
     struct FluidData {
         Matrix<float, CELL_COUNT, numTilesX> velX{}, velY{};
     };
@@ -107,32 +101,43 @@ private:
     UniformBufferObject ubo{};
 
 
-    vkb::RenderSystem defaultSystem{device};
+    vkb::RenderSystem particleSystem{device};
     vkb::RenderSystem lineSystem{device};
+    vkb::RenderSystem quadSystem{device};
     std::vector<VkDescriptorSet> defaultDescriptorSets;
 
     vkb::Camera camera{};
-
-    // grid
-    std::vector<Line> gridLines;
-    glm::vec3 gridColor{1.0f, 1.0f, 1.0f};
-    bool showGrid = false;
-    std::vector<std::unique_ptr<vkb::Buffer>> gridLineData;
-
 
     FluidData current, previous;
     Matrix<CellType, CELL_COUNT, numTilesX> cellTypes{};
     Matrix<float, CELL_COUNT, numTilesX> weightVelX{}, weightVelY{};
     Matrix<float, CELL_COUNT, numTilesX> solidCells{};
-    Matrix<float, CELL_COUNT, numTilesX> densities{};
-    float flipRatio = 0.9f, overRelaxation = 1.9f, restDensity = 0.0f, gasCoefficient = 1.0f;
+    float flipRatio = 0.9f, overRelaxation = 1.9f;
     uint32_t numIterations = 100;
     std::vector<Particle> particles{PARTICLE_COUNT};
-    std::vector<std::unique_ptr<vkb::Buffer>> particleData;
+    std::unique_ptr<vkb::Buffer> particleBuffer;
+    bool showParticles = true;
 
     float gpuTime = 0, cpuTime = 0;
-
     bool activateTimer = false;
+
+
+    // render grid
+    std::vector<Line> gridLines;
+    glm::vec3 gridColor{0.01f};
+    bool showGrid = false;
+    std::unique_ptr<vkb::Buffer> gridLinesBuffer;
+
+    // render velocity field
+    std::vector<Line> velocityLines;
+    std::unique_ptr<vkb::Buffer> velocityFieldBuffer;
+    bool showVelField = false;
+
+    // render fluid quads
+    std::vector<GridQuad> fluidQuads;
+    std::unique_ptr<vkb::Buffer> fluidQuadBuffer;
+    bool showFluidQuads = true;
+
 
     void onCreate() override;
     void resetGrid(bool hardReset = false);
@@ -143,6 +148,8 @@ private:
     void renderObjects();
     void drawGrid(VkCommandBuffer commandBuffer);
     void applyGridLineColor();
+    void updateAndDrawVelocityField(VkCommandBuffer commandBuffer);
+    void updateAndDrawFluidQuads(VkCommandBuffer commandBuffer);
     void updateBuffers(uint32_t frameIndex);
     void showImGui();
 

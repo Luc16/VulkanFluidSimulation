@@ -5,6 +5,14 @@
 #ifndef VULKANFLUIDSIMULATION_STRUCTS_H
 #define VULKANFLUIDSIMULATION_STRUCTS_H
 
+#include <iostream>
+
+struct UniformBufferObject {
+    glm::mat4 view;
+    glm::mat4 proj;
+    float radius;
+};
+
 struct Point {
     alignas(16) glm::vec3 position, color;
 
@@ -42,6 +50,38 @@ struct Line {
         p1.color = color;
         p2.color = color;
     }
+
+    static Line fromRay(glm::vec3 origin, glm::vec3 vec, glm::vec3 color) {
+        Line line{};
+        line.p1 = {origin, color};
+        line.p2 = {origin + vec, color};
+        return line;
+    }
+
+    static std::array<Line, 2> arrowFromRay(glm::vec3 origin, glm::vec3 vec, glm::vec3 color, glm::vec3 arrowColor) {
+        std::array<Line, 2> lines{};
+        lines[0] = {{origin}, {origin + vec * 0.8f}};
+        lines[1] = {{origin + vec * 0.8f}, {origin + vec}};
+        lines[0].setColor(color);
+        lines[1].setColor(arrowColor);
+        return lines;
+    }
+};
+
+struct GridQuad {
+    GridQuad(glm::vec3 pos, uint32_t gridSpacing, glm::vec3 color) {
+        // generate two counterclockwise triangles
+        p1 = {pos, color};
+        p2 = {pos + glm::vec3(gridSpacing, 0, 0), color};
+        p3 = {pos + glm::vec3(gridSpacing, gridSpacing, 0), color};
+        p4 = {pos, color};
+        p5 = {pos + glm::vec3(gridSpacing, gridSpacing, 0), color};
+        p6 = {pos + glm::vec3(0, gridSpacing, 0), color};
+    }
+
+    Point p1{}, p2{}, p3{}, p4{}, p5{}, p6{};
+
+
 };
 
 #endif //VULKANFLUIDSIMULATION_STRUCTS_H

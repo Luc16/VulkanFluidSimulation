@@ -6,6 +6,7 @@
 
 void FLIPCPU2DSim::onCreate() {
     initializeObjects();
+    velocityLines.resize(2*numTilesX*numTilesY);
     createBuffers();
     generateGridLines();
 
@@ -14,8 +15,8 @@ void FLIPCPU2DSim::onCreate() {
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
             .build();
     defaultDescriptorSets = createDescriptorSets(defaultDescriptorLayout,{uniformBuffers[0]->descriptorInfo()});
-    defaultSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
-    defaultSystem.createPipeline(renderer.renderPass(), shaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& configInfo){
+    particleSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
+    particleSystem.createPipeline(renderer.renderPass(), particleShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& configInfo){
         configInfo.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
 
         configInfo.attributeDescription = Particle::getAttributeDescriptions();
@@ -23,9 +24,16 @@ void FLIPCPU2DSim::onCreate() {
         configInfo.enableAlphaBlending();
     });
     lineSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
-    lineSystem.createPipeline(renderer.renderPass(), lineShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& configInfo){
+    lineSystem.createPipeline(renderer.renderPass(), defaultShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& configInfo){
         configInfo.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
 
+        configInfo.attributeDescription = Point::getAttributeDescriptions();
+        configInfo.bindingDescription = {Point::getBindingDescription()};
+        configInfo.enableAlphaBlending();
+    });
+
+    quadSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
+    quadSystem.createPipeline(renderer.renderPass(), defaultShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& configInfo){
         configInfo.attributeDescription = Point::getAttributeDescriptions();
         configInfo.bindingDescription = {Point::getBindingDescription()};
         configInfo.enableAlphaBlending();
@@ -45,7 +53,6 @@ void FLIPCPU2DSim::resetGrid(bool hardReset) {
         if (hardReset) {
             previous.velX[i] = 0.0f;
             previous.velY[i] = 0.0f;
-            densities[i] = 0.0f;
         }
         current.velX[i] = 0.0f;
         current.velY[i] = 0.0f;
@@ -74,7 +81,7 @@ void FLIPCPU2DSim::initializeObjects() {
     for (uint32_t i = 0; i < PARTICLE_COUNT; i++) {
         auto& particle = particles[i];
         particle.position = accPos;
-        particle.velocity = glm::vec3(0.0f, 1.0f, 0.0f);
+        particle.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
         particle.color = glm::vec4(0.2f, 0.6f, 1.0f, 1.0f);
 
         accPos.x += radius*1.5f;
@@ -111,24 +118,21 @@ void FLIPCPU2DSim::generateGridLines() {
     }
 
     for (uint32_t i = 0; i < vkb::SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
-        vkb::Buffer::writeVectorToBuffer(device, gridLineData[i], gridLines);
+        vkb::Buffer::writeVectorToBuffer(device, gridLinesBuffer, gridLines);
     }
 }
 
 void FLIPCPU2DSim::createBuffers() {
-    VkDeviceSize particleBufferSize = PARTICLE_COUNT * sizeof(Particle);
-    VkDeviceSize gridBufferSize = (numTilesX + numTilesY) * sizeof(Line);
-
-    particleData.resize(vkb::SwapChain::MAX_FRAMES_IN_FLIGHT);
-    gridLineData.resize(vkb::SwapChain::MAX_FRAMES_IN_FLIGHT);
-    for (uint32_t i = 0; i < vkb::SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
-        particleData[i] = std::make_unique<vkb::Buffer>(device, particleBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+    particleBuffer = std::make_unique<vkb::Buffer>(device, PARTICLE_COUNT * sizeof(Particle), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                                                                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    vkb::Buffer::writeVectorToBuffer(device, particleBuffer, particles);
+    gridLinesBuffer = std::make_unique<vkb::Buffer>(device, (numTilesX + numTilesY) * sizeof(Line), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                                                                               VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    velocityFieldBuffer = std::make_unique<vkb::Buffer>(device, velocityLines.size() * sizeof(Line), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
                                                                             VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        vkb::Buffer::writeVectorToBuffer(device, particleData[i], particles);
+    fluidQuadBuffer = std::make_unique<vkb::Buffer>(device, CELL_COUNT * sizeof(GridQuad), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                                                                                                     VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-        gridLineData[i] = std::make_unique<vkb::Buffer>(device, gridBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-                                                                                VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    }
 
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
     uniformBuffers.resize(vkb::SwapChain::MAX_FRAMES_IN_FLIGHT);
@@ -145,7 +149,6 @@ void FLIPCPU2DSim::mainLoop(float deltaTime) {
     updateSimulation();
 
     updateBuffers(renderer.currentFrame());
-
 
     if (activateTimer) {
         auto time = std::chrono::high_resolution_clock::now();
@@ -164,14 +167,19 @@ void FLIPCPU2DSim::renderObjects() {
 
         renderer.runRenderPass([this](VkCommandBuffer& commandBuffer){
 
-            defaultSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
-
-            VkBuffer vb = particleData[renderer.currentFrame()]->getBuffer();
-            VkDeviceSize offsets[] = {0};
-            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
-            vkCmdDraw(commandBuffer, PARTICLE_COUNT, 1, 0, 0);
+            if (showParticles) {
+                particleSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
+                VkBuffer vb = particleBuffer->getBuffer();
+                VkDeviceSize offsets[] = {0};
+                vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
+                vkCmdDraw(commandBuffer, PARTICLE_COUNT, 1, 0, 0);
+            }
 
             if (showGrid) drawGrid(commandBuffer);
+            if (showVelField) updateAndDrawVelocityField(commandBuffer);
+            if (showFluidQuads) updateAndDrawFluidQuads(commandBuffer);
+
+
         });
     });
 }
@@ -179,10 +187,10 @@ void FLIPCPU2DSim::renderObjects() {
 void FLIPCPU2DSim::drawGrid(VkCommandBuffer commandBuffer) {
     lineSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
 
-    VkBuffer vb = gridLineData[renderer.currentFrame()]->getBuffer();
+    VkBuffer vb = gridLinesBuffer->getBuffer();
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
-    vkCmdDraw(commandBuffer, PARTICLE_COUNT, 1, 0, 0);
+    vkCmdDraw(commandBuffer, 2*gridLines.size(), 1, 0, 0);
 }
 
 void FLIPCPU2DSim::applyGridLineColor() {
@@ -190,17 +198,67 @@ void FLIPCPU2DSim::applyGridLineColor() {
         line.setColor(gridColor);
     }
     for (uint32_t i = 0; i < vkb::SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
-        vkb::Buffer::writeVectorToBuffer(device, gridLineData[i], gridLines);
+        vkb::Buffer::writeVectorToBuffer(device, gridLinesBuffer, gridLines);
     }
 }
 
 void FLIPCPU2DSim::updateBuffers(uint32_t frameIndex) {
     uniformBuffers[frameIndex]->write(&ubo);
 
-    vkb::Buffer::writeVectorToBuffer(device, particleData[frameIndex], particles);
+    vkb::Buffer::writeVectorToBuffer(device, particleBuffer, particles);
 }
 
+void FLIPCPU2DSim::updateAndDrawVelocityField(VkCommandBuffer commandBuffer) {
 
+    uint32_t k = 0;
+    for (uint32_t j = 1; j < numTilesY-1; j++) {
+        for (uint32_t i = 1; i < numTilesX-1; i++) {
+            float velXCenter = (current.velX(i, j) + current.velX(i+1, j))/2;
+            float velYCenter = (current.velY(i, j) + current.velY(i, j+1))/2;
+
+            auto origin = glm::vec3(float(i*SIZE + SIZE/2), float(j*SIZE + SIZE/2), 0.0f);
+
+            auto arrow = Line::arrowFromRay(
+                    origin, glm::vec3(velXCenter, velYCenter, 0.0f),
+                    glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)
+            );
+            velocityLines[k++] = arrow[0];
+            velocityLines[k++] = arrow[1];
+        }
+    }
+
+    vkb::Buffer::writeVectorToBuffer(device, velocityFieldBuffer, velocityLines);
+
+    lineSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
+
+    VkBuffer vb = velocityFieldBuffer->getBuffer();
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
+    vkCmdDraw(commandBuffer, 2*velocityLines.size(), 1, 0, 0);
+}
+
+void FLIPCPU2DSim::updateAndDrawFluidQuads(VkCommandBuffer commandBuffer) {
+    fluidQuads.clear();
+    fluidQuads.reserve(CELL_COUNT);
+    for (uint32_t j = 1; j < numTilesY-1; j++) {
+        for (uint32_t i = 1; i < numTilesX-1; i++) {
+            if (cellTypes(i, j) != FLUID) continue;
+
+            auto origin = glm::vec3(float(i*SIZE), float(j*SIZE), 0.0f);
+
+            fluidQuads.emplace_back(origin, SIZE, glm::vec3(0.0f, 0.0f, 1.0f));
+        }
+    }
+
+    vkb::Buffer::writeVectorToBuffer(device, fluidQuadBuffer, fluidQuads);
+
+    quadSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
+
+    VkBuffer vb = fluidQuadBuffer->getBuffer();
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
+    vkCmdDraw(commandBuffer, 6*fluidQuads.size(), 1, 0, 0);
+}
 
 void FLIPCPU2DSim::showImGui(){
     static bool changeGridColorWindowOpen = false;
@@ -214,6 +272,7 @@ void FLIPCPU2DSim::showImGui(){
         ImGui::Text("Cpu time: %f ms", cpuTime);
     }
 
+    ImGui::Checkbox("Show Particles", &showParticles);
     ImGui::Checkbox("Show Grid", &showGrid);
 
     if (showGrid) {
@@ -221,6 +280,10 @@ void FLIPCPU2DSim::showImGui(){
             changeGridColorWindowOpen = true;
         }
     }
+
+    ImGui::Checkbox("Show Velocity Field", &showVelField);
+    ImGui::Checkbox("Show Fluid Cells", &showFluidQuads);
+
 
 
     if (ImGui::Button("Reset")) initializeObjects();
@@ -250,14 +313,13 @@ void FLIPCPU2DSim::updateSimulation() {
     // transfer grid velocities to particles
     advectParticles();
     transferParticlesVelocitiesToGrid();
-    projectVelocities();
+//    projectVelocities();
     transferGridVelocitiesToParticles();
 }
 
 void FLIPCPU2DSim::advectParticles() {
     static constexpr float BOUND_DAMPING = 0.f;
     for (auto &particle : particles) {
-//        particle.velocity += 10 * dt * gravity;
         particle.position += dt * particle.velocity;
 
         if (particle.position.x - radius < 0.f) {
@@ -331,7 +393,7 @@ void FLIPCPU2DSim::transferParticlesVelocitiesToGrid() {
             if (weightComponent[i] > 0) {
                 velComponent[i] /= weightComponent[i];
             }
-            // apply gravity
+//            // apply gravity
             if (!isX) {
                 velComponent[i] -= 9.8f*dt;
             }
@@ -357,10 +419,6 @@ void FLIPCPU2DSim::projectVelocities() {
                 if (sum == 0.0f) continue;
 
                 float divergent = current.velX(i + 1, j) - current.velX(i, j) + current.velY(i, j + 1) - current.velY(i, j);
-
-                if (restDensity > 0.0f && densities(i, j) > restDensity) {
-                    divergent -= gasCoefficient*(densities(i, j) - restDensity);
-                }
 
                 float pressureDiff = overRelaxation*divergent/sum;
 
