@@ -36,8 +36,8 @@ public:
 
 private:
     static constexpr uint32_t PARTICLE_COUNT = 1000;
-    static constexpr glm::vec3 gravity{0.0f, -9.81f, 0.0f};
     static constexpr float dt = 1/120.0f;
+//    static constexpr float dt = 1/60.0f;
     static constexpr float radius = 8.0f;
     static constexpr uint32_t SIZE = 20;
     constexpr static uint32_t numTilesX = WIDTH/SIZE + 1;
@@ -118,10 +118,6 @@ private:
     std::unique_ptr<vkb::Buffer> particleBuffer;
     bool showParticles = true;
 
-    float gpuTime = 0, cpuTime = 0;
-    bool activateTimer = false;
-
-
     // render grid
     std::vector<Line> gridLines;
     glm::vec3 gridColor{0.01f};
@@ -138,6 +134,9 @@ private:
     std::unique_ptr<vkb::Buffer> fluidQuadBuffer;
     bool showFluidQuads = false;
 
+
+    float gpuTime = 0, cpuTime = 0;
+    bool activateTimer = false;
 
     void onCreate() override;
     void resetGrid(bool hardReset = false);

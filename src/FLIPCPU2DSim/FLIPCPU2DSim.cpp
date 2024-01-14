@@ -6,7 +6,6 @@
 
 void FLIPCPU2DSim::onCreate() {
     initializeObjects();
-    velocityLines.resize(2*numTilesX*numTilesY);
     createBuffers();
     generateGridLines();
 
@@ -77,6 +76,7 @@ void FLIPCPU2DSim::initializeObjects() {
     // initialize particles
     float startingX = 3*float(window.width())/8;
     auto accPos = glm::vec3(startingX, 100, 0);
+    float step = 1.5f*radius;
 
     for (uint32_t i = 0; i < PARTICLE_COUNT; i++) {
         auto& particle = particles[i];
@@ -84,13 +84,12 @@ void FLIPCPU2DSim::initializeObjects() {
         particle.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
         particle.color = glm::vec4(0.2f, 0.6f, 1.0f, 1.0f);
 
-        accPos.x += radius*1.5f;
+        accPos.x += step;
 
         if (accPos.x > (float) 5*float(window.width())/8) {
-            accPos.y += radius*1.5f;
+            accPos.y += step;
             accPos.x = startingX;
         }
-
     }
 
     resetGrid(true);
@@ -128,7 +127,7 @@ void FLIPCPU2DSim::createBuffers() {
     vkb::Buffer::writeVectorToBuffer(device, particleBuffer, particles);
     gridLinesBuffer = std::make_unique<vkb::Buffer>(device, (numTilesX + numTilesY) * sizeof(Line), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
                                                                                VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    velocityFieldBuffer = std::make_unique<vkb::Buffer>(device, velocityLines.size() * sizeof(Line), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+    velocityFieldBuffer = std::make_unique<vkb::Buffer>(device, 2*numTilesX*numTilesY * sizeof(Line), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
                                                                             VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     fluidQuadBuffer = std::make_unique<vkb::Buffer>(device, CELL_COUNT * sizeof(GridQuad), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
                                                                                                      VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -210,24 +209,29 @@ void FLIPCPU2DSim::updateBuffers(uint32_t frameIndex) {
 
 void FLIPCPU2DSim::updateAndDrawVelocityField(VkCommandBuffer commandBuffer) {
 
-    uint32_t k = 0;
-    for (uint32_t j = 1; j < numTilesY-1; j++) {
-        for (uint32_t i = 1; i < numTilesX-1; i++) {
+    velocityLines.clear();
+    velocityLines.reserve(2*numTilesX*numTilesY);
+    for (uint32_t j = 0; j < numTilesY-1; j++) {
+        for (uint32_t i = 0; i < numTilesX-1; i++) {
+            if (cellTypes(i, j) != FLUID) continue;
             float velXCenter = (current.velX(i, j) + current.velX(i+1, j))/2;
             float velYCenter = (current.velY(i, j) + current.velY(i, j+1))/2;
 
             auto origin = glm::vec3(float(i*SIZE + SIZE/2), float(j*SIZE + SIZE/2), 0.0f);
+            auto vec = glm::vec3(velXCenter, velYCenter, 0.0f);
+            if (glm::length(vec) > float(1.5f*SIZE))  {
+                vec = glm::normalize(vec)*float(1.5f*SIZE);
+            }
 
-            auto arrow = Line::arrowFromRay(
-                    origin, glm::vec3(velXCenter, velYCenter, 0.0f),
-                    glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)
-            );
-            velocityLines[k++] = arrow[0];
-            velocityLines[k++] = arrow[1];
+            auto arrow = Line::arrowFromRay(origin, vec,glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+            velocityLines.push_back(arrow[0]);
+            velocityLines.push_back(arrow[1]);
         }
     }
 
-    vkb::Buffer::writeVectorToBuffer(device, velocityFieldBuffer, velocityLines);
+    if (!velocityLines.empty()) {
+        vkb::Buffer::writeVectorToBuffer(device, velocityFieldBuffer, velocityLines);
+    }
 
     lineSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
 
@@ -240,8 +244,8 @@ void FLIPCPU2DSim::updateAndDrawVelocityField(VkCommandBuffer commandBuffer) {
 void FLIPCPU2DSim::updateAndDrawFluidQuads(VkCommandBuffer commandBuffer) {
     fluidQuads.clear();
     fluidQuads.reserve(CELL_COUNT);
-    for (uint32_t j = 1; j < numTilesY-1; j++) {
-        for (uint32_t i = 1; i < numTilesX-1; i++) {
+    for (uint32_t j = 0; j < numTilesY-1; j++) {
+        for (uint32_t i = 0; i < numTilesX-1; i++) {
             if (cellTypes(i, j) != FLUID) continue;
 
             auto origin = glm::vec3(float(i*SIZE), float(j*SIZE), 0.0f);
@@ -311,38 +315,43 @@ void FLIPCPU2DSim::updateSimulation() {
     // update grid (gravity)
     // project velocities
     // transfer grid velocities to particles
-//    advectParticles();
+    // add gravity to velY
+    advectParticles();
     transferParticlesVelocitiesToGrid();
-//    projectVelocities();
+    projectVelocities();
     transferGridVelocitiesToParticles();
 }
 
 void FLIPCPU2DSim::advectParticles() {
     static constexpr float BOUND_DAMPING = 0.f;
+    float minX = float(SIZE) + radius, maxX = float(window.width()) - float(SIZE) - radius;
+    float minY = float(SIZE) + radius, maxY = float(window.height()) - float(SIZE) - radius;
+
     for (auto &particle : particles) {
         particle.position += dt * particle.velocity;
 
-        if (particle.position.x - radius < 0.f) {
+        if (particle.position.x < minX) {
             particle.velocity.x = BOUND_DAMPING;
-            particle.position.x = radius;
+            particle.position.x = minX;
         }
-        if (particle.position.x + radius > float(window.width())) {
+        if (particle.position.x > maxX) {
             particle.velocity.x *= BOUND_DAMPING;
-            particle.position.x = float(window.width()) - radius;
+            particle.position.x = maxX;
         }
-        if (particle.position.y - radius < 0.f) {
-            particle.velocity.y *= BOUND_DAMPING;
-            particle.position.y = radius;
+        if (particle.position.y < minY) {
+            particle.velocity.y = BOUND_DAMPING;
+            particle.position.y = minY;
         }
-        if (particle.position.y + radius > float(window.height())) {
+        if (particle.position.y > maxY) {
             particle.velocity.y *= BOUND_DAMPING;
-            particle.position.y = float(window.height()) - radius;
+            particle.position.y = maxY;
         }
 
     }
 }
 
 std::tuple<float, float, float, float> FLIPCPU2DSim::particleGridWeights(const Particle& particle, glm::ivec2 gridPos, uint32_t xShift, uint32_t yShift){
+    // todo calculate weights in x than in y separately
     auto fSize = float(SIZE);
 
     float dx = particle.position.x - float(SIZE * gridPos.x + xShift);
@@ -359,7 +368,7 @@ std::tuple<float, float, float, float> FLIPCPU2DSim::particleGridWeights(const P
 void FLIPCPU2DSim::applyWeightedValuesToMatrix(Matrix<float, CELL_COUNT, numTilesX> &matrix, glm::ivec2 gridPos,
                                                std::tuple<float, float, float, float> weights, float value) {
     matrix(gridPos) += std::get<0>(weights)*value;
-    matrix(gridPos.x + 1, gridPos.y) +=std::get<1>(weights)*value;
+    matrix(gridPos.x + 1, gridPos.y) += std::get<1>(weights)*value;
     matrix(gridPos.x, gridPos.y + 1) += std::get<2>(weights)*value;
     matrix(gridPos.x + 1, gridPos.y + 1) += std::get<3>(weights)*value;
 }
@@ -370,12 +379,12 @@ void FLIPCPU2DSim::transferParticlesVelocitiesToGrid() {
     previous.velY.swap(current.velY);
     // reset all cells (to air, and velocities and weights to 0)
     resetGrid();
-    // set all cells with particles to fluid
-    for (auto& particle : particles) {
-        cellTypes(particle.gridPos()) = FLUID;
-    }
+
     auto addVelComponent = [this](Matrix<float, CELL_COUNT, numTilesX>& velComponent, Matrix<float, CELL_COUNT, numTilesX>& weightComponent, bool isX) {
         for (auto& particle: particles) {
+            // set all cells with particles to fluid
+            cellTypes(particle.gridPos()) = FLUID;
+
             float vel = particle.velocity.x;
             uint32_t xShift = 0, yShift = SIZE/2;
             if (!isX) {
@@ -393,15 +402,16 @@ void FLIPCPU2DSim::transferParticlesVelocitiesToGrid() {
             if (weightComponent[i] > 0) {
                 velComponent[i] /= weightComponent[i];
             }
-//            // apply gravity
+            // apply gravity
             if (!isX) {
-                velComponent[i] -= 9.8f*dt;
+                velComponent[i] -= 9.8f*dt*500;
             }
         }
     };
 
     addVelComponent(current.velX, weightVelX, true);
     addVelComponent(current.velY, weightVelY, false);
+
 }
 
 void FLIPCPU2DSim::projectVelocities() {
@@ -446,33 +456,22 @@ void FLIPCPU2DSim::transferGridVelocitiesToParticles() {
             glm::ivec2 gridPos = particle.gridPos(xShift, yShift);
             auto [wdl, wdr, wul, wur] = particleGridWeights(particle, gridPos, xShift, yShift);
 
-            // TODO olhar celulas no offset tbm
-            uint32_t offsetX = isX ? 1 : 0;
-            uint32_t offsetY = 1 - offsetX;
-            float validDL = (cellTypes(gridPos) == AIR || cellTypes(gridPos.x + offsetX, gridPos.y + offsetY) == AIR) ? 0.0f : 1.0f;
-            float validDR = (cellTypes(gridPos.x + 1, gridPos.y) == AIR || cellTypes(gridPos.x + offsetX, gridPos.y + offsetY) == AIR) ? 0.0f : 1.0f;
-            float validUL = (cellTypes(gridPos.x, gridPos.y + 1) == AIR || cellTypes(gridPos.x + offsetX, gridPos.y + offsetY) == AIR) ? 0.0f : 1.0f;
-            float validUR = (cellTypes(gridPos.x + 1, gridPos.y + 1) == AIR || cellTypes(gridPos.x + offsetX, gridPos.y + offsetY) == AIR) ? 0.0f : 1.0f;
-
-            float totalWeight = wdl*validDL + wdr*validDR + wul*validUL + wur*validUR;
-
-            if (totalWeight > 0) {
-                float picContribution = (validDL*wdl*velComponent(gridPos) +
-                        validDR*wdr*velComponent(gridPos.x + 1, gridPos.y) +
-                        validUL*wul*velComponent(gridPos.x, gridPos.y + 1) +
-                        validUR*wur*velComponent(gridPos.x + 1, gridPos.y + 1))/totalWeight;
-                float correction = (validDL*wdl*(velComponent(gridPos) - prevVelComponent(gridPos)) +
-                                    validDR*wdr*(velComponent(gridPos.x + 1, gridPos.y) - prevVelComponent(gridPos.x + 1, gridPos.y)) +
-                                    validUL*wul*(velComponent(gridPos.x, gridPos.y + 1) - prevVelComponent(gridPos.x, gridPos.y + 1)) +
-                                    validUR*wur*(velComponent(gridPos.x + 1, gridPos.y + 1) - prevVelComponent(gridPos.x + 1, gridPos.y + 1)))/totalWeight;
-                float flipContribution = vel + correction;
-                if (isX){
-                    particle.velocity.x = (1 - flipRatio) * picContribution + flipRatio * flipContribution;
-                }
-                else {
-                    particle.velocity.y = (1 - flipRatio) * picContribution + flipRatio * flipContribution;
-                }
+            float picContribution = (wdl*velComponent(gridPos) +
+                    wdr*velComponent(gridPos.x + 1, gridPos.y) +
+                    wul*velComponent(gridPos.x, gridPos.y + 1) +
+                    wur*velComponent(gridPos.x + 1, gridPos.y + 1));
+            float correction = (wdl*(velComponent(gridPos) - prevVelComponent(gridPos)) +
+                                wdr*(velComponent(gridPos.x + 1, gridPos.y) - prevVelComponent(gridPos.x + 1, gridPos.y)) +
+                                wul*(velComponent(gridPos.x, gridPos.y + 1) - prevVelComponent(gridPos.x, gridPos.y + 1)) +
+                                wur*(velComponent(gridPos.x + 1, gridPos.y + 1) - prevVelComponent(gridPos.x + 1, gridPos.y + 1)));
+            float flipContribution = vel + correction;
+            if (isX){
+                particle.velocity.x = (1 - flipRatio) * picContribution + flipRatio * flipContribution;
             }
+            else {
+                particle.velocity.y = (1 - flipRatio) * picContribution + flipRatio * flipContribution;
+            }
+
 
         }
 
