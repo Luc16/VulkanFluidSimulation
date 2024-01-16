@@ -38,12 +38,17 @@ void main()
     uint i = gl_GlobalInvocationID.x;
     if (i >= ubo.numParticles || types[i] != 0) return;
 
-    vorticities[i] = vec3(0.0f);
+    vec3 vort = vec3(0.0f);
     vec3 viscTerm = vec3(0.0f);
 
     // For each neighbor
     int numCellsX = int(ubo.BOUNDARY_SIZE.x/ubo.H);
     int numCellsZ = int(ubo.BOUNDARY_SIZE.z/ubo.H);
+
+    vec3 pPos = predPos[i];
+    vec3 pVel = vel[i];
+    int gIdx = gridIdx[i];
+
 
     for (int y = -1; y <= 1; y++){
         int idxy = y*numCellsX*numCellsZ;
@@ -52,23 +57,23 @@ void main()
             int idxz = z*numCellsX;
 
             for (int x = -1; x <= 1; x++){
-                int idx = gridIdx[i] + x + idxz + idxy;
+                int idx = gIdx + x + idxz + idxy;
 
                 for (uint j = grid[idx]; j < grid[idx+1]; j++){
 
                     // apply for each neighbor
-                    vec3 vec = predPos[i] - predPos[j];
+                    vec3 vec = pPos - predPos[j];
                     float dist2 = dot(vec, vec);
 
                     if (i == j || dist2 < 0.0000001f) continue;
 
                     if (dist2 < ubo.HSQ) {
-                        vec3 vij = (vel[j] - vel[i]);
+                        vec3 vij = (vel[j] - pVel);
                         viscTerm += vij * ubo.POLY6 * pow(ubo.HSQ - dist2, 3.f);
 
                         if (ubo.activateVort) {
                             float dist = sqrt(dist2);
-                            vorticities[i] += cross(vij, (vec/dist) * ubo.SPIKY_GRAD * (ubo.H - dist) * (ubo.H - dist)); //TODO create new kernel for this?
+                            vort += cross(vij, (vec/dist) * ubo.SPIKY_GRAD * (ubo.H - dist) * (ubo.H - dist)); //TODO create new kernel for this?
                         }
 
                     }
@@ -76,6 +81,7 @@ void main()
             }
         }
     }
+    vorticities[i] = vort;
     vel[i] += viscTerm * ubo.VISC;
 
 }

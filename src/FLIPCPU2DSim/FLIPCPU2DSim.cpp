@@ -351,7 +351,6 @@ void FLIPCPU2DSim::advectParticles() {
 }
 
 std::tuple<float, float, float, float> FLIPCPU2DSim::particleGridWeights(const Particle& particle, glm::ivec2 gridPos, uint32_t xShift, uint32_t yShift){
-    // todo calculate weights in x than in y separately
     auto fSize = float(SIZE);
 
     float dx = particle.position.x - float(SIZE * gridPos.x + xShift);
@@ -425,13 +424,16 @@ void FLIPCPU2DSim::projectVelocities() {
             for (uint32_t i = 1; i < numTilesX - 1; i++) {
                 if (cellTypes(i, j) != FLUID) continue;
 
+                // calculate divergent
                 float sum = solidCells(i - 1, j) + solidCells(i + 1, j) + solidCells(i, j - 1) + solidCells(i, j + 1);
                 if (sum == 0.0f) continue;
 
                 float divergent = current.velX(i + 1, j) - current.velX(i, j) + current.velY(i, j + 1) - current.velY(i, j);
 
+                // calculate pressure difference
                 float pressureDiff = overRelaxation*divergent/sum;
 
+                // calculate new velocities
                 current.velX(i, j) += pressureDiff*solidCells(i - 1, j);
                 current.velX(i + 1, j) -= pressureDiff*solidCells(i + 1, j);
                 current.velY(i, j) += pressureDiff*solidCells(i, j - 1);

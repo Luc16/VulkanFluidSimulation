@@ -41,7 +41,9 @@ void main()
 
     vec3 gradCiSum = vec3(0.0f);
     float gradCsqSum = 0;
-    densities[i] = 0;
+    float dens = 0;
+    vec3 pPos = predPos[i];
+    int gIdx = gridIdx[i];
 
     // For each neighbor
     int numCellsX = int(ubo.BOUNDARY_SIZE.x/ubo.H);
@@ -54,16 +56,16 @@ void main()
             int idxz = z*numCellsX;
 
             for (int x = -1; x <= 1; x++){
-                int idx = gridIdx[i] + x + idxz + idxy;
+                int idx = gIdx + x + idxz + idxy;
 
                 for (uint j = grid[idx]; j < grid[idx+1]; j++){
 
                     // apply for each neighbor
-                    vec3 vec = predPos[i] - predPos[j];
+                    vec3 vec = pPos - predPos[j];
                     float dist2 = dot(vec, vec);
 
                     if (dist2 < ubo.HSQ) {
-                        densities[i] += ubo.POLY6 * pow(ubo.HSQ - dist2, 3.f);
+                        dens += ubo.POLY6 * pow(ubo.HSQ - dist2, 3.f);
 
                         if (i == j || dist2 < 0.0000001f) continue;
 
@@ -85,9 +87,10 @@ void main()
         }
     }
 
+    densities[i] = dens;
     float gradConstraintSqSum = (gradCsqSum + dot(gradCiSum, gradCiSum))/(ubo.REST_DENS * ubo.REST_DENS);
 
-    float constraint = densities[i]/ubo.REST_DENS - 1;
+    float constraint = dens/ubo.REST_DENS - 1;
 
     lambdas[i] = - constraint / (gradConstraintSqSum + ubo.CFM);
 }

@@ -40,6 +40,10 @@ void main()
     int numCellsX = int(ubo.BOUNDARY_SIZE.x/ubo.H);
     int numCellsZ = int(ubo.BOUNDARY_SIZE.z/ubo.H);
 
+    vec3 pPos = predPos[i];
+    int gIdx = gridIdx[i];
+    float lbda = lambdas[i];
+
     for (int y = -1; y <= 1; y++){
         int idxy = y*numCellsX*numCellsZ;
 
@@ -47,12 +51,12 @@ void main()
             int idxz = z*numCellsX;
 
             for (int x = -1; x <= 1; x++){
-                int idx = gridIdx[i] + x + idxz + idxy;
+                int idx = gIdx + x + idxz + idxy;
 
                 for (uint j = grid[idx]; j < grid[idx+1]; j++){
 
                     // apply for each neighbor
-                    vec3 vec = predPos[i] - predPos[j];
+                    vec3 vec = pPos - predPos[j];
                     float dist2 = dot(vec, vec);
 
                     if (i == j || dist2 < 0.0000001f) continue;
@@ -66,7 +70,7 @@ void main()
                         float delta = ubo.H - dist;
                         float sCorr = -ubo.ART_PRESSURE_COEF * pow((ubo.HSQ - dist2)/(ubo.HSQ - 0.0009), 12.0f);
 
-                        deltaP += (1-ftype)*(vec / dist) * (lambdas[i] + lambdas[j] + sCorr) * ubo.SPIKY_GRAD * delta * delta;
+                        deltaP += (1-ftype)*(vec / dist) * (lbda + lambdas[j] + sCorr) * ubo.SPIKY_GRAD * delta * delta;
 
                     }
                 }
@@ -75,23 +79,25 @@ void main()
     }
     deltaP /= ubo.REST_DENS;
 
-    predPos[i] += deltaP;
+    pPos += deltaP;
 
     // enforce boundary conditions
     float nearEPS = ubo.EPS*(1 + 0.02);
-    if (predPos[i].x - ubo.EPS < ubo.wallX) {
-        predPos[i].x = ubo.wallX + nearEPS;
-    } else if (predPos[i].x + ubo.EPS > ubo.BOUNDARY_SIZE.x) {
-        predPos[i].x = ubo.BOUNDARY_SIZE.x - nearEPS;
+    if (pPos.x - ubo.EPS < ubo.wallX) {
+        pPos.x = ubo.wallX + nearEPS;
+    } else if (pPos.x + ubo.EPS > ubo.BOUNDARY_SIZE.x) {
+        pPos.x = ubo.BOUNDARY_SIZE.x - nearEPS;
     }
-    if (predPos[i].z - ubo.EPS < 0.0f) {
-        predPos[i].z = nearEPS;
-    } else if (predPos[i].z + ubo.EPS > ubo.BOUNDARY_SIZE.z) {
-        predPos[i].z = ubo.BOUNDARY_SIZE.z - nearEPS;
+    if (pPos.z - ubo.EPS < 0.0f) {
+        pPos.z = nearEPS;
+    } else if (pPos.z + ubo.EPS > ubo.BOUNDARY_SIZE.z) {
+        pPos.z = ubo.BOUNDARY_SIZE.z - nearEPS;
     }
-    if (predPos[i].y - ubo.EPS < 0.0f) {
-        predPos[i].y = 0.0f + nearEPS;
-    } else if (predPos[i].y + ubo.EPS > ubo.BOUNDARY_SIZE.y) {
-        predPos[i].y = ubo.BOUNDARY_SIZE.y - nearEPS;
+    if (pPos.y - ubo.EPS < 0.0f) {
+        pPos.y = 0.0f + nearEPS;
+    } else if (pPos.y + ubo.EPS > ubo.BOUNDARY_SIZE.y) {
+        pPos.y = ubo.BOUNDARY_SIZE.y - nearEPS;
     }
+
+    predPos[i] = pPos;
 }

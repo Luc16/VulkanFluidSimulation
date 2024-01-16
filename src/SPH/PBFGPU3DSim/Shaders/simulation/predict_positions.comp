@@ -32,24 +32,26 @@ void main()
     if (i >= ubo.numParticles || types[i] != 0) return;
 
     vel[i] += ubo.DT * ubo.G;
-    predPos[i] = pos[i] + ubo.DT * vel[i];
+    vec3 pPos = pos[i] + ubo.DT * vel[i];
 
     // enforce boundary conditions
     float nearEPS = ubo.EPS*(1 + 0.01);
-    if (predPos[i].x - ubo.EPS < ubo.wallX) {
-        predPos[i].x = ubo.wallX + nearEPS;
-    } else if (predPos[i].x + ubo.EPS > ubo.BOUNDARY_SIZE.x) {
-        predPos[i].x = ubo.BOUNDARY_SIZE.x - nearEPS;
+    if (pPos.x - ubo.EPS < ubo.wallX) {
+        pPos.x = ubo.wallX + nearEPS;
+    } else if (pPos.x + ubo.EPS > ubo.BOUNDARY_SIZE.x) {
+        pPos.x = ubo.BOUNDARY_SIZE.x - nearEPS;
     }
-    if (predPos[i].z - ubo.EPS < 0.0f) {
-        predPos[i].z = nearEPS;
-    } else if (predPos[i].z + ubo.EPS > ubo.BOUNDARY_SIZE.z) {
-        predPos[i].z = ubo.BOUNDARY_SIZE.z - nearEPS;
+    if (pPos.z - ubo.EPS < 0.0f) {
+        pPos.z = nearEPS;
+    } else if (pPos.z + ubo.EPS > ubo.BOUNDARY_SIZE.z) {
+        pPos.z = ubo.BOUNDARY_SIZE.z - nearEPS;
     }
-    if (predPos[i].y - ubo.EPS < 0.0f) {
-        predPos[i].y = 0.0f + nearEPS;
-    } else if (predPos[i].y + ubo.EPS > ubo.BOUNDARY_SIZE.y) {
-        predPos[i].y = ubo.BOUNDARY_SIZE.y - nearEPS;
+    if (pPos.y - ubo.EPS < 0.0f) {
+        pPos.y = 0.0f + nearEPS;
+    } else if (pPos.y + ubo.EPS > ubo.BOUNDARY_SIZE.y) {
+        pPos.y = ubo.BOUNDARY_SIZE.y - nearEPS;
     }
+
+    predPos[i] = pPos;
 
 }
