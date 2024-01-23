@@ -145,7 +145,7 @@ void FLIPCPU2DSim::createBuffers() {
 void FLIPCPU2DSim::mainLoop(float deltaTime) {
     auto currentTime = std::chrono::high_resolution_clock::now();
 
-    updateSimulation();
+    updateSimulation(deltaTime);
 
     updateBuffers(renderer.currentFrame());
 
@@ -307,7 +307,7 @@ void FLIPCPU2DSim::showImGui(){
     }
 }
 
-void FLIPCPU2DSim::updateSimulation() {
+void FLIPCPU2DSim::updateSimulation(float deltaTime) {
     // how it should be:
 
     // advect particles
@@ -318,7 +318,7 @@ void FLIPCPU2DSim::updateSimulation() {
     // add gravity to velY
     advectParticles();
     transferParticlesVelocitiesToGrid();
-    projectVelocities();
+    projectVelocities(deltaTime);
     transferGridVelocitiesToParticles();
 }
 
@@ -406,6 +406,7 @@ void FLIPCPU2DSim::transferParticlesVelocitiesToGrid() {
                 velComponent[i] -= 9.8f*dt*500;
             }
         }
+
     };
 
     addVelComponent(current.velX, weightVelX, true);
@@ -413,35 +414,62 @@ void FLIPCPU2DSim::transferParticlesVelocitiesToGrid() {
 
 }
 
-void FLIPCPU2DSim::projectVelocities() {
+void FLIPCPU2DSim::projectVelocities(float deltaTime) {
+    double rho = 1.0f;
+    size_t fluidCells = 0;
     for (uint32_t i = 0; i < CELL_COUNT; i++) {
+        if (cellTypes[i] == FLUID) fluidCells++;
+        rhs[i] = 0;
+        pressure[i] = 0;
         previous.velX[i] = current.velX[i];
         previous.velY[i] = current.velY[i];
     }
 
-    for (uint32_t iter = 0; iter < numIterations; iter++){
-        for (uint32_t j = 1; j < numTilesY - 1; j++) {
-            for (uint32_t i = 1; i < numTilesX - 1; i++) {
-                if (cellTypes(i, j) != FLUID) continue;
+    // generate matrix
+    SparseMatrix<double, numTilesX> A{fluidCells, CELL_COUNT};
+    for (uint32_t j = 0; j < numTilesY; j++) {
+        for (uint32_t i = 0; i < numTilesX; i++) {
+            if (cellTypes(i, j) != FLUID) continue;
 
-                // calculate divergent
-                float sum = solidCells(i - 1, j) + solidCells(i + 1, j) + solidCells(i, j - 1) + solidCells(i, j + 1);
-                if (sum == 0.0f) continue;
+            // sum non-solid cells around
+            float sum = solidCells(i - 1, j) + solidCells(i + 1, j) + solidCells(i, j - 1) + solidCells(i, j + 1);
+            if (sum == 0.0f) continue;
 
-                float divergent = current.velX(i + 1, j) - current.velX(i, j) + current.velY(i, j + 1) - current.velY(i, j);
+            // setup matrix A of the system A*p = rhs
+            A.set(i + numTilesX*j, i + numTilesX*j, sum);
+            if (solidCells(i + 1, j) == 1) A.set(i + numTilesX*j, i + 1 + numTilesX*j, -1);
+            if (solidCells(i - 1, j) == 1) A.set(i + numTilesX*j, i - 1 + numTilesX*j, -1);
+            if (solidCells(i,j - 1) == 1) A.set(i + numTilesX*j, i + numTilesX*(j-1), -1);
+            if (solidCells(i,j + 1) == 1) A.set(i + numTilesX*j, i + numTilesX*(j+1), -1);
 
-                // calculate pressure difference
-                float pressureDiff = overRelaxation*divergent/sum;
+            // calculate rhs
+            rhs(i, j) = (-rho*SIZE/deltaTime)*(current.velX(i + 1, j) - current.velX(i, j) + current.velY(i, j + 1) - current.velY(i, j));
 
-                // calculate new velocities
-                current.velX(i, j) += pressureDiff*solidCells(i - 1, j);
-                current.velX(i + 1, j) -= pressureDiff*solidCells(i + 1, j);
-                current.velY(i, j) += pressureDiff*solidCells(i, j - 1);
-                current.velY(i, j + 1) -= pressureDiff*solidCells(i, j + 1);
-
-            }
         }
     }
+
+    // solve system with CG
+    auto res = pressureSolver.solve(A, rhs.getVector(), pressure.getVector(), numIterations, 1e-6);
+    if (res == 1) {
+        std::cout << "Num iteration exceeded!!\n";
+    }
+
+
+    // apply
+    double scale = deltaTime/(rho*SIZE);
+    for (uint32_t j = 1; j < numTilesY - 1; j++) {
+        for (uint32_t i = 1; i < numTilesX - 1; i++) {
+            if (cellTypes(i, j) != FLUID) continue;
+            if (pressure(i, j) != pressure(i, j)) {
+//                std::cout << "nan pressure" << std::endl;
+                continue;
+            }
+            current.velX(i, j) -= float(scale*(pressure(i, j) - pressure(i - 1, j))*solidCells(i - 1, j));
+            current.velY(i, j) -= float(scale*(pressure(i, j) - pressure(i, j - 1))*solidCells(i, j - 1));
+
+        }
+    }
+
 }
 
 void FLIPCPU2DSim::transferGridVelocitiesToParticles() {
@@ -458,14 +486,16 @@ void FLIPCPU2DSim::transferGridVelocitiesToParticles() {
             glm::ivec2 gridPos = particle.gridPos(xShift, yShift);
             auto [wdl, wdr, wul, wur] = particleGridWeights(particle, gridPos, xShift, yShift);
 
-            float picContribution = (wdl*velComponent(gridPos) +
-                    wdr*velComponent(gridPos.x + 1, gridPos.y) +
-                    wul*velComponent(gridPos.x, gridPos.y + 1) +
-                    wur*velComponent(gridPos.x + 1, gridPos.y + 1));
-            float correction = (wdl*(velComponent(gridPos) - prevVelComponent(gridPos)) +
-                                wdr*(velComponent(gridPos.x + 1, gridPos.y) - prevVelComponent(gridPos.x + 1, gridPos.y)) +
-                                wul*(velComponent(gridPos.x, gridPos.y + 1) - prevVelComponent(gridPos.x, gridPos.y + 1)) +
-                                wur*(velComponent(gridPos.x + 1, gridPos.y + 1) - prevVelComponent(gridPos.x + 1, gridPos.y + 1)));
+            auto vdl = velComponent(gridPos);
+            auto vdr = velComponent(gridPos.x + 1, gridPos.y);
+            auto vul = velComponent(gridPos.x, gridPos.y + 1);
+            auto vur = velComponent(gridPos.x + 1, gridPos.y + 1);
+
+            float picContribution = wdl*vdl + wdr*vdr + wul*vul + wur*vur;
+            float correction = (wdl*(vdl - prevVelComponent(gridPos)) +
+                                wdr*(vdr - prevVelComponent(gridPos.x + 1, gridPos.y)) +
+                                wul*(vul - prevVelComponent(gridPos.x, gridPos.y + 1)) +
+                                wur*(vur - prevVelComponent(gridPos.x + 1, gridPos.y + 1)));
             float flipContribution = vel + correction;
             if (isX){
                 particle.velocity.x = (1 - flipRatio) * picContribution + flipRatio * flipContribution;

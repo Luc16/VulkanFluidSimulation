@@ -25,6 +25,7 @@
 #include "../lib/ComputeShaderHandler.h"
 #include "../lib/graphicsDataStructures/Matrices.h"
 #include "structs.h"
+#include "PressureSolver.h"
 
 class FLIPCPU2DSim: public vkb::VulkanApp {
 public:
@@ -39,10 +40,12 @@ private:
     static constexpr float dt = 1/120.0f;
 //    static constexpr float dt = 1/60.0f;
     static constexpr float radius = 8.0f;
-    static constexpr uint32_t SIZE = 20;
+    static constexpr uint32_t SIZE = 50;
     constexpr static uint32_t numTilesX = WIDTH/SIZE + 1;
     constexpr static uint32_t numTilesY = HEIGHT/SIZE + 1;
     constexpr static uint32_t CELL_COUNT = numTilesX*numTilesY;
+    float flipRatio = 0.9f;
+    uint32_t numIterations = 100;
 
     enum CellType {
         AIR, SOLID, FLUID
@@ -112,8 +115,9 @@ private:
     Matrix<CellType, CELL_COUNT, numTilesX> cellTypes{};
     Matrix<float, CELL_COUNT, numTilesX> weightVelX{}, weightVelY{};
     Matrix<float, CELL_COUNT, numTilesX> solidCells{};
-    float flipRatio = 0.9f, overRelaxation = 1.9f;
-    uint32_t numIterations = 100;
+    HeapMatrix<double, numTilesX> pressure{CELL_COUNT};
+    HeapMatrix<double, numTilesX> rhs{CELL_COUNT};
+    PressureSolver pressureSolver{};
     std::vector<Particle> particles{PARTICLE_COUNT};
     std::unique_ptr<vkb::Buffer> particleBuffer;
     bool showParticles = true;
@@ -152,13 +156,13 @@ private:
     void updateBuffers(uint32_t frameIndex);
     void showImGui();
 
-    void updateSimulation();
+    void updateSimulation(float deltaTime);
     void advectParticles();
     static std::tuple<float, float, float, float> particleGridWeights(const Particle& particle, glm::ivec2 gridPos, uint32_t xShift, uint32_t yShift);
     static void applyWeightedValuesToMatrix(Matrix<float, CELL_COUNT, numTilesX>& matrix, glm::ivec2 gridPos, std::tuple<float, float, float, float> weights, float value);
     void transferParticlesVelocitiesToGrid();
     void transferGridVelocitiesToParticles();
-    void projectVelocities();
+    void projectVelocities(float deltaTime);
 
 };
 
