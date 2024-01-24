@@ -36,16 +36,16 @@ public:
             VulkanApp(WIDTH, HEIGHT, appName, type) {}
 
 private:
-    static constexpr uint32_t PARTICLE_COUNT = 1000;
+    static constexpr uint32_t PARTICLE_COUNT = 2000;
     static constexpr float dt = 1/120.0f;
 //    static constexpr float dt = 1/60.0f;
     static constexpr float radius = 8.0f;
-    static constexpr uint32_t SIZE = 50;
-    constexpr static uint32_t numTilesX = WIDTH/SIZE + 1;
-    constexpr static uint32_t numTilesY = HEIGHT/SIZE + 1;
+    static constexpr uint32_t SIZE = 20;
+    constexpr static uint32_t numTilesX = WIDTH/SIZE;
+    constexpr static uint32_t numTilesY = HEIGHT/SIZE;
     constexpr static uint32_t CELL_COUNT = numTilesX*numTilesY;
     float flipRatio = 0.9f;
-    uint32_t numIterations = 100;
+    uint32_t numIterations = 200;
 
     enum CellType {
         AIR, SOLID, FLUID
@@ -140,7 +140,7 @@ private:
 
 
     float gpuTime = 0, cpuTime = 0;
-    bool activateTimer = false;
+    bool activateTimer = false, paused = false;
 
     void onCreate() override;
     void resetGrid(bool hardReset = false);
@@ -162,6 +162,7 @@ private:
     static void applyWeightedValuesToMatrix(Matrix<float, CELL_COUNT, numTilesX>& matrix, glm::ivec2 gridPos, std::tuple<float, float, float, float> weights, float value);
     void transferParticlesVelocitiesToGrid();
     void transferGridVelocitiesToParticles();
+    void enforceDirichlet();
     void projectVelocities(float deltaTime);
 
 };

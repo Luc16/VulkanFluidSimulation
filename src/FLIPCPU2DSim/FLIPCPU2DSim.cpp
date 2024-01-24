@@ -76,11 +76,16 @@ void FLIPCPU2DSim::initializeObjects() {
     // initialize particles
     float startingX = 3*float(window.width())/8;
     auto accPos = glm::vec3(startingX, 100, 0);
-    float step = 1.5f*radius;
+    float step = 1.2f*radius;
 
     for (uint32_t i = 0; i < PARTICLE_COUNT; i++) {
         auto& particle = particles[i];
         particle.position = accPos;
+        particle.position += glm::vec3(
+                randomFloat(0.0f, 0.5f*radius),
+                randomFloat(0.0f, 0.5f*radius),
+                0.0f
+        );
         particle.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
         particle.color = glm::vec4(0.2f, 0.6f, 1.0f, 1.0f);
 
@@ -213,7 +218,7 @@ void FLIPCPU2DSim::updateAndDrawVelocityField(VkCommandBuffer commandBuffer) {
     velocityLines.reserve(2*numTilesX*numTilesY);
     for (uint32_t j = 0; j < numTilesY-1; j++) {
         for (uint32_t i = 0; i < numTilesX-1; i++) {
-            if (cellTypes(i, j) != FLUID) continue;
+//            if (cellTypes(i, j) != FLUID) continue;
             float velXCenter = (current.velX(i, j) + current.velX(i+1, j))/2;
             float velYCenter = (current.velY(i, j) + current.velY(i, j+1))/2;
 
@@ -244,13 +249,17 @@ void FLIPCPU2DSim::updateAndDrawVelocityField(VkCommandBuffer commandBuffer) {
 void FLIPCPU2DSim::updateAndDrawFluidQuads(VkCommandBuffer commandBuffer) {
     fluidQuads.clear();
     fluidQuads.reserve(CELL_COUNT);
-    for (uint32_t j = 0; j < numTilesY-1; j++) {
-        for (uint32_t i = 0; i < numTilesX-1; i++) {
-            if (cellTypes(i, j) != FLUID) continue;
-
+    for (uint32_t j = 0; j < numTilesY; j++) {
+        for (uint32_t i = 0; i < numTilesX; i++) {
+            if (cellTypes(i, j) == AIR) continue;
             auto origin = glm::vec3(float(i*SIZE), float(j*SIZE), 0.0f);
 
-            fluidQuads.emplace_back(origin, SIZE, glm::vec3(0.0f, 0.0f, 1.0f));
+            if (solidCells(i, j) == 0) {
+                fluidQuads.emplace_back(origin, SIZE, glm::vec3(0.0f, 1.0f, 0.0f));
+            } else if (cellTypes(i, j) == FLUID) {
+                fluidQuads.emplace_back(origin, SIZE, glm::vec3(0.0f, 0.0f, 1.0f));
+            }
+
         }
     }
 
@@ -291,6 +300,7 @@ void FLIPCPU2DSim::showImGui(){
 
 
     if (ImGui::Button("Reset") || glfwIsKeyJustPressed(GLFW_KEY_R)) initializeObjects();
+    if (ImGui::Button("Pause") || glfwIsKeyJustPressed(GLFW_KEY_SPACE)) paused = !paused;
     ImGui::Text("Using %s", device.getPhysicalDeviceName().c_str());
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                 ImGui::GetIO().Framerate);
@@ -308,6 +318,7 @@ void FLIPCPU2DSim::showImGui(){
 }
 
 void FLIPCPU2DSim::updateSimulation(float deltaTime) {
+    if (paused) return;
     // how it should be:
 
     // advect particles
@@ -318,7 +329,9 @@ void FLIPCPU2DSim::updateSimulation(float deltaTime) {
     // add gravity to velY
     advectParticles();
     transferParticlesVelocitiesToGrid();
+    enforceDirichlet();
     projectVelocities(deltaTime);
+    enforceDirichlet();
     transferGridVelocitiesToParticles();
 }
 
@@ -331,7 +344,7 @@ void FLIPCPU2DSim::advectParticles() {
         particle.position += dt * particle.velocity;
 
         if (particle.position.x < minX) {
-            particle.velocity.x = BOUND_DAMPING;
+            particle.velocity.x *= BOUND_DAMPING;
             particle.position.x = minX;
         }
         if (particle.position.x > maxX) {
@@ -339,7 +352,7 @@ void FLIPCPU2DSim::advectParticles() {
             particle.position.x = maxX;
         }
         if (particle.position.y < minY) {
-            particle.velocity.y = BOUND_DAMPING;
+            particle.velocity.y *= BOUND_DAMPING;
             particle.position.y = minY;
         }
         if (particle.position.y > maxY) {
@@ -396,26 +409,43 @@ void FLIPCPU2DSim::transferParticlesVelocitiesToGrid() {
             applyWeightedValuesToMatrix(velComponent, gridPos, weights, vel);
             applyWeightedValuesToMatrix(weightComponent, gridPos, weights, 1.0f);
         }
-
-        for (uint32_t i = 0; i < CELL_COUNT; i++) {
-            if (weightComponent[i] > 0) {
-                velComponent[i] /= weightComponent[i];
-            }
-            // apply gravity
-            if (!isX) {
-                velComponent[i] -= 9.8f*dt*500;
-            }
-        }
-
     };
 
     addVelComponent(current.velX, weightVelX, true);
     addVelComponent(current.velY, weightVelY, false);
 
+    for (uint32_t j = 1; j < numTilesY-1; j++) {
+        for (uint32_t i = 1; i < numTilesX - 1; i++) {
+            if (weightVelY(i, j) > 0.0001) {
+                current.velY(i, j) /= weightVelY(i, j);
+            }
+            if (weightVelX(i, j) > 0.0001) {
+                current.velX(i, j) /= weightVelX(i, j);
+            }
+            // apply gravity
+            if (cellTypes(i, j) == FLUID) {
+                current.velY(i, j) -= 9.8f * dt * 500;
+            }
+        }
+    }
+
+}
+
+void FLIPCPU2DSim::enforceDirichlet() {
+    for (uint32_t j = 0; j < numTilesY; j++) {
+        for (uint32_t i = 0; i < numTilesX; i++) {
+            if (cellTypes(i, j) == SOLID || i > 0 && cellTypes(i-1, j) == SOLID){
+                current.velX(i, j) = 0.0f;
+            }
+            if (cellTypes(i, j) == SOLID || j > 0 && cellTypes(i, j-1) == SOLID){
+                current.velY(i, j) = 0.0f;
+            }
+        }
+    }
 }
 
 void FLIPCPU2DSim::projectVelocities(float deltaTime) {
-    double rho = 1.0f;
+    double rho = 0.1f;
     size_t fluidCells = 0;
     for (uint32_t i = 0; i < CELL_COUNT; i++) {
         if (cellTypes[i] == FLUID) fluidCells++;
@@ -427,8 +457,8 @@ void FLIPCPU2DSim::projectVelocities(float deltaTime) {
 
     // generate matrix
     SparseMatrix<double, numTilesX> A{fluidCells, CELL_COUNT};
-    for (uint32_t j = 0; j < numTilesY; j++) {
-        for (uint32_t i = 0; i < numTilesX; i++) {
+    for (uint32_t j = 1; j < numTilesY-1; j++) {
+        for (uint32_t i = 1; i < numTilesX-1; i++) {
             if (cellTypes(i, j) != FLUID) continue;
 
             // sum non-solid cells around
@@ -436,37 +466,35 @@ void FLIPCPU2DSim::projectVelocities(float deltaTime) {
             if (sum == 0.0f) continue;
 
             // setup matrix A of the system A*p = rhs
-            A.set(i + numTilesX*j, i + numTilesX*j, sum);
-            if (solidCells(i + 1, j) == 1) A.set(i + numTilesX*j, i + 1 + numTilesX*j, -1);
-            if (solidCells(i - 1, j) == 1) A.set(i + numTilesX*j, i - 1 + numTilesX*j, -1);
-            if (solidCells(i,j - 1) == 1) A.set(i + numTilesX*j, i + numTilesX*(j-1), -1);
-            if (solidCells(i,j + 1) == 1) A.set(i + numTilesX*j, i + numTilesX*(j+1), -1);
+            A.set(i + numTilesX*j, i + numTilesX*j, -sum);
+            if (solidCells(i + 1, j) == 1) A.set(i + numTilesX*j, i + 1 + numTilesX*j, 1);
+            if (solidCells(i - 1, j) == 1) A.set(i + numTilesX*j, i - 1 + numTilesX*j, 1);
+            if (solidCells(i,j - 1) == 1) A.set(i + numTilesX*j, i + numTilesX*(j-1), 1);
+            if (solidCells(i,j + 1) == 1) A.set(i + numTilesX*j, i + numTilesX*(j+1), 1);
 
             // calculate rhs
-            rhs(i, j) = (-rho*SIZE/deltaTime)*(current.velX(i + 1, j) - current.velX(i, j) + current.velY(i, j + 1) - current.velY(i, j));
+            rhs(i, j) = (rho * SIZE / dt) * (current.velX(i + 1, j) - current.velX(i, j) + current.velY(i, j + 1) - current.velY(i, j));
 
         }
     }
 
     // solve system with CG
     auto res = pressureSolver.solve(A, rhs.getVector(), pressure.getVector(), numIterations, 1e-6);
-    if (res == 1) {
-        std::cout << "Num iteration exceeded!!\n";
-    }
+//    if (res >= 1) {
+//        std::cout << "Num iteration exceeded!!\n";
+//    }
 
 
-    // apply
-    double scale = deltaTime/(rho*SIZE);
+    double scale = dt / (rho * SIZE);
     for (uint32_t j = 1; j < numTilesY - 1; j++) {
         for (uint32_t i = 1; i < numTilesX - 1; i++) {
             if (cellTypes(i, j) != FLUID) continue;
             if (pressure(i, j) != pressure(i, j)) {
-//                std::cout << "nan pressure" << std::endl;
+                std::cout << "nan pressure" << std::endl;
                 continue;
             }
-            current.velX(i, j) -= float(scale*(pressure(i, j) - pressure(i - 1, j))*solidCells(i - 1, j));
-            current.velY(i, j) -= float(scale*(pressure(i, j) - pressure(i, j - 1))*solidCells(i, j - 1));
-
+            current.velX(i, j) -= float(scale*(pressure(i, j) - pressure(i - 1, j)));
+            current.velY(i, j) -= float(scale*(pressure(i, j) - pressure(i, j - 1)));
         }
     }
 

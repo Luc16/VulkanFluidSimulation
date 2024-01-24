@@ -98,7 +98,7 @@ int PressureSolver::solve(SparseMatrix<T, cells_per_row>& A, std::vector<T>& b, 
         }
     }
 
-    if (iter == maxIterations) return 1;
+    if (iter >= maxIterations) return 1;
     return 0;
 }
 
