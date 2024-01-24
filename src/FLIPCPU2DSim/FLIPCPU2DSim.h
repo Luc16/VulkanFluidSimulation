@@ -44,7 +44,8 @@ private:
     constexpr static uint32_t numTilesX = WIDTH/SIZE;
     constexpr static uint32_t numTilesY = HEIGHT/SIZE;
     constexpr static uint32_t CELL_COUNT = numTilesX*numTilesY;
-    float flipRatio = 0.9f;
+    float flipRatio = 0.95f;
+    double rho = 0.1;
     uint32_t numIterations = 200;
 
     enum CellType {
@@ -115,6 +116,7 @@ private:
     Matrix<CellType, CELL_COUNT, numTilesX> cellTypes{};
     Matrix<float, CELL_COUNT, numTilesX> weightVelX{}, weightVelY{};
     Matrix<float, CELL_COUNT, numTilesX> solidCells{};
+    Matrix<float, CELL_COUNT, numTilesX> densities{};
     HeapMatrix<double, numTilesX> pressure{CELL_COUNT};
     HeapMatrix<double, numTilesX> rhs{CELL_COUNT};
     PressureSolver pressureSolver{};

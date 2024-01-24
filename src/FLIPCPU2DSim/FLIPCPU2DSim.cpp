@@ -297,6 +297,9 @@ void FLIPCPU2DSim::showImGui(){
     ImGui::Checkbox("Show Velocity Field", &showVelField);
     ImGui::Checkbox("Show Fluid Cells", &showFluidQuads);
 
+    auto temp = float(rho);
+    ImGui::DragFloat("Density", &temp, 0.001f, 0.0001f, 100.0f);
+    rho = temp;
 
 
     if (ImGui::Button("Reset") || glfwIsKeyJustPressed(GLFW_KEY_R)) initializeObjects();
@@ -423,9 +426,7 @@ void FLIPCPU2DSim::transferParticlesVelocitiesToGrid() {
                 current.velX(i, j) /= weightVelX(i, j);
             }
             // apply gravity
-            if (cellTypes(i, j) == FLUID) {
-                current.velY(i, j) -= 9.8f * dt * 500;
-            }
+            current.velY(i, j) -= 9.8f * dt * 500;
         }
     }
 
@@ -445,7 +446,6 @@ void FLIPCPU2DSim::enforceDirichlet() {
 }
 
 void FLIPCPU2DSim::projectVelocities(float deltaTime) {
-    double rho = 0.1f;
     size_t fluidCells = 0;
     for (uint32_t i = 0; i < CELL_COUNT; i++) {
         if (cellTypes[i] == FLUID) fluidCells++;
