@@ -26,6 +26,7 @@
 #include "../lib/graphicsDataStructures/Matrices.h"
 #include "structs.h"
 #include "PressureSolver.h"
+#include "FlipSolver.h"
 
 class FLIPCPU2DSim: public vkb::VulkanApp {
 public:
@@ -43,14 +44,10 @@ private:
     static constexpr uint32_t SIZE = 20;
     constexpr static uint32_t numTilesX = WIDTH/SIZE;
     constexpr static uint32_t numTilesY = HEIGHT/SIZE;
-    constexpr static uint32_t CELL_COUNT = numTilesX*numTilesY;
     float flipRatio = 0.95f;
     double rho = 0.1;
     uint32_t numIterations = 200;
-
-    enum CellType {
-        AIR, SOLID, FLUID
-    };
+    uint32_t extensions = 2;
 
     const vkb::RenderSystem::ShaderPaths particleShaderPaths = vkb::RenderSystem::ShaderPaths {
             "../src/FLIPCPU2DSim/Shaders/particle.vert.spv",
@@ -60,45 +57,6 @@ private:
     const vkb::RenderSystem::ShaderPaths defaultShaderPaths = vkb::RenderSystem::ShaderPaths {
             "../src/FLIPCPU2DSim/Shaders/default.vert.spv",
             "../src/FLIPCPU2DSim/Shaders/default.frag.spv"
-    };
-
-
-    struct Particle {
-        alignas(16) glm::vec3 position, velocity;
-        glm::vec4 color;
-
-        static VkVertexInputBindingDescription getBindingDescription() {
-            VkVertexInputBindingDescription bindingDescription{};
-            bindingDescription.binding = 0;
-            bindingDescription.stride = sizeof(Particle);
-            bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-            return bindingDescription;
-        }
-
-        static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions() {
-            std::vector<VkVertexInputAttributeDescription> attributeDescriptions{2};
-
-            attributeDescriptions[0].binding = 0;
-            attributeDescriptions[0].location = 0;
-            attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-            attributeDescriptions[0].offset = offsetof(Particle, position);
-
-            attributeDescriptions[1].binding = 0;
-            attributeDescriptions[1].location = 1;
-            attributeDescriptions[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-            attributeDescriptions[1].offset = offsetof(Particle, color);
-
-            return attributeDescriptions;
-        }
-
-        [[nodiscard]] glm::ivec2 gridPos(uint32_t xShift = 0, uint32_t yShift = 0) const { return {
-            (uint32_t(std::clamp(position.x, float(xShift), float(SIZE*(numTilesX - 1)))) - xShift) / SIZE,
-            (uint32_t(std::clamp(position.y, float(yShift), float(SIZE*(numTilesY - 1)))) - yShift) / SIZE}; }
-    };
-
-    struct FluidData {
-        Matrix<float, CELL_COUNT, numTilesX> velX{}, velY{};
     };
 
     std::vector<std::unique_ptr<vkb::Buffer>> uniformBuffers;
@@ -112,15 +70,7 @@ private:
 
     vkb::Camera camera{};
 
-    FluidData current, previous;
-    Matrix<CellType, CELL_COUNT, numTilesX> cellTypes{};
-    Matrix<float, CELL_COUNT, numTilesX> weightVelX{}, weightVelY{};
-    Matrix<float, CELL_COUNT, numTilesX> solidCells{};
-    Matrix<float, CELL_COUNT, numTilesX> densities{};
-    HeapMatrix<double, numTilesX> pressure{CELL_COUNT};
-    HeapMatrix<double, numTilesX> rhs{CELL_COUNT};
-    PressureSolver pressureSolver{};
-    std::vector<Particle> particles{PARTICLE_COUNT};
+    FlipSolver<numTilesX, numTilesY, SIZE, PARTICLE_COUNT> flipSolver{radius, flipRatio, rho, numIterations, extensions};
     std::unique_ptr<vkb::Buffer> particleBuffer;
     bool showParticles = true;
 
@@ -145,7 +95,6 @@ private:
     bool activateTimer = false, paused = false;
 
     void onCreate() override;
-    void resetGrid(bool hardReset = false);
     void initializeObjects();
     void generateGridLines();
     void createBuffers();
@@ -157,16 +106,6 @@ private:
     void updateAndDrawFluidQuads(VkCommandBuffer commandBuffer);
     void updateBuffers(uint32_t frameIndex);
     void showImGui();
-
-    void updateSimulation(float deltaTime);
-    void advectParticles();
-    static std::tuple<float, float, float, float> particleGridWeights(const Particle& particle, glm::ivec2 gridPos, uint32_t xShift, uint32_t yShift);
-    static void applyWeightedValuesToMatrix(Matrix<float, CELL_COUNT, numTilesX>& matrix, glm::ivec2 gridPos, std::tuple<float, float, float, float> weights, float value);
-    void transferParticlesVelocitiesToGrid();
-    void transferGridVelocitiesToParticles();
-    void enforceDirichlet();
-    void projectVelocities(float deltaTime);
-
 };
 
 #endif //VULKANFLUIDSIMULATION_FLIPCPU2DSIM_H
