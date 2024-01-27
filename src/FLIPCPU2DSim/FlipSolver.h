@@ -52,7 +52,7 @@ private:
     Matrix<float, totalCells, numTilesX> solidCells{};
     HeapMatrix<double, numTilesX> pressure{totalCells};
     HeapMatrix<double, numTilesX> rhs{totalCells};
-    PressureSolver pressureSolver{};
+    PressureSolver<double, numTilesX> pressureSolver{};
 
 public:
     std::vector<Particle> particles{numParticles};
@@ -327,6 +327,8 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::extendVelocities(
 
 template<uint32_t numTilesX, uint32_t numTilesY, uint32_t cellSize, uint32_t numParticles>
 void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::projectVelocities(float deltaTime) {
+    static uint32_t iter = 0;
+    iter++;
     size_t fluidCells = 0;
     for (uint32_t i = 0; i < totalCells; i++) {
         if (cellTypes[i] == FLUID) fluidCells++;
@@ -347,23 +349,23 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::projectVelocities
             if (sum == 0.0f) continue;
 
             // setup matrix A of the system A*p = rhs
-            A.set(i + numTilesX*j, i + numTilesX*j, -sum);
-            if (solidCells(i + 1, j) == 1) A.set(i + numTilesX*j, i + 1 + numTilesX*j, 1);
-            if (solidCells(i - 1, j) == 1) A.set(i + numTilesX*j, i - 1 + numTilesX*j, 1);
-            if (solidCells(i,j - 1) == 1) A.set(i + numTilesX*j, i + numTilesX*(j-1), 1);
-            if (solidCells(i,j + 1) == 1) A.set(i + numTilesX*j, i + numTilesX*(j+1), 1);
+            A.set(i + numTilesX*j, i + numTilesX*j, sum);
+            if (solidCells(i + 1, j) == 1) A.set(i + numTilesX*j, i + 1 + numTilesX*j, -1);
+            if (solidCells(i - 1, j) == 1) A.set(i + numTilesX*j, i - 1 + numTilesX*j, -1);
+            if (solidCells(i,j - 1) == 1) A.set(i + numTilesX*j, i + numTilesX*(j-1), -1);
+            if (solidCells(i,j + 1) == 1) A.set(i + numTilesX*j, i + numTilesX*(j+1), -1);
 
             // calculate rhs
-            rhs(i, j) = (rho * cellSize / dt) * (current.velX(i + 1, j) - current.velX(i, j) + current.velY(i, j + 1) - current.velY(i, j));
+            rhs(i, j) = (-rho * cellSize / dt) * (current.velX(i + 1, j) - current.velX(i, j) + current.velY(i, j + 1) - current.velY(i, j));
 
         }
     }
 
     // solve system with CG
-    auto res = pressureSolver.solve(A, rhs.getVector(), pressure.getVector(), numIterations, 1e-6);
-//    if (res >= 1) {
-//        std::cout << "Num iteration exceeded!!\n";
-//    }
+    auto res = pressureSolver.solve(A, rhs, pressure, numIterations, 1e-6);
+    if (res >= 1) {
+        std::cout << "Num iteration exceeded!!\n";
+    }
 
 
     double scale = dt / (rho * cellSize);

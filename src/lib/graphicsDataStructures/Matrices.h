@@ -50,7 +50,9 @@ private:
 template<typename T, uint32_t row>
 class HeapMatrix{
 public:
-    explicit HeapMatrix(size_t size): m_matrix(size) {};
+    explicit HeapMatrix(size_t size) {
+        resize(size);
+    };
     HeapMatrix() = default;
 
     void swap(HeapMatrix& other){
@@ -58,6 +60,7 @@ public:
     }
 
     void resize(size_t size) {
+        m_numRows = size/row;
         m_matrix.resize(size);
     }
 
@@ -94,8 +97,17 @@ public:
         return m_matrix.size();
     }
 
+    [[nodiscard]] uint32_t nRows() const {
+        return m_numRows;
+    }
+
+    [[nodiscard]] uint32_t nCols() const {
+        return row;
+    }
+
 private:
     std::vector<T> m_matrix{};
+    uint32_t m_numRows{};
 };
 
 template<typename T>
@@ -152,6 +164,10 @@ public:
         resize(fluid_cells, total_cells);
     }
 
+    [[nodiscard]] uint32_t cellsPerRow() const {
+        return cells_per_row;
+    }
+
     void resize(uint32_t fluid_cells, uint32_t total_cells) {
         m_indices.resize(total_cells, -1);
         m_matrix.resize(fluid_cells*nonzero_per_sparse_row);
@@ -178,22 +194,17 @@ public:
     }
 
     constexpr void multiply(std::vector<T>& v, std::vector<T>& res) const {
-        for (uint32_t i = 0; i < v.size(); i++) {
+        // assuming first line is boundary
+        for (uint32_t i = cells_per_row+1; i < v.size() - cells_per_row - 1; i++) {
             if (m_indices[i] == -1) continue;
             uint32_t idx = m_indices[i]*nonzero_per_sparse_row;
-            res[i] =
-                    m_matrix[idx]*v[i] +
-                    ((i > 0) ? m_matrix[idx+2]*v[i-1] : 0) +
-                    ((i < v.size() - 1) ? m_matrix[idx+1]*v[i+1] : 0) +
-                    ((i >= cells_per_row) ? m_matrix[idx+4]*v[i-cells_per_row] : 0) +
-                    ((i < v.size() - cells_per_row) ? m_matrix[idx+3]*v[i+cells_per_row] : 0);
+            res[i] = m_matrix[idx]*v[i] + m_matrix[idx+2]*v[i-1] + m_matrix[idx+1]*v[i+1] +
+                     m_matrix[idx+4]*v[i-cells_per_row] + m_matrix[idx+3]*v[i+cells_per_row];
         }
     }
 
-private:
     [[nodiscard]] int getIdx(uint32_t i, uint32_t j) const {
         if (m_indices[i] < 0) return -1;
-//        if (j > i) std::swap(j, i);
         std::array<uint32_t, 5> conditions = {
                 i-j == 0,
                 i-j == 1,
@@ -205,8 +216,11 @@ private:
         return -1*(!comb) + m_indices[i]*nonzero_per_sparse_row*comb + conditions[1] + 2*conditions[3] + 3*conditions[2] + 4*conditions[4];
     }
 
+private:
     std::vector<T> m_matrix{};
     uint32_t curSize = 0;
     std::vector<int> m_indices{};
 };
+
+
 #endif //VULKANFLUIDSIMULATION_MATRICES_H
