@@ -144,7 +144,7 @@ template<uint32_t numTilesX, uint32_t numTilesY, uint32_t cellSize, uint32_t num
 void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::advectParticles() {
     static constexpr float BOUND_DAMPING = 0.f;
     float minX = float(cellSize) + particleRadius, maxX = float(cellSize*(numTilesX-1)) - particleRadius;
-    float minY = float(cellSize) + particleRadius, maxY = float(cellSize*(numTilesX-1)) - particleRadius;
+    float minY = float(cellSize) + particleRadius, maxY = float(cellSize*(numTilesY-1)) - particleRadius;
 
     for (auto &particle : particles) {
         particle.position += dt * particle.velocity;
@@ -196,6 +196,7 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::applyWeightedValu
 template<uint32_t numTilesX, uint32_t numTilesY, uint32_t cellSize, uint32_t numParticles>
 void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::transferParticlesVelocitiesToGrid() {
 
+
     previous.velX.swap(current.velX);
     previous.velY.swap(current.velY);
     // reset all cells (to air, and velocities and weights to 0)
@@ -203,9 +204,6 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::transferParticles
 
     auto addVelComponent = [this](Matrix<float, totalCells, numTilesX>& velComponent, Matrix<float, totalCells, numTilesX>& weightComponent, bool isX) {
         for (auto& particle: particles) {
-            // set all cells with particles to fluid
-            cellTypes(gridPos(particle)) = FLUID;
-
             float vel = particle.velocity.x;
             uint32_t xShift = 0, yShift = cellSize/2;
             if (!isX) {
@@ -214,9 +212,15 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::transferParticles
                 yShift = 0;
             }
             glm::ivec2 gPos = gridPos(particle, xShift, yShift);
+
+            // set all cells with particles to fluid
+            if (cellTypes(gridPos(particle)) != SOLID) cellTypes(gridPos(particle)) = FLUID;
+
+            // transfer velocities to grid
             auto weights = particleGridWeights(particle, gPos, xShift, yShift);
             applyWeightedValuesToMatrix(velComponent, gPos, weights, vel);
             applyWeightedValuesToMatrix(weightComponent, gPos, weights, 1.0f);
+
         }
     };
 
@@ -238,7 +242,6 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::transferParticles
             current.velY(i, j) -= 9.8f * dt * 500;
         }
     }
-
 }
 
 template<uint32_t numTilesX, uint32_t numTilesY, uint32_t cellSize, uint32_t numParticles>
@@ -327,8 +330,7 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::extendVelocities(
 
 template<uint32_t numTilesX, uint32_t numTilesY, uint32_t cellSize, uint32_t numParticles>
 void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::projectVelocities(float deltaTime) {
-    static uint32_t iter = 0;
-    iter++;
+
     size_t fluidCells = 0;
     for (uint32_t i = 0; i < totalCells; i++) {
         if (cellTypes[i] == FLUID) fluidCells++;
@@ -350,22 +352,28 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::projectVelocities
 
             // setup matrix A of the system A*p = rhs
             A.set(i + numTilesX*j, i + numTilesX*j, sum);
-            if (solidCells(i + 1, j) == 1) A.set(i + numTilesX*j, i + 1 + numTilesX*j, -1);
-            if (solidCells(i - 1, j) == 1) A.set(i + numTilesX*j, i - 1 + numTilesX*j, -1);
-            if (solidCells(i,j - 1) == 1) A.set(i + numTilesX*j, i + numTilesX*(j-1), -1);
-            if (solidCells(i,j + 1) == 1) A.set(i + numTilesX*j, i + numTilesX*(j+1), -1);
+            if (solidCells(i + 1, j) > 0.0) A.set(i + numTilesX*j, i + 1 + numTilesX*j, -1);
+            if (solidCells(i - 1, j) > 0.0) A.set(i + numTilesX*j, i - 1 + numTilesX*j, -1);
+            if (solidCells(i,j - 1) > 0.0) A.set(i + numTilesX*j, i + numTilesX*(j-1), -1);
+            if (solidCells(i,j + 1) > 0.0) A.set(i + numTilesX*j, i + numTilesX*(j+1), -1);
+
+            if (A(i, j, 0) < 3) {
+                std::cout << "A(" << i << ", " << j << ", 0) = " << A(i, j, 0) << std::endl;
+            }
 
             // calculate rhs
-            rhs(i, j) = (-rho * cellSize / dt) * (current.velX(i + 1, j) - current.velX(i, j) + current.velY(i, j + 1) - current.velY(i, j));
+            rhs(i, j) = current.velX(i + 1, j) - current.velX(i, j) + current.velY(i, j + 1) - current.velY(i, j);
 
         }
     }
 
     // solve system with CG
     auto res = pressureSolver.solve(A, rhs, pressure, numIterations, 1e-6);
-    if (res >= 1) {
-        std::cout << "Num iteration exceeded!!\n";
-    }
+//    if (res >= 1) {
+//        std::cout << "Num iteration exceeded!!\n";
+//    } else {
+//        std::cout << "Converged!!\n";
+//    }
 
 
     double scale = dt / (rho * cellSize);
@@ -376,8 +384,8 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::projectVelocities
                 std::cout << "nan pressure" << std::endl;
                 continue;
             }
-            current.velX(i, j) -= float(scale*(pressure(i, j) - pressure(i - 1, j)));
-            current.velY(i, j) -= float(scale*(pressure(i, j) - pressure(i, j - 1)));
+            if (cellTypes(i-1, j) == FLUID) current.velX(i, j) += float(pressure(i, j) - pressure(i - 1, j));
+            if (cellTypes(i, j-1) == FLUID) current.velY(i, j) += float(pressure(i, j) - pressure(i, j - 1));
         }
     }
 

@@ -186,6 +186,13 @@ public:
 
     }
 
+    constexpr T operator()(uint32_t i, uint32_t j, uint32_t offset) const{
+        int idx = m_indices[i + cells_per_row*j];
+        if (idx == -1) return 0;
+        return m_matrix[idx*nonzero_per_sparse_row + offset];
+
+    }
+
     constexpr T& operator[] (uint32_t i) {
         return m_matrix[i];
     }
@@ -198,19 +205,27 @@ public:
         for (uint32_t i = cells_per_row+1; i < v.size() - cells_per_row - 1; i++) {
             if (m_indices[i] == -1) continue;
             uint32_t idx = m_indices[i]*nonzero_per_sparse_row;
-            res[i] = m_matrix[idx]*v[i] + m_matrix[idx+2]*v[i-1] + m_matrix[idx+1]*v[i+1] +
-                     m_matrix[idx+4]*v[i-cells_per_row] + m_matrix[idx+3]*v[i+cells_per_row];
+            res[i] = m_matrix[idx]*v[i] + m_matrix[idx+3]*v[i-1] + m_matrix[idx+1]*v[i+1] +
+                     m_matrix[idx+4]*v[i-cells_per_row] + m_matrix[idx+2]*v[i+cells_per_row];
         }
+    }
+
+    [[nodiscard]] bool isValidIdx(uint32_t i, uint32_t j) const {
+        return isValidIdx(i + cells_per_row*j);
+    }
+
+    [[nodiscard]] bool isValidIdx(uint32_t idx) const {
+        return m_indices[idx] != -1;
     }
 
     [[nodiscard]] int getIdx(uint32_t i, uint32_t j) const {
         if (m_indices[i] < 0) return -1;
         std::array<uint32_t, 5> conditions = {
                 i-j == 0,
+                i-j == -1,
+                i-j == -cells_per_row,
                 i-j == 1,
                 i-j == cells_per_row,
-                i-j == -1,
-                i-j == -cells_per_row
         };
         uint32_t comb = conditions[0] || conditions[1] || conditions[2] || conditions[3] || conditions[4];
         return -1*(!comb) + m_indices[i]*nonzero_per_sparse_row*comb + conditions[1] + 2*conditions[3] + 3*conditions[2] + 4*conditions[4];
