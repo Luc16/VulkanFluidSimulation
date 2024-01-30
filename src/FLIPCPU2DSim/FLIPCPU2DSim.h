@@ -45,7 +45,6 @@ private:
     constexpr static uint32_t numTilesX = WIDTH/SIZE;
     constexpr static uint32_t numTilesY = HEIGHT/SIZE;
     float flipRatio = 0.95f;
-    double rho = 0.1;
     uint32_t numIterations = 200;
     uint32_t extensions = 2;
 
@@ -70,7 +69,7 @@ private:
 
     vkb::Camera camera{};
 
-    FlipSolver<numTilesX, numTilesY, SIZE, PARTICLE_COUNT> flipSolver{radius, flipRatio, rho, numIterations, extensions};
+    FlipSolver<numTilesX, numTilesY, SIZE, PARTICLE_COUNT> flipSolver{radius, numIterations, extensions};
     std::unique_ptr<vkb::Buffer> particleBuffer;
     bool showParticles = true;
 

@@ -180,6 +180,12 @@ public:
         m_matrix[idx] = val;
     }
 
+    void set(uint32_t i, uint32_t j, uint32_t offset, T val) {
+        int idx = m_indices[i + cells_per_row*j];
+        if (idx == -1) return;
+        m_matrix[idx*nonzero_per_sparse_row + offset] = val;
+    }
+
     constexpr T operator()(uint32_t i, uint32_t j) const{
         int idx = getIdx(i, j);
         return (idx != -1) ? m_matrix[idx] : 0;
@@ -200,13 +206,14 @@ public:
         return m_matrix[i];
     }
 
-    constexpr void multiply(std::vector<T>& v, std::vector<T>& res) const {
+    constexpr void multiply(HeapMatrix<T, cells_per_row>& v, HeapMatrix<T, cells_per_row>& res) const {
         // assuming first line is boundary
-        for (uint32_t i = cells_per_row+1; i < v.size() - cells_per_row - 1; i++) {
-            if (m_indices[i] == -1) continue;
-            uint32_t idx = m_indices[i]*nonzero_per_sparse_row;
-            res[i] = m_matrix[idx]*v[i] + m_matrix[idx+3]*v[i-1] + m_matrix[idx+1]*v[i+1] +
-                     m_matrix[idx+4]*v[i-cells_per_row] + m_matrix[idx+2]*v[i+cells_per_row];
+        for (uint32_t j = 1; j < v.nRows()-1; ++j) {
+            for (uint32_t i = 1; i < v.nCols()-1; ++i) {
+                if (!isValidIdx(i, j)) continue;
+                res(i, j) = (*this)(i, j, 0)*v(i, j) + (*this)(i, j, 1)*v(i-1, j) + (*this)(i, j, 3)*v(i+1, j) +
+                        (*this)(i, j, 2)*v(i, j-1) + (*this)(i, j, 4)*v(i, j+1);
+            }
         }
     }
 

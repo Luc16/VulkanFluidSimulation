@@ -37,28 +37,21 @@ int PressureSolver<T, cells_per_row>::solve(SparseMatrix<T, cells_per_row>& A, H
     // PCG
     auto maxB = maxAbs(r);
 
-
-    auto residual = maxB;
-    uint32_t goingUp = 0;
-
-
     if (maxB < 1e-20) return 0;
     m_preconditioner.resize(r.size());
     formPreconditioner(A);
 
-    HeapMatrix<T, cells_per_row> z = r;
-    HeapMatrix<T, cells_per_row> m = r;
+    HeapMatrix<T, cells_per_row> z{r.size()};
+    HeapMatrix<T, cells_per_row> m{r.size()};
 
     applyPreconditioner(A, r, z, m);
     HeapMatrix<T, cells_per_row> s = z;
-
-    residual = maxAbs(r);
 
     T rho = dot(r, z);
     if (rho == 0) return 0;
 
     for (uint32_t iter = 0; iter < maxIterations; ++iter) {
-        A.multiply(s.getVector(), z.getVector());
+        A.multiply(s, z);
         T alpha = rho / dot(s, z);
 
         // res = res + alpha*s
@@ -67,11 +60,8 @@ int PressureSolver<T, cells_per_row>::solve(SparseMatrix<T, cells_per_row>& A, H
         // r = r - alpha*z
         addAndScale(r, z, -alpha);
 
-        auto prev_res = residual;
-        residual = maxAbs(r);
-        if (prev_res < residual) goingUp++;
-//        std::cout << "iter: " << iter << " res: " << residual/maxB << std::endl;
         if (maxAbs(r) < tolerance*maxB) {
+//            std::cout << "converged in: " << iter << " iterations\n";
             return 0;
         }
 
@@ -83,10 +73,6 @@ int PressureSolver<T, cells_per_row>::solve(SparseMatrix<T, cells_per_row>& A, H
         scaleAndAdd(s, z, beta);
 
         rho = rhoNew;
-    }
-
-    if (goingUp > 20) {
-        std::cout << "not converging\n";
     }
 
     return 1;
@@ -107,13 +93,14 @@ void PressureSolver<T, cells_per_row>::applyPreconditioner(SparseMatrix<T, cells
             }
         }
     }
+
     // solve L'*y=m
     for (uint32_t j = m_preconditioner.nRows()-2; j > 0; --j) {
         for (uint32_t i = m_preconditioner.nCols()-2; i > 0; --i) {
             y(i, j) = 0;
             if (A.isValidIdx(i, j)) {
                 d = m(i, j) - A(i, j, 3) * m_preconditioner(i, j) * y(i+1, j)
-                            - A(i, j, 4) * m_preconditioner(i, j) * m(i, j+1);
+                            - A(i, j, 4) * m_preconditioner(i, j) * y(i, j+1);
                 y(i, j) = d*m_preconditioner(i, j);
             }
         }

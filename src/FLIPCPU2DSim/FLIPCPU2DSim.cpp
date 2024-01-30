@@ -105,7 +105,7 @@ void FLIPCPU2DSim::createBuffers() {
 void FLIPCPU2DSim::mainLoop(float deltaTime) {
     auto currentTime = std::chrono::high_resolution_clock::now();
 
-    if (!paused) flipSolver.updateSimulation(deltaTime);
+    if (!paused) flipSolver.updateSimulation(deltaTime, flipRatio);
 
     updateBuffers(renderer.currentFrame());
 
@@ -252,9 +252,7 @@ void FLIPCPU2DSim::showImGui(){
     ImGui::Checkbox("Show Velocity Field", &showVelField);
     ImGui::Checkbox("Show Fluid Cells", &showFluidQuads);
 
-    auto temp = float(rho);
-    ImGui::DragFloat("Density", &temp, 0.001f, 0.0001f, 100.0f);
-    rho = temp;
+    ImGui::DragFloat("Flip ratio", &flipRatio, 0.001f, 0.0001f, 1.0f);
 
 
     if (ImGui::Button("Reset") || glfwIsKeyJustPressed(GLFW_KEY_R)) initializeObjects();
