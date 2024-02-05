@@ -28,17 +28,6 @@ namespace vkb {
 
     }
 
-    bool VulkanApp::glfwIsKeyJustPressed(int key) {
-        static bool wasReleased = false;
-        if (wasReleased && glfwGetKey(window.window(), key) == GLFW_PRESS) {
-            wasReleased = false;
-            return true;
-        } else if (glfwGetKey(window.window(), key) == GLFW_RELEASE){
-            wasReleased = true;
-        }
-        return false;
-    }
-
     void VulkanApp::run() {
         onCreate();
 

@@ -87,10 +87,9 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::updateSimulation(
     // project velocities
     // transfer grid velocities to particles
     // add gravity to velY
-    for (uint32_t i = 0; i < 5; i++) {
+    for (uint32_t _ = 0; _ < 5; _++) {
         advectParticles(0.2f*dt);
     }
-    advectParticles(dt);
     transferParticlesVelocitiesToGrid();
     applyWeightsAndGravity();
     enforceDirichlet();
@@ -231,8 +230,6 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::applyWeightedValu
 
 template<uint32_t numTilesX, uint32_t numTilesY, uint32_t cellSize, uint32_t numParticles>
 void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::transferParticlesVelocitiesToGrid() {
-
-
     previous.velX.swap(current.velX);
     previous.velY.swap(current.velY);
     // reset all cells (to air, and velocities and weights to 0)
@@ -268,9 +265,8 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::transferParticles
 
 template<uint32_t numTilesX, uint32_t numTilesY, uint32_t cellSize, uint32_t numParticles>
 void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::applyWeightsAndGravity() {
-    fluidCells = 0;
-    for (uint32_t j = 0; j < numTilesY; j++) {
-        for (uint32_t i = 0; i < numTilesX; i++) {
+    for (uint32_t j = 1; j < numTilesY-1; j++) {
+        for (uint32_t i = 1; i < numTilesX-1; i++) {
             if (weightVelY(i, j) > 0.0001) {
                 current.velY(i, j) /= weightVelY(i, j);
             }
@@ -308,66 +304,56 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::extendVelocities(
             previous.velY(i, j) = current.velY(i, j);
         }
     }
+
+    auto expandVelComponentCell = [this](uint32_t i, uint32_t j,
+                                         Matrix<float, totalCells, numTilesX>& cur, Matrix<float, totalCells, numTilesX>& prev){
+        uint32_t validNeighbors = 0;
+        if (std::abs(prev(i-1, j)) > 0) {
+            cur(i, j) += prev(i-1, j);
+            validNeighbors++;
+        }
+        if (std::abs(prev(i+1, j)) > 0) {
+            cur(i, j) += prev(i+1, j);
+            validNeighbors++;
+        }
+        if (std::abs(prev(i, j-1)) > 0) {
+            cur(i, j) += prev(i, j-1);
+            validNeighbors++;
+        }
+        if (std::abs(prev(i, j+1)) > 0) {
+            cur(i, j) += prev(i, j+1);
+            validNeighbors++;
+        }
+
+        if (validNeighbors > 0) {
+            cur(i, j) /= float(validNeighbors);
+        }
+    };
+
     for (uint32_t _ = 0; _ < extensions; _++) {
-        for (uint32_t j = 1; j < numTilesY - 1; j++) {
-            for (uint32_t i = 1; i < numTilesX - 1; i++) {
-                if (cellTypes(i, j) != SOLID && cellTypes(i-1, j) != SOLID && previous.velX(i, j) == 0.0f){
-                    uint32_t validNeighbors = 0;
-                    if (std::abs(current.velX(i-1, j)) > 0) {
-                        previous.velX(i, j) += previous.velX(i-1, j);
-                        validNeighbors++;
-                    }
-                    if (std::abs(current.velX(i+1, j)) > 0) {
-                        previous.velX(i, j) += previous.velX(i+1, j);
-                        validNeighbors++;
-                    }
-                    if (std::abs(current.velX(i, j-1)) > 0) {
-                        previous.velX(i, j) += previous.velX(i, j-1);
-                        validNeighbors++;
-                    }
-                    if (std::abs(current.velX(i, j+1)) > 0) {
-                        previous.velX(i, j) += previous.velX(i, j+1);
-                        validNeighbors++;
-                    }
-
-                    if (validNeighbors > 0) {
-                        previous.velX(i, j) /= float(validNeighbors);
-                    }
+        current.velX.swap(previous.velX);
+        current.velY.swap(previous.velY);
+        for (uint32_t j = 1; j < numTilesY-1; j++) {
+            for (uint32_t i = 1; i < numTilesX-1; i++) {
+                if (cellTypes(i, j) != SOLID && cellTypes(i-1, j) != SOLID && std::abs(previous.velX(i, j)) < 1e-6){
+                    expandVelComponentCell(i, j, current.velX, previous.velX);
+                } else {
+                    current.velX(i, j) = previous.velX(i, j);
                 }
-                if (cellTypes(i, j) != SOLID || j > 0 && cellTypes(i, j-1) != SOLID && previous.velY(i, j) == 0.0f){
-                    uint32_t validNeighbors = 0;
-                    if (std::abs(current.velY(i-1, j)) > 0) {
-                        previous.velY(i, j) += previous.velY(i-1, j);
-                        validNeighbors++;
-                    }
-                    if (std::abs(current.velY(i+1, j)) > 0) {
-                        previous.velY(i, j) += previous.velY(i+1, j);
-                        validNeighbors++;
-                    }
-                    if (std::abs(current.velY(i, j-1)) > 0) {
-                        previous.velY(i, j) += previous.velY(i, j-1);
-                        validNeighbors++;
-                    }
-                    if (std::abs(current.velY(i, j+1)) > 0) {
-                        previous.velY(i, j) += previous.velY(i, j+1);
-                        validNeighbors++;
-                    }
-
-                    if (validNeighbors > 0) {
-                        previous.velY(i, j) /= float(validNeighbors);
-                    }
+                if (cellTypes(i, j) != SOLID && cellTypes(i, j-1) != SOLID && std::abs(previous.velY(i, j)) < 1e-6){
+                    expandVelComponentCell(i, j, current.velY, previous.velY);
+                } else {
+                    current.velY(i, j) = previous.velY(i, j);
                 }
             }
         }
-        previous.velX.swap(current.velX);
-        previous.velY.swap(current.velY);
     }
 }
 
 template<uint32_t numTilesX, uint32_t numTilesY, uint32_t cellSize, uint32_t numParticles>
 void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::projectVelocities(float deltaTime) {
 
-//    size_t fluidCells = 0;
+    fluidCells = 0;
     for (uint32_t i = 0; i < totalCells; i++) {
         if (cellTypes[i] == FLUID) fluidCells++;
         rhs[i] = 0;

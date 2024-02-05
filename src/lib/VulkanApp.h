@@ -52,7 +52,7 @@ namespace vkb{
         void enableEmergencyExit() { m_emergencyExit = true; }
         void disableEmergencyExit() { m_emergencyExit = false; }
         bool isEmergencyExitEnabled() { return m_emergencyExit; }
-        bool glfwIsKeyJustPressed(int key);
+        template<int key> bool glfwIsKeyJustPressed();
 
         vkb::Window window;
         vkb::Device device;
@@ -61,6 +61,19 @@ namespace vkb{
 
         vkb::Renderer renderer;
     };
+
+
+    template<int key>
+    bool VulkanApp::glfwIsKeyJustPressed() {
+        static bool wasReleased = false;
+        if (wasReleased && glfwGetKey(window.window(), key) == GLFW_PRESS) {
+            wasReleased = false;
+            return true;
+        } else if (glfwGetKey(window.window(), key) == GLFW_RELEASE){
+            wasReleased = true;
+        }
+        return false;
+    }
 }
 
 

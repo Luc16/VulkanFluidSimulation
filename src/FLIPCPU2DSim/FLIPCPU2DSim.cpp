@@ -254,9 +254,8 @@ void FLIPCPU2DSim::showImGui(){
 
     ImGui::DragFloat("Flip ratio", &flipRatio, 0.001f, 0.0001f, 1.0f);
 
-
-    if (ImGui::Button("Reset") || glfwIsKeyJustPressed(GLFW_KEY_R)) initializeObjects();
-    if (ImGui::Button("Pause") || glfwIsKeyJustPressed(GLFW_KEY_SPACE)) paused = !paused;
+    if (ImGui::Button("Reset") || glfwIsKeyJustPressed<GLFW_KEY_R>()) initializeObjects();
+    if (ImGui::Button("Pause") || glfwIsKeyJustPressed<GLFW_KEY_SPACE>()) paused = !paused;
     ImGui::Text("Using %s", device.getPhysicalDeviceName().c_str());
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                 ImGui::GetIO().Framerate);
