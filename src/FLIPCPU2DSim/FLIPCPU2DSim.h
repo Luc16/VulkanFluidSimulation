@@ -37,7 +37,7 @@ public:
             VulkanApp(WIDTH, HEIGHT, appName, type) {}
 
 private:
-    static constexpr uint32_t PARTICLE_COUNT = 2000;
+    static constexpr uint32_t PARTICLE_COUNT = 3000;
     static constexpr float dt = 1/120.0f;
 //    static constexpr float dt = 1/60.0f;
     static constexpr float radius = 8.0f;

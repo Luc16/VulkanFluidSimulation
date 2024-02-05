@@ -37,11 +37,15 @@ private:
     [[nodiscard]] glm::ivec2 gridPos(const Particle& particle, uint32_t xShift = 0, uint32_t yShift = 0) const { return {
                 (uint32_t(std::clamp(particle.position.x, float(xShift), float(cellSize*(numTilesX - 1)))) - xShift) / cellSize,
                 (uint32_t(std::clamp(particle.position.y, float(yShift), float(cellSize*(numTilesY - 1)))) - yShift) / cellSize}; }
+    [[nodiscard]] glm::ivec2 gridPos(const glm::vec3& pos, uint32_t xShift = 0, uint32_t yShift = 0) const { return {
+                (uint32_t(std::clamp(pos.x, float(xShift), float(cellSize*(numTilesX - 1)))) - xShift) / cellSize,
+                (uint32_t(std::clamp(pos.y, float(yShift), float(cellSize*(numTilesY - 1)))) - yShift) / cellSize}; }
 
 
     float particleRadius;
     uint32_t numIterations;
     uint32_t extensions;
+    uint32_t fluidCells = 0;
     float dt = 1/60.0f;
 
     FluidData current, previous;
@@ -58,13 +62,16 @@ public:
 
     void resetGrid(bool hardReset = false);
     void initializeParticles();
-    void advectParticles();
-    static std::tuple<float, float, float, float> particleGridWeights(const Particle& particle, glm::ivec2 gridPos, uint32_t xShift, uint32_t yShift);
+    void advectParticles(float deltaTime);
+    static std::tuple<float, float, float, float> particleGridWeights(const glm::vec3& pos, glm::ivec2 gridPos, uint32_t xShift, uint32_t yShift);
     static void applyWeightedValuesToMatrix(Matrix<float, totalCells, numTilesX>& matrix, glm::ivec2 gridPos, std::tuple<float, float, float, float> weights, float value);
     void transferParticlesVelocitiesToGrid();
+    void applyWeightsAndGravity();
+    glm::vec3 getVelocityFromGrid(const glm::vec3& pos);
     void transferGridVelocitiesToParticles(float flipRatio);
     void enforceDirichlet();
     void extendVelocities();
+
     void projectVelocities(float deltaTime);
 
     void updateSimulation(float deltaTime, float flipRatio);
@@ -80,18 +87,15 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::updateSimulation(
     // project velocities
     // transfer grid velocities to particles
     // add gravity to velY
-    advectParticles();
+    for (uint32_t i = 0; i < 5; i++) {
+        advectParticles(0.2f*dt);
+    }
+    advectParticles(dt);
     transferParticlesVelocitiesToGrid();
-//    for (uint32_t j = 22; j < 29; j++) {
-//        for (uint32_t i = 22; i < 29; i++) {
-//            cellTypes(i, j) = FLUID;
-//            current.velY(i, j) -= 9.8f * dt;
-//        }
-//    }
+    applyWeightsAndGravity();
     enforceDirichlet();
     extendVelocities();
     projectVelocities(deltaTime);
-    enforceDirichlet();
     transferGridVelocitiesToParticles(flipRatio);
 
 }
@@ -145,40 +149,68 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::initializeParticl
 }
 
 template<uint32_t numTilesX, uint32_t numTilesY, uint32_t cellSize, uint32_t numParticles>
-void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::advectParticles() {
-    static constexpr float BOUND_DAMPING = 0.f;
+glm::vec3 FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::getVelocityFromGrid(const glm::vec3& pos) {
+
+    auto velComponent = [this, &pos](uint32_t xShift, uint32_t yShift, Matrix<float, totalCells, numTilesX>& velComponent) {
+        glm::ivec2 gPos = gridPos(pos, xShift, yShift);
+        auto [wdl, wdr, wul, wur] = particleGridWeights(pos, gPos, xShift, yShift);
+
+        auto vdl = velComponent(gPos);
+        auto vdr = velComponent(gPos.x + 1, gPos.y);
+        auto vul = velComponent(gPos.x, gPos.y + 1);
+        auto vur = velComponent(gPos.x + 1, gPos.y + 1);
+
+        float vel = wdl*vdl + wdr*vdr + wul*vul + wur*vur;
+        return vel;
+    };
+
+    return glm::vec3(
+            velComponent(0, cellSize/2, current.velX),
+            velComponent(cellSize/2, 0, current.velY),
+            0.0f
+    );
+
+}
+
+template<uint32_t numTilesX, uint32_t numTilesY, uint32_t cellSize, uint32_t numParticles>
+void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::advectParticles(float deltaTime) {
     float minX = float(cellSize) + particleRadius, maxX = float(cellSize*(numTilesX-1)) - particleRadius;
     float minY = float(cellSize) + particleRadius, maxY = float(cellSize*(numTilesY-1)) - particleRadius;
 
-    for (auto &particle : particles) {
-        particle.position += dt * particle.velocity;
-
+    auto clampParticlePosition = [minX, maxX, minY, maxY](Particle& particle) {
         if (particle.position.x < minX) {
-            particle.velocity.x *= BOUND_DAMPING;
+            particle.velocity.x = 0;
             particle.position.x = minX;
         }
         if (particle.position.x > maxX) {
-            particle.velocity.x *= BOUND_DAMPING;
+            particle.velocity.x = 0;
             particle.position.x = maxX;
         }
         if (particle.position.y < minY) {
-            particle.velocity.y *= BOUND_DAMPING;
+            particle.velocity.y = 0;
             particle.position.y = minY;
         }
         if (particle.position.y > maxY) {
-            particle.velocity.y *= BOUND_DAMPING;
+            particle.velocity.y = 0;
             particle.position.y = maxY;
         }
+    };
 
+    for (auto &particle : particles) {
+        glm::vec3 midWay = particle.position + 0.5f * deltaTime * getVelocityFromGrid(particle.position);
+        clampParticlePosition(particle);
+
+        particle.position += deltaTime * getVelocityFromGrid(midWay);
+        clampParticlePosition(particle);
     }
 }
 
 template<uint32_t numTilesX, uint32_t numTilesY, uint32_t cellSize, uint32_t numParticles>
-std::tuple<float, float, float, float> FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::particleGridWeights(const Particle& particle, glm::ivec2 gridPos, uint32_t xShift, uint32_t yShift){
+std::tuple<float, float, float, float> FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::particleGridWeights(const glm::vec3& pos, glm::ivec2 gridPos, uint32_t xShift, uint32_t yShift){
     auto fSize = float(cellSize);
 
-    float dx = particle.position.x - float(cellSize * gridPos.x + xShift);
-    float dy = particle.position.y - float(cellSize * gridPos.y + yShift);
+    float dx = pos.x - float(cellSize * gridPos.x + xShift);
+    float dy = pos.y - float(cellSize * gridPos.y + yShift);
 
     return {
             (1.0f - dx / fSize) * (1.0f - dy / fSize), // down left
@@ -221,7 +253,7 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::transferParticles
             if (cellTypes(gridPos(particle)) != SOLID) cellTypes(gridPos(particle)) = FLUID;
 
             // transfer velocities to grid
-            auto weights = particleGridWeights(particle, gPos, xShift, yShift);
+            auto weights = particleGridWeights(particle.position, gPos, xShift, yShift);
             applyWeightedValuesToMatrix(velComponent, gPos, weights, vel);
             applyWeightedValuesToMatrix(weightComponent, gPos, weights, 1.0f);
 
@@ -231,8 +263,14 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::transferParticles
     addVelComponent(current.velX, weightVelX, true);
     addVelComponent(current.velY, weightVelY, false);
 
-    for (uint32_t j = 1; j < numTilesY-1; j++) {
-        for (uint32_t i = 1; i < numTilesX - 1; i++) {
+
+}
+
+template<uint32_t numTilesX, uint32_t numTilesY, uint32_t cellSize, uint32_t numParticles>
+void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::applyWeightsAndGravity() {
+    fluidCells = 0;
+    for (uint32_t j = 0; j < numTilesY; j++) {
+        for (uint32_t i = 0; i < numTilesX; i++) {
             if (weightVelY(i, j) > 0.0001) {
                 current.velY(i, j) /= weightVelY(i, j);
             }
@@ -240,9 +278,6 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::transferParticles
                 current.velX(i, j) /= weightVelX(i, j);
             }
             // apply gravity
-//            if (cellTypes(i, j) == FLUID) {
-//                current.velY(i, j) -= 9.8f * dt * 500;
-//            }
             current.velY(i, j) -= 9.8f * dt * 500;
         }
     }
@@ -251,15 +286,12 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::transferParticles
 template<uint32_t numTilesX, uint32_t numTilesY, uint32_t cellSize, uint32_t numParticles>
 void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::enforceDirichlet() {
     for (uint32_t j = 0; j < numTilesY; j++) {
-        for (uint32_t i = 0; i < numTilesX; i++) {
-            if (cellTypes(i, j) == SOLID || i > 0 && cellTypes(i-1, j) == SOLID){
-                current.velX(i, j) = 0.0f;
-            }
-            if (cellTypes(i, j) == SOLID || j > 0 && cellTypes(i, j-1) == SOLID){
-                current.velY(i, j) = 0.0f;
-            }
-        }
+        current.velX(0, j) = current.velX(1, j) = current.velX(numTilesX - 1, j) = 0.0f;
     }
+    for (uint32_t i = 0; i < numTilesX; i++) {
+        current.velY(i, 0) = current.velY(i, 1) = current.velY(i, numTilesY-1) = 0.0f;
+    }
+
 }
 
 template<uint32_t numTilesX, uint32_t numTilesY, uint32_t cellSize, uint32_t numParticles>
@@ -335,7 +367,7 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::extendVelocities(
 template<uint32_t numTilesX, uint32_t numTilesY, uint32_t cellSize, uint32_t numParticles>
 void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::projectVelocities(float deltaTime) {
 
-    size_t fluidCells = 0;
+//    size_t fluidCells = 0;
     for (uint32_t i = 0; i < totalCells; i++) {
         if (cellTypes[i] == FLUID) fluidCells++;
         rhs[i] = 0;
@@ -406,7 +438,7 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::transferGridVeloc
                 yShift = 0;
             }
             glm::ivec2 gPos = gridPos(particle, xShift, yShift);
-            auto [wdl, wdr, wul, wur] = particleGridWeights(particle, gPos, xShift, yShift);
+            auto [wdl, wdr, wul, wur] = particleGridWeights(particle.position, gPos, xShift, yShift);
 
             auto vdl = velComponent(gPos);
             auto vdr = velComponent(gPos.x + 1, gPos.y);
