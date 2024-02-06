@@ -84,7 +84,6 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::updateSimulation(
     enforceBoundaryConditions();
     projectVelocities(deltaTime);
     transferGridVelocitiesToParticles(flipRatio);
-
 }
 
 template<uint32_t numTilesX, uint32_t numTilesY, uint32_t cellSize, uint32_t numParticles>
@@ -218,9 +217,6 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::advectParticles(f
 
         v = getVelocityFromGrid(midWay);
         particle.position += deltaTime * v;
-        if (particle.position.x != particle.position.x || particle.position.y != particle.position.y) {
-            std::cout << "nan particle position" << std::endl;
-        }
         clampParticlePosition(particle);
     }
 }
@@ -315,9 +311,11 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::enforceBoundaryCo
     for (uint32_t j = 0; j < numTilesY; j++) {
         cellTypes(0, j) = cellTypes(numTilesX-1, j) = SOLID;
         current.velX(0, j) = current.velX(1, j) = current.velX(numTilesX - 1, j) = current.velX(numTilesX - 2, j) = 0.0f;
+//        current.velY(0, j) = current.velY(1, j) = current.velY(numTilesX - 1, j) = current.velY(numTilesX - 2, j) = 0.0f;
     }
     for (uint32_t i = 0; i < numTilesX; i++) {
         cellTypes(i, 0) = cellTypes(i, numTilesY-1) = SOLID;
+        current.velX(i, 0) = current.velX(i, 1) = 0;//current.velX(i, numTilesY-1) = current.velX(i, numTilesY-2) = 0.0f;
         current.velY(i, 0) = current.velY(i, 1) = current.velY(i, numTilesY-1) = current.velY(i, numTilesY-2) = 0.0f;
     }
 
@@ -446,7 +444,9 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::projectVelocities
 template<uint32_t numTilesX, uint32_t numTilesY, uint32_t cellSize, uint32_t numParticles>
 void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::transferGridVelocitiesToParticles(float flipRatio) {
 
-    auto addVelComponent = [this, flipRatio](Matrix<float, totalCells, numTilesX>& velComponent, Matrix<float, totalCells, numTilesX>& prevVelComponent, bool isX) {
+
+    auto addVelComponent = [this, flipRatio](Matrix<float, totalCells, numTilesX>& velComponent,
+            Matrix<float, totalCells, numTilesX>& prevVelComponent, bool isX) {
         for (auto& particle: particles) {
             float vel = particle.velocity.x;
             uint32_t xShift = 0, yShift = cellSize/2;
@@ -469,9 +469,6 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::transferGridVeloc
                                 wul*(vul - prevVelComponent(gPos.x, gPos.y + 1)) +
                                 wur*(vur - prevVelComponent(gPos.x + 1, gPos.y + 1)));
             float flipContribution = vel + correction;
-            if (std::abs(picContribution) > 1e20) {
-                std::cout << "nan picContribution" << std::endl;
-            }
 
             if (isX){
                 particle.velocity.x = (1 - flipRatio) * picContribution + flipRatio * flipContribution;

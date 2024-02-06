@@ -106,6 +106,7 @@ void FLIPCPU2DSim::createBuffers() {
 void FLIPCPU2DSim::mainLoop(float deltaTime) {
     auto currentTime = std::chrono::high_resolution_clock::now();
 
+    disableEmergencyExit();
     if (!paused) flipSolver.updateSimulation(deltaTime, flipRatio);
 
     updateBuffers(renderer.currentFrame());
