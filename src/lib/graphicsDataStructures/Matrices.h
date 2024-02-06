@@ -43,6 +43,14 @@ public:
         return m_matrix.size();
     }
 
+    [[nodiscard]] constexpr T infNorm() const {
+        T max = 0;
+        for (size_t i = 0; i < m_matrix.size(); ++i) {
+            if (std::abs(m_matrix[i]) > max) max = std::abs(m_matrix[i]);
+        }
+        return max;
+    }
+
 private:
     std::array<T, totalSize> m_matrix{};
 };
@@ -103,6 +111,14 @@ public:
 
     [[nodiscard]] uint32_t nCols() const {
         return row;
+    }
+
+    [[nodiscard]] constexpr T infNorm() const {
+        T max = 0;
+        for (size_t i = 0; i < m_matrix.size(); ++i) {
+            if (std::abs(m_matrix[i]) > max) max = std::abs(m_matrix[i]);
+        }
+        return max;
     }
 
 private:

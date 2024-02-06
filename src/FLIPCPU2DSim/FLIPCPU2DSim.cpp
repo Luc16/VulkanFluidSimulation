@@ -53,6 +53,7 @@ void FLIPCPU2DSim::initializeObjects() {
 
     // initialize particles
     flipSolver.initializeParticles();
+    flipSolver.initializeParticles();
     flipSolver.resetGrid(true);
 }
 
@@ -173,7 +174,7 @@ void FLIPCPU2DSim::updateAndDrawVelocityField(VkCommandBuffer commandBuffer) {
     velocityLines.reserve(2*numTilesX*numTilesY);
     for (uint32_t j = 0; j < numTilesY-1; j++) {
         for (uint32_t i = 0; i < numTilesX-1; i++) {
-//            if (cellTypes(i, j) != FLUID) continue;
+            if (flipSolver.getCellType(i, j) != FLUID) continue;
             float velXCenter = (flipSolver.getVelX(i, j) + flipSolver.getVelX(i+1, j))/2;
             float velYCenter = (flipSolver.getVelY(i, j) + flipSolver.getVelY(i, j+1))/2;
 
@@ -256,6 +257,17 @@ void FLIPCPU2DSim::showImGui(){
 
     if (ImGui::Button("Reset") || glfwIsKeyJustPressed<GLFW_KEY_R>()) initializeObjects();
     if (ImGui::Button("Pause") || glfwIsKeyJustPressed<GLFW_KEY_SPACE>()) paused = !paused;
+
+    static bool singleStep = false;
+    if (singleStep) {
+        paused = true;
+        singleStep = false;
+    }
+    if (ImGui::Button("Step") || glfwIsKeyJustPressed<GLFW_KEY_S>()) {
+        singleStep = true;
+        paused = false;
+    }
+
     ImGui::Text("Using %s", device.getPhysicalDeviceName().c_str());
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                 ImGui::GetIO().Framerate);

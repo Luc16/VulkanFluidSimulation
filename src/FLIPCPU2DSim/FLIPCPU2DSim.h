@@ -37,16 +37,15 @@ public:
             VulkanApp(WIDTH, HEIGHT, appName, type) {}
 
 private:
-    static constexpr uint32_t PARTICLE_COUNT = 3000;
-    static constexpr float dt = 1/120.0f;
-//    static constexpr float dt = 1/60.0f;
-    static constexpr float radius = 8.0f;
-    static constexpr uint32_t SIZE = 20;
+    static constexpr uint32_t PARTICLE_COUNT = 20000;
+    static constexpr float dt = 1/60.0f;
+    static constexpr float radius = 4.0f;
+    static constexpr uint32_t SIZE = 10;
     constexpr static uint32_t numTilesX = WIDTH/SIZE;
     constexpr static uint32_t numTilesY = HEIGHT/SIZE;
     float flipRatio = 0.95f;
     uint32_t numIterations = 200;
-    uint32_t extensions = 2;
+    uint32_t extensions = 4;
 
     const vkb::RenderSystem::ShaderPaths particleShaderPaths = vkb::RenderSystem::ShaderPaths {
             "../src/FLIPCPU2DSim/Shaders/particle.vert.spv",
