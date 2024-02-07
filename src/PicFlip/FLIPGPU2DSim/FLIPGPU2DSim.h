@@ -7,54 +7,56 @@
 
 #define GLM_GTX_norm
 #include <sstream>
-#include "../../external/imgui/imgui.h"
-#include "../../external/objloader/tiny_obj_loader.h"
-#include "../lib/SwapChain.h"
-#include "../lib/Buffer.h"
-#include "../lib/Model.h"
-#include "../lib/utils.h"
-#include "../lib/Texture.h"
-#include "../lib/descriptors/DescriptorSetLayout.h"
-#include "../lib/Camera.h"
-#include "../lib/CameraMovementController.h"
-#include "../lib/RenderSystem.h"
-#include "../lib/DrawableObject.h"
-#include "../lib/VulkanApp.h"
-#include "../lib/InstancedObjects.h"
-#include "../lib/ComputeSystem.h"
-#include "../lib/ComputeShaderHandler.h"
-#include "../lib/graphicsDataStructures/Matrices.h"
+#include "../../../external/imgui/imgui.h"
+#include "../../../external/objloader/tiny_obj_loader.h"
+#include "../../lib/SwapChain.h"
+#include "../../lib/Buffer.h"
+#include "../../lib/Model.h"
+#include "../../lib/utils.h"
+#include "../../lib/Texture.h"
+#include "../../lib/descriptors/DescriptorSetLayout.h"
+#include "../../lib/Camera.h"
+#include "../../lib/CameraMovementController.h"
+#include "../../lib/RenderSystem.h"
+#include "../../lib/DrawableObject.h"
+#include "../../lib/VulkanApp.h"
+#include "../../lib/InstancedObjects.h"
+#include "../../lib/ComputeSystem.h"
+#include "../../lib/ComputeShaderHandler.h"
+#include "../../lib/graphicsDataStructures/Matrices.h"
 #include "structs.h"
 #include "PressureSolver.h"
 #include "FlipSolver.h"
 
-class FLIPCPU2DSim: public vkb::VulkanApp {
+class FLIPGPU2DSim: public vkb::VulkanApp {
 public:
     constexpr static uint32_t WIDTH = 1500;
     constexpr static uint32_t HEIGHT = 1000;
 
-    explicit FLIPCPU2DSim(const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
+    explicit FLIPGPU2DSim(const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
             VulkanApp(WIDTH, HEIGHT, appName, type) {}
 
 private:
+    std::string DIR = std::string("../src/PicFlip/FLIPGPU2DSim/");
+
     static constexpr uint32_t PARTICLE_COUNT = 20000;
     static constexpr float dt = 1/60.0f;
     static constexpr float radius = 4.0f;
     static constexpr uint32_t SIZE = 10;
     constexpr static uint32_t numTilesX = WIDTH/SIZE;
     constexpr static uint32_t numTilesY = HEIGHT/SIZE;
-    float flipRatio = 0.95f;
+    float flipRatio = 0.90f;
     uint32_t numIterations = 200;
     uint32_t extensions = 4;
 
     const vkb::RenderSystem::ShaderPaths particleShaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../src/FLIPCPU2DSim/Shaders/particle.vert.spv",
-            "../src/FLIPCPU2DSim/Shaders/particle.frag.spv"
+            DIR + "Shaders/particle.vert.spv",
+            DIR + "Shaders/particle.frag.spv"
     };
 
     const vkb::RenderSystem::ShaderPaths defaultShaderPaths = vkb::RenderSystem::ShaderPaths {
-            "../src/FLIPCPU2DSim/Shaders/default.vert.spv",
-            "../src/FLIPCPU2DSim/Shaders/default.frag.spv"
+            DIR + "Shaders/default.vert.spv",
+            DIR + "Shaders/default.frag.spv"
     };
 
     std::vector<std::unique_ptr<vkb::Buffer>> uniformBuffers;

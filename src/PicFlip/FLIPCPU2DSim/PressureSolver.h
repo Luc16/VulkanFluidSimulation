@@ -8,7 +8,7 @@
 
 #include <cstdint>
 #include <vector>
-#include "../lib/graphicsDataStructures/Matrices.h"
+#include "../../lib/graphicsDataStructures/Matrices.h"
 
 template<typename T, uint32_t cells_per_row>
 class PressureSolver {

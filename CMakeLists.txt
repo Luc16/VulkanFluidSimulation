@@ -44,17 +44,11 @@ set( GENERAL_APPS
         "Instancing"
         "PointSpheres"
         "ComputeShaderTest"
-        "FLIPCPU2DSim"
         "SineWaveFluidSim"
         )
 
 foreach( testsourcefolder ${GENERAL_APPS} )
-    add_executable( ${testsourcefolder} src/${testsourcefolder}/main.cpp src/${testsourcefolder}/${testsourcefolder}.h src/${testsourcefolder}/${testsourcefolder}.cpp
-    src/FLIPCPU2DSim/structs.h
-    src/FLIPCPU2DSim/PressureSolver.h
-    src/FLIPCPU2DSim/PressureSolver.cpp
-            src/FLIPCPU2DSim/FlipSolver.cpp
-            src/FLIPCPU2DSim/FlipSolver.h)
+    add_executable( ${testsourcefolder} src/${testsourcefolder}/main.cpp src/${testsourcefolder}/${testsourcefolder}.h src/${testsourcefolder}/${testsourcefolder}.cpp)
     target_link_libraries( ${testsourcefolder} VkFluidSim GL glfw Vulkan::Vulkan)
 endforeach( testsourcefolder ${GENERAL_APPS} )
 
@@ -87,4 +81,18 @@ foreach( testsourcefolder ${SPH_APPS} )
     target_link_libraries( ${testsourcefolder} VkFluidSim GL glfw Vulkan::Vulkan)
 endforeach( testsourcefolder ${SPH_APPS} )
 
+set( FLIP_APPS
+        "FLIPCPU2DSim"
+        "FLIPGPU2DSim"
+)
+
+foreach( testsourcefolder ${FLIP_APPS} )
+    add_executable( ${testsourcefolder} src/PicFlip/${testsourcefolder}/main.cpp src/PicFlip/${testsourcefolder}/${testsourcefolder}.h src/PicFlip/${testsourcefolder}/${testsourcefolder}.cpp
+            src/PicFlip/${testsourcefolder}/structs.h
+            src/PicFlip/${testsourcefolder}/PressureSolver.h
+            src/PicFlip/${testsourcefolder}/PressureSolver.cpp
+            src/PicFlip/${testsourcefolder}/FlipSolver.cpp
+            src/PicFlip/${testsourcefolder}/FlipSolver.h)
+    target_link_libraries( ${testsourcefolder} VkFluidSim GL glfw Vulkan::Vulkan)
+endforeach( testsourcefolder ${FLIP_APPS} )
 

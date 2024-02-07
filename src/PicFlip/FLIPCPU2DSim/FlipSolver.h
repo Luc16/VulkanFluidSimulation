@@ -6,8 +6,8 @@
 #define VULKANFLUIDSIMULATION_FLIPSOLVER_H
 #include <sstream>
 
-#include "../lib/utils.h"
-#include "../lib/graphicsDataStructures/Matrices.h"
+#include "../../lib/utils.h"
+#include "../../lib/graphicsDataStructures/Matrices.h"
 #include "structs.h"
 #include "PressureSolver.h"
 

@@ -799,7 +799,7 @@ void PBFGPU3DSim::showImGui(){
         pausedSimulation = false;
     }
 
-    if (ImGui::Button("Reset") || glfwIsKeyJustPressed(GLFW_KEY_R)) {
+    if (ImGui::Button("Reset") || glfwIsKeyJustPressed<GLFW_KEY_R>()) {
         initializeObjects(true);
         controlMode = false;
 //        pausedSimulation = false;
