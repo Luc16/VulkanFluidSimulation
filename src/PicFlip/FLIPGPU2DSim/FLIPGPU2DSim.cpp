@@ -53,8 +53,6 @@ void FLIPGPU2DSim::initializeObjects() {
 
     // initialize particles
     flipSolver.initializeParticles();
-    flipSolver.initializeParticles();
-    flipSolver.resetGrid(true);
 }
 
 void FLIPGPU2DSim::generateGridLines() {
@@ -85,13 +83,9 @@ void FLIPGPU2DSim::generateGridLines() {
 void FLIPGPU2DSim::createBuffers() {
     particleBuffer = std::make_unique<vkb::Buffer>(device, PARTICLE_COUNT * sizeof(Particle), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
                                                                                    VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    vkb::Buffer::writeVectorToBuffer(device, particleBuffer, flipSolver.particles);
+//    vkb::Buffer::writeVectorToBuffer(device, particleBuffer, flipSolver.particles);
     gridLinesBuffer = std::make_unique<vkb::Buffer>(device, (numTilesX + numTilesY) * sizeof(Line), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
                                                                                VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    velocityFieldBuffer = std::make_unique<vkb::Buffer>(device, 2*numTilesX*numTilesY * sizeof(Line), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-                                                                            VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    fluidQuadBuffer = std::make_unique<vkb::Buffer>(device, numTilesX*numTilesY * sizeof(GridQuad), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-                                                                                                     VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
 
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
@@ -106,7 +100,6 @@ void FLIPGPU2DSim::createBuffers() {
 void FLIPGPU2DSim::mainLoop(float deltaTime) {
     auto currentTime = std::chrono::high_resolution_clock::now();
 
-    disableEmergencyExit();
     if (!paused) flipSolver.updateSimulation(deltaTime, flipRatio);
 
     updateBuffers(renderer.currentFrame());
@@ -117,7 +110,8 @@ void FLIPGPU2DSim::mainLoop(float deltaTime) {
         currentTime = time;
     }
 
-    renderObjects();
+//    renderObjects();
+    endProgram();
 
     if (activateTimer) gpuTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
 }
@@ -137,8 +131,6 @@ void FLIPGPU2DSim::renderObjects() {
             }
 
             if (showGrid) drawGrid(commandBuffer);
-            if (showVelField) updateAndDrawVelocityField(commandBuffer);
-            if (showFluidQuads) updateAndDrawFluidQuads(commandBuffer);
 
 
         });
@@ -166,69 +158,9 @@ void FLIPGPU2DSim::applyGridLineColor() {
 void FLIPGPU2DSim::updateBuffers(uint32_t frameIndex) {
     uniformBuffers[frameIndex]->write(&ubo);
 
-    vkb::Buffer::writeVectorToBuffer(device, particleBuffer, flipSolver.particles);
+//    vkb::Buffer::writeVectorToBuffer(device, particleBuffer, flipSolver.particles);
 }
 
-void FLIPGPU2DSim::updateAndDrawVelocityField(VkCommandBuffer commandBuffer) {
-
-    velocityLines.clear();
-    velocityLines.reserve(2*numTilesX*numTilesY);
-    for (uint32_t j = 0; j < numTilesY-1; j++) {
-        for (uint32_t i = 0; i < numTilesX-1; i++) {
-            if (flipSolver.getCellType(i, j) != FLUID) continue;
-            float velXCenter = (flipSolver.getVelX(i, j) + flipSolver.getVelX(i+1, j))/2;
-            float velYCenter = (flipSolver.getVelY(i, j) + flipSolver.getVelY(i, j+1))/2;
-
-            auto origin = glm::vec3(float(i*SIZE + SIZE/2), float(j*SIZE + SIZE/2), 0.0f);
-            auto vec = glm::vec3(velXCenter, velYCenter, 0.0f);
-            if (glm::length(vec) > float(1.5f*SIZE))  {
-                vec = glm::normalize(vec)*float(1.5f*SIZE);
-            }
-
-            auto arrow = Line::arrowFromRay(origin, vec,glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-            velocityLines.push_back(arrow[0]);
-            velocityLines.push_back(arrow[1]);
-        }
-    }
-
-    if (!velocityLines.empty()) {
-        vkb::Buffer::writeVectorToBuffer(device, velocityFieldBuffer, velocityLines);
-    }
-
-    lineSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
-
-    VkBuffer vb = velocityFieldBuffer->getBuffer();
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
-    vkCmdDraw(commandBuffer, 2*velocityLines.size(), 1, 0, 0);
-}
-
-void FLIPGPU2DSim::updateAndDrawFluidQuads(VkCommandBuffer commandBuffer) {
-    fluidQuads.clear();
-    fluidQuads.reserve(numTilesX*numTilesY);
-    for (uint32_t j = 0; j < numTilesY; j++) {
-        for (uint32_t i = 0; i < numTilesX; i++) {
-            if (flipSolver.getCellType(i, j) == AIR) continue;
-            auto origin = glm::vec3(float(i*SIZE), float(j*SIZE), 0.0f);
-
-            if (flipSolver.getSolidCells(i, j) == 0) {
-                fluidQuads.emplace_back(origin, SIZE, glm::vec3(0.0f, 1.0f, 0.0f));
-            } else if (flipSolver.getCellType(i, j) == FLUID) {
-                fluidQuads.emplace_back(origin, SIZE, glm::vec3(0.0f, 0.0f, 1.0f));
-            }
-
-        }
-    }
-
-    vkb::Buffer::writeVectorToBuffer(device, fluidQuadBuffer, fluidQuads);
-
-    quadSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
-
-    VkBuffer vb = fluidQuadBuffer->getBuffer();
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
-    vkCmdDraw(commandBuffer, 6*fluidQuads.size(), 1, 0, 0);
-}
 
 void FLIPGPU2DSim::showImGui(){
     static bool changeGridColorWindowOpen = false;
@@ -251,8 +183,6 @@ void FLIPGPU2DSim::showImGui(){
         }
     }
 
-    ImGui::Checkbox("Show Velocity Field", &showVelField);
-    ImGui::Checkbox("Show Fluid Cells", &showFluidQuads);
 
     ImGui::DragFloat("Flip ratio", &flipRatio, 0.001f, 0.0001f, 1.0f);
 
@@ -282,6 +212,27 @@ void FLIPGPU2DSim::showImGui(){
             changeGridColorWindowOpen = false;
         }
         ImGui::End();
+    }
+}
+
+void FLIPGPU2DSim::compileShaders() {
+    for (uint32_t i = 0; i < shaders.size(); i++) {
+        std::string command{"glslc "};
+        if (i < computeShaderStartIdx) {
+            command += RENDER_SHADER_DIR;
+        } else {
+            command += SIMULATIONS_SHADER_DIR;
+        }
+        command += shaders[i];
+        command += " --target-env=vulkan1.1 ";
+        command += " -o ";
+        command += COMPILED_SHADER_DIR;
+        command += shaders[i];
+        command += ".spv";
+        int status = system(command.c_str());
+        if (status != 0) {
+            throw std::runtime_error("Error compiling shader " + shaders[i]);
+        }
     }
 }
 

@@ -133,20 +133,6 @@ private:
             COMPILED_SHADER_DIR + shaders[15] + ".spv",
     };
 
-    struct SimulationKernel {
-        vkb::ComputeSystem computeSystem;
-        std::array<VkDescriptorSet, 2> descSets{};
-        vkb::DescriptorSetLayout layout;
-
-        void createPipeline(){
-            computeSystem.createPipelineWithLayout(layout.descriptorSetLayout());
-        }
-        void bindAndDispatch(VkCommandBuffer commandBuffer, uint32_t compFrameIdx, uint32_t x, uint32_t y, uint32_t z){
-            computeSystem.bindAndDispatch(commandBuffer, &descSets[compFrameIdx], x, y, z);
-        }
-    };
-
-
 
     vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, "../Models/quadXZ1.obj"),
                               std::make_shared<vkb::Texture>(device, "../textures/coral_reef_texture.jpg")};
@@ -214,7 +200,7 @@ private:
     ComputeUniformBufferObject cUbo{};
     vkb::ComputeShaderHandler computeHandler{device};
 
-    SimulationKernel predictPositionKernel {
+    vkb::SimulationKernel predictPositionKernel {
             .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
@@ -223,7 +209,7 @@ private:
                     .build()
     };
 
-    SimulationKernel lambdaKernel {
+    vkb::SimulationKernel lambdaKernel {
             .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 1] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
@@ -232,7 +218,7 @@ private:
                     .build()
     };
 
-    SimulationKernel posCorrectionKernel {
+    vkb::SimulationKernel posCorrectionKernel {
             .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 2] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
@@ -241,7 +227,7 @@ private:
                     .build()
     };
 
-    SimulationKernel updateVelocitiesKernel {
+    vkb::SimulationKernel updateVelocitiesKernel {
             .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 3] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
@@ -250,7 +236,7 @@ private:
                     .build()
     };
 
-    SimulationKernel applyViscAndComputeVortKernel {
+    vkb::SimulationKernel applyViscAndComputeVortKernel {
             .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 4] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
@@ -259,7 +245,7 @@ private:
                     .build()
     };
 
-    SimulationKernel applyVortAndUpdatePos {
+    vkb::SimulationKernel applyVortAndUpdatePos {
             .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 5] + ".spv"},
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})

@@ -208,15 +208,11 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::advectParticles(f
     };
 
     for (auto &particle : particles) {
-        auto k = gridPos(particle);
-        auto p = particle.position;
-        auto v = getVelocityFromGrid(particle.position);
-        glm::vec3 midWay = particle.position + 0.5f * deltaTime * v;
+        glm::vec3 midWay = particle.position + 0.5f * deltaTime * getVelocityFromGrid(particle.position);
         midWay.x = std::clamp(midWay.x, minX, maxX);
         midWay.y = std::clamp(midWay.y, minY, maxY);
 
-        v = getVelocityFromGrid(midWay);
-        particle.position += deltaTime * v;
+        particle.position += deltaTime * getVelocityFromGrid(midWay);
         clampParticlePosition(particle);
     }
 }

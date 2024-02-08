@@ -10,6 +10,7 @@ const std::string APP_NAME = "Vulkan GPU PIC/FLIP 2D fluid simulation";
 int main() {
     FLIPGPU2DSim app{APP_NAME, vkb::Device::INTEL};
 
+    app.compileShaders();
     try {
         app.run();
     } catch (const std::exception& e) {

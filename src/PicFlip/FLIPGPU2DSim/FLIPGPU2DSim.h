@@ -7,6 +7,7 @@
 
 #define GLM_GTX_norm
 #include <sstream>
+#include <ranges>
 #include "../../../external/imgui/imgui.h"
 #include "../../../external/objloader/tiny_obj_loader.h"
 #include "../../lib/SwapChain.h"
@@ -36,8 +37,15 @@ public:
     explicit FLIPGPU2DSim(const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
             VulkanApp(WIDTH, HEIGHT, appName, type) {}
 
+    void compileShaders();
+
 private:
     std::string DIR = std::string("../src/PicFlip/FLIPGPU2DSim/");
+    const std::string SHADER_DIR = DIR + "Shaders/";
+    const std::string RENDER_SHADER_DIR = SHADER_DIR + "rendering/";
+    const std::string SIMULATIONS_SHADER_DIR = SHADER_DIR + "simulation/";
+    const std::string COMPILED_SHADER_DIR = SHADER_DIR + "bin/";
+    const std::string PRESET_DIR = DIR + "presets/";
 
     static constexpr uint32_t PARTICLE_COUNT = 20000;
     static constexpr float dt = 1/60.0f;
@@ -49,14 +57,23 @@ private:
     uint32_t numIterations = 200;
     uint32_t extensions = 4;
 
-    const vkb::RenderSystem::ShaderPaths particleShaderPaths = vkb::RenderSystem::ShaderPaths {
-            DIR + "Shaders/particle.vert.spv",
-            DIR + "Shaders/particle.frag.spv"
+    static constexpr uint32_t computeShaderStartIdx = 4;
+    const std::vector<std::string> shaders = {
+            "default.vert",
+            "default.frag",
+            "particle.vert",
+            "particle.frag",
+            "test.comp",
     };
 
     const vkb::RenderSystem::ShaderPaths defaultShaderPaths = vkb::RenderSystem::ShaderPaths {
-            DIR + "Shaders/default.vert.spv",
-            DIR + "Shaders/default.frag.spv"
+            COMPILED_SHADER_DIR + shaders[0] + ".spv",
+            COMPILED_SHADER_DIR + shaders[1] + ".spv"
+    };
+
+    const vkb::RenderSystem::ShaderPaths particleShaderPaths = vkb::RenderSystem::ShaderPaths {
+            COMPILED_SHADER_DIR + shaders[2] + ".spv",
+            COMPILED_SHADER_DIR + shaders[3] + ".spv"
     };
 
     std::vector<std::unique_ptr<vkb::Buffer>> uniformBuffers;
@@ -70,7 +87,13 @@ private:
 
     vkb::Camera camera{};
 
-    FlipSolver<numTilesX, numTilesY, SIZE, PARTICLE_COUNT> flipSolver{radius, numIterations, extensions};
+    std::function<std::string(const std::string&)> transformFunc = [this](const std::string& shader){return COMPILED_SHADER_DIR + shader + ".spv";};
+
+    std::ranges::transform_view<std::ranges::drop_view<std::ranges::ref_view<const std::vector<std::string>>>, std::function<std::string(const std::string&)>>
+            simulationShaderPaths = shaders |
+                                    std::ranges::views::drop(computeShaderStartIdx) |
+                                    std::ranges::views::transform(transformFunc);
+    FlipSolver flipSolver {device, {simulationShaderPaths.begin(), simulationShaderPaths.end()}};
     std::unique_ptr<vkb::Buffer> particleBuffer;
     bool showParticles = true;
 
@@ -80,15 +103,6 @@ private:
     bool showGrid = false;
     std::unique_ptr<vkb::Buffer> gridLinesBuffer;
 
-    // render velocity field
-    std::vector<Line> velocityLines;
-    std::unique_ptr<vkb::Buffer> velocityFieldBuffer;
-    bool showVelField = false;
-
-    // render fluid quads
-    std::vector<GridQuad> fluidQuads;
-    std::unique_ptr<vkb::Buffer> fluidQuadBuffer;
-    bool showFluidQuads = false;
 
 
     float gpuTime = 0, cpuTime = 0;
@@ -102,10 +116,9 @@ private:
     void renderObjects();
     void drawGrid(VkCommandBuffer commandBuffer);
     void applyGridLineColor();
-    void updateAndDrawVelocityField(VkCommandBuffer commandBuffer);
-    void updateAndDrawFluidQuads(VkCommandBuffer commandBuffer);
     void updateBuffers(uint32_t frameIndex);
     void showImGui();
+
 };
 
 #endif //VULKANFLUIDSIMULATION_FLIPCPU2DSIM_H
