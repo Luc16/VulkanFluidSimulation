@@ -69,6 +69,7 @@ private:
             "dot_product.comp",
             "reduce.comp",
             "create_matrix.comp",
+            "matrix_multiply.comp",
     };
 
     const vkb::RenderSystem::ShaderPaths defaultShaderPaths = vkb::RenderSystem::ShaderPaths {

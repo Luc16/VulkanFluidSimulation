@@ -13,7 +13,7 @@ void FlipSolver::updateSimulation(float deltaTime, float flipRatio) {
         std::cout << "\n";
     };
 
-    std::vector<double> types = {
+    std::vector<uint32_t> types = {
             0, 0, 0, 0, 0,
             0, 1, 1, 1, 0,
             0, 1, 1, 1, 0,
@@ -21,10 +21,27 @@ void FlipSolver::updateSimulation(float deltaTime, float flipRatio) {
             0, 0, 0, 0, 0,
     };
     vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_typesBuffer, types);
+
+    std::vector<double> vecData = {
+            0, 0, 0, 0, 0,
+            0, 1, 1, 1, 0,
+            0, 1, 1, 1, 0,
+            0, 1, 1, 1, 0,
+            0, 0, 0, 0, 0,
+    };
+    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_auxBuffer, vecData);
+
     m_computeHandler.runComputeIsolated(0, [this](VkCommandBuffer commandBuffer) {
-//        m_addScaledKernel.bindAndDispatch(commandBuffer, 0, 1, 1, 1);
         m_createMatrixKernel.bindAndDispatch(commandBuffer, 0, 1, 1, 1);
+        vkb::ComputeShaderHandler::computeBarrier(commandBuffer, m_matrixBuffer);
+        m_matrixMultiplyKernel.bindAndDispatch(commandBuffer, 0, 1, 1, 1);
     });
+
+    std::vector<double> result(m_cUbo.size);
+    vkb::Buffer::writeBufferToVector(m_deviceRef, m_directionBuffer, result);
+    printVec(result);
+
+
 
 
     {
@@ -79,6 +96,8 @@ void FlipSolver::updateSimulation(float deltaTime, float flipRatio) {
 }
 
 void FlipSolver::initializeParticles(const std::unique_ptr<vkb::DescriptorPool> &globalPool)  {
+    m_createMatrixKernel.createPipeline();
+    m_matrixMultiplyKernel.createPipeline();
     m_addScaledKernel.createPipeline();
     m_dotProductKernel.createPipeline();
     m_reduceKernel.createPipeline();
@@ -99,7 +118,7 @@ void FlipSolver::initializeParticles(const std::unique_ptr<vkb::DescriptorPool> 
                                                       VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     m_typesBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
-                                                      m_cUbo.size*sizeof(double),
+                                                      m_cUbo.size*sizeof(uint32_t),
                                                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
                                                       VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -136,6 +155,19 @@ void FlipSolver::initializeParticles(const std::unique_ptr<vkb::DescriptorPool> 
 
     std::vector<double> alpha = {-0.5};
     vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_alphaBuffer, alpha);
+
+    m_createMatrixKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_createMatrixKernel.layout, {
+            {m_computeUniformBuffer->descriptorInfo()},
+            {m_matrixBuffer->descriptorInfo()},
+            {m_typesBuffer->descriptorInfo()},
+    });
+
+    m_matrixMultiplyKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_matrixMultiplyKernel.layout, {
+            {m_computeUniformBuffer->descriptorInfo()},
+            {m_matrixBuffer->descriptorInfo()},
+            {m_auxBuffer->descriptorInfo()},
+            {m_directionBuffer->descriptorInfo()},
+    });
 
     m_addScaledKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_addScaledKernel.layout, {
             {m_computeUniformBuffer->descriptorInfo()},

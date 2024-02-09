@@ -80,12 +80,22 @@ private:
     };
 
     vkb::SimulationKernel m_createMatrixKernel {
-            .computeSystem{m_deviceRef, m_shaderPaths[0]},
+            .computeSystem{m_deviceRef, m_shaderPaths[3]},
             .descSets = std::vector<VkDescriptorSet>(1),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                            // matrix, types
+                    // matrix, types
                     .addSameTypeBindings(1, 2,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    .build()
+    };
+
+    vkb::SimulationKernel m_matrixMultiplyKernel {
+            .computeSystem{m_deviceRef, m_shaderPaths[4]},
+            .descSets = std::vector<VkDescriptorSet>(1),
+            .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
+                    .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+                    // matrix, x, res
+                    .addSameTypeBindings(1, 3,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 };
