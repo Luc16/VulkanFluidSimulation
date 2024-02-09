@@ -202,6 +202,7 @@ private:
 
     vkb::SimulationKernel predictPositionKernel {
             .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx] + ".spv"},
+            .descSets = std::vector<VkDescriptorSet>(2),
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     // pos, vel, predPos, type
@@ -211,6 +212,7 @@ private:
 
     vkb::SimulationKernel lambdaKernel {
             .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 1] + ".spv"},
+            .descSets = std::vector<VkDescriptorSet>(2),
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     // grid, predPos, lambda, density, grid idx, type
@@ -220,6 +222,7 @@ private:
 
     vkb::SimulationKernel posCorrectionKernel {
             .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 2] + ".spv"},
+            .descSets = std::vector<VkDescriptorSet>(2),
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     // grid, predPos, lambda, grid idx, type
@@ -229,6 +232,7 @@ private:
 
     vkb::SimulationKernel updateVelocitiesKernel {
             .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 3] + ".spv"},
+            .descSets = std::vector<VkDescriptorSet>(2),
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     // pos, vel, predPos, type
@@ -238,6 +242,7 @@ private:
 
     vkb::SimulationKernel applyViscAndComputeVortKernel {
             .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 4] + ".spv"},
+            .descSets = std::vector<VkDescriptorSet>(2),
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     // grid, predPos, vel, vorticity, grid idx, type
@@ -247,6 +252,7 @@ private:
 
     vkb::SimulationKernel applyVortAndUpdatePos {
             .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 5] + ".spv"},
+            .descSets = std::vector<VkDescriptorSet>(2),
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     // grid, predPos, pos, vel, vorticity, grid idx, type

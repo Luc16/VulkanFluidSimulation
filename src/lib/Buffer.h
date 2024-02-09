@@ -35,6 +35,8 @@ namespace vkb {
 
         template<typename T>
         static void writeVectorToBuffer(const Device& device, const std::unique_ptr<Buffer>& buffer, std::vector<T>& vec);
+        template<typename T>
+        static void writeBufferToVector(const Device& device, const std::unique_ptr<Buffer>& buffer, std::vector<T>& vec);
 
     private:
         VkBuffer m_buffer = VK_NULL_HANDLE;
@@ -59,6 +61,22 @@ namespace vkb {
         stagingBuffer.singleWrite(vec.data());
 
         device.copyBuffer(stagingBuffer.getBuffer(), buffer->getBuffer(), bufferSize);
+    }
+
+    template<typename T>
+    void Buffer::writeBufferToVector(const Device& device, const std::unique_ptr<Buffer>& buffer, std::vector<T>& vec) {
+        VkDeviceSize bufferSize = vec.size() * sizeof(T);
+
+        if (bufferSize < buffer->getSize()) {
+            throw std::runtime_error("Vector too small to send data");
+        }
+
+        vkb::Buffer stagingBuffer(device, buffer->getSize(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+        device.copyBuffer(buffer->getBuffer(), stagingBuffer.getBuffer(), buffer->getSize());
+
+        stagingBuffer.singleRead(vec.data());
     }
 }
 

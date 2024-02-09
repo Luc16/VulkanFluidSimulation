@@ -39,7 +39,7 @@ namespace vkb {
 
     struct SimulationKernel {
         ComputeSystem computeSystem;
-        std::array<VkDescriptorSet, 2> descSets{};
+        std::vector<VkDescriptorSet> descSets{};
         DescriptorSetLayout layout;
 
         void createPipeline(){
