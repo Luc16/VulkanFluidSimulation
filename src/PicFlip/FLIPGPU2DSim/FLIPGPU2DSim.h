@@ -66,6 +66,9 @@ private:
             "particle.vert",
             "particle.frag",
             "add_scaled.comp",
+            "dot_product.comp",
+            "reduce.comp",
+            "create_matrix.comp",
     };
 
     const vkb::RenderSystem::ShaderPaths defaultShaderPaths = vkb::RenderSystem::ShaderPaths {

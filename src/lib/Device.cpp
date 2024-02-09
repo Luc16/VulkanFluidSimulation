@@ -108,6 +108,7 @@ namespace vkb {
         VkPhysicalDeviceFeatures deviceFeatures{};
         deviceFeatures.samplerAnisotropy = VK_TRUE;
         deviceFeatures.fillModeNonSolid = VK_TRUE;
+        deviceFeatures.shaderFloat64 = VK_TRUE;
 //        deviceFeatures.sampleRateShading = VK_TRUE; // Activate for more image quality
 
         VkDeviceCreateInfo createInfo{};

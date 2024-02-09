@@ -45,8 +45,8 @@ namespace vkb {
         void createPipeline(){
             computeSystem.createPipelineWithLayout(layout.descriptorSetLayout());
         }
-        void bindAndDispatch(VkCommandBuffer commandBuffer, uint32_t compFrameIdx, uint32_t x, uint32_t y, uint32_t z){
-            computeSystem.bindAndDispatch(commandBuffer, &descSets[compFrameIdx], x, y, z);
+        void bindAndDispatch(VkCommandBuffer commandBuffer, uint32_t descSetIdx, uint32_t x, uint32_t y, uint32_t z){
+            computeSystem.bindAndDispatch(commandBuffer, &descSets[descSetIdx], x, y, z);
         }
     };
 }

@@ -3,8 +3,8 @@
 ## CG
 
 - [x] Create a vector on the GPU, add one and print it
-- [ ] Implement vector addition
-- [ ] Implement dot product
+- [x] Implement vector addition
+- [x] Implement dot product
 - [ ] Use the vector to print a matrix
 - [ ] Implement matrix multiplication by a vector
 - [ ] Create a scenario with a grid with only gravity
