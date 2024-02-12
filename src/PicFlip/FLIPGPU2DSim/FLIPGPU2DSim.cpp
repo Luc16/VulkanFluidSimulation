@@ -52,7 +52,7 @@ void FLIPGPU2DSim::initializeObjects() {
     vkDeviceWaitIdle(device.device());
 
     // initialize particles
-    flipSolver.initializeParticles(globalDescriptorPool);
+    flipSolver.initialize(globalDescriptorPool);
 }
 
 void FLIPGPU2DSim::generateGridLines() {

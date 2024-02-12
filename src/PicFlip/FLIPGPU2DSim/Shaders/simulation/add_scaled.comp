@@ -2,6 +2,7 @@
 
 layout (binding = 0) uniform ParameterUBO {
     uint size;
+    uint extra;
 } ubo;
 
 layout(std430, binding = 1) buffer ResultSSBO {
@@ -26,6 +27,9 @@ void main() {
     uint i = gl_GlobalInvocationID.x;
     if (i >= ubo.size) return;
 
-    result[i] = unscaled[i] + factor * scaled[i];
+    if (ubo.extra == 1)
+        result[i] = unscaled[i] - factor * scaled[i];
+    else
+        result[i] = unscaled[i] + factor * scaled[i];
 
 }

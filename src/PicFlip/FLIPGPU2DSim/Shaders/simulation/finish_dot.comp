@@ -1,0 +1,68 @@
+#version 450
+#extension GL_KHR_shader_subgroup_arithmetic : enable
+
+
+layout (binding = 0) uniform ParameterUBO {
+    uint size;
+    uint extra;
+} ubo;
+
+layout(std430, binding = 1) buffer ResultSSBO {
+    double result[ ];
+};
+
+layout(std430, binding = 2) readonly buffer VecSSBO {
+    double a[ ];
+};
+
+layout(std430, binding = 3) buffer ExtraSSBO {
+    double extraConstant[ ];
+};
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+const int sumSubGroupSize = 32;
+shared double sdata[sumSubGroupSize]; // gl_SubgroupSize == 32
+
+/**
+ * Adapted from https://cachemiss.xyz/blog/parallel-reduce-and-scan-on-the-GPU
+ * Copyright (C) 2018 - Maximilian Maldacker
+ */
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    double sum;
+    if (i < ubo.size) {
+        sum = a[i];
+    }
+
+    sum = subgroupAdd(sum);
+
+    if (gl_SubgroupInvocationID == 0) {
+        sdata[gl_SubgroupID] = sum;
+    }
+
+    memoryBarrierShared();
+    barrier();
+
+    if (gl_SubgroupID == 0) {
+        sum = (gl_SubgroupInvocationID < gl_NumSubgroups) ? sdata[gl_SubgroupInvocationID.x] : 0;
+        sum = subgroupAdd(sum);
+    }
+
+
+    if (gl_LocalInvocationID.x == 0) {
+        if (ubo.extra == 2) {
+            result[1] = result[0]; // setting gamma_prev to gamma
+        }
+        result[gl_WorkGroupID.x] = sum;
+        if (ubo.extra == 0) {
+            result[2] = sum; // setting gamma0 to the initial sum
+        } else if (ubo.extra == 1) {
+            result[0] = extraConstant[0]/sum; // setting alpha to gamma/sum
+        } else if (ubo.extra == 2) {
+            extraConstant[0] = result[0]/result[1]; // setting beta to gamma/gamma_prev
+        }
+    }
+
+}

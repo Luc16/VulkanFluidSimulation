@@ -40,7 +40,6 @@ public:
             VulkanApp(WIDTH, HEIGHT, appName, type) {}
 
     void compileShaders();
-    constexpr static uint32_t workGroupSize = 256;
 
 private:
     std::string DIR = std::string("../src/PicFlip/FLIPGPU2DSim/");
@@ -69,8 +68,9 @@ private:
             "add_scaled.comp",
             "dot_product.comp",
             "reduce.comp",
-            "create_matrix.comp",
+            "finish_dot.comp",
             "matrix_multiply.comp",
+            "create_matrix.comp",
     };
 
     const vkb::RenderSystem::ShaderPaths defaultShaderPaths = vkb::RenderSystem::ShaderPaths {

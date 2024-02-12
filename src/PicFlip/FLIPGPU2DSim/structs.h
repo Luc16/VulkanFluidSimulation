@@ -7,6 +7,9 @@
 
 #include <iostream>
 
+constexpr static uint32_t workGroupSize = 256;
+
+
 struct ComputeUniformBufferObject {
     uint32_t size;
     uint32_t numTilesX;

@@ -21,41 +21,48 @@
 #include <cstdint>
 #include <vector>
 #include "../../lib/graphicsDataStructures/Matrices.h"
-#include "FLIPGPU2DSim.h"
 
 class PressureSolver {
-
-    PressureSolver(const vkb::Device& device, const std::vector<std::string>& shaders);
-
 public:
+
+    PressureSolver(const vkb::Device &device, const std::vector<std::string> &shaders, uint32_t size);
+
     int solve();
 
     void initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &globalPool,
+                           const std::unique_ptr<vkb::Buffer>& uniformBuffer,
                            const std::unique_ptr<vkb::Buffer> &matrixBuffer,
                            const std::unique_ptr<vkb::Buffer> &typesBuffer,
                            const std::unique_ptr<vkb::Buffer> &residualBuffer,
                            const std::unique_ptr<vkb::Buffer> &pressureBuffer);
 private:
-    constexpr static uint32_t m_workGroupSize = FLIPGPU2DSim::workGroupSize;
+    constexpr static uint32_t m_workGroupSize = workGroupSize;
+    struct PressureSolverUniformBufferObject {
+        uint32_t size;
+        uint32_t extra;
+    };
 
     void createBuffers();
     void applyDotProductKernel(VkCommandBuffer commandBuffer,uint32_t dotProductDescSetIdx, uint32_t resDescSetIdx);
 
     const vkb::Device& m_deviceRef;
     const std::vector<std::string>& m_shaderPaths;
+    const uint32_t m_size;
 
-    ComputeUniformBufferObject m_cUbo{};
-    std::unique_ptr<vkb::Buffer> m_computeUniformBuffer;
+    std::array<PressureSolverUniformBufferObject, 3> m_pUbos{};
+    std::array<std::unique_ptr<vkb::Buffer>, 3> m_pressureSolverUniformBuffer;
     vkb::ComputeShaderHandler m_computeHandler{m_deviceRef};
 
     std::unique_ptr<vkb::Buffer> m_directionBuffer;
     std::unique_ptr<vkb::Buffer> m_auxBuffer;
     std::unique_ptr<vkb::Buffer> m_alphaBuffer;
+    std::unique_ptr<vkb::Buffer> m_gammaBuffer;
+    std::unique_ptr<vkb::Buffer> m_betaBuffer;
     std::vector<std::unique_ptr<vkb::Buffer>> m_dotProductAuxBuffers;
 
     vkb::SimulationKernel m_addScaledKernel {
             .computeSystem{m_deviceRef, m_shaderPaths[0]},
-            .descSets = std::vector<VkDescriptorSet>(1),
+            .descSets = std::vector<VkDescriptorSet>(3),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                             // result buffer, unscaled buffer, constant, buffer to be scaled
@@ -65,7 +72,7 @@ private:
 
     vkb::SimulationKernel m_dotProductKernel {
             .computeSystem{m_deviceRef, m_shaderPaths[1]},
-            .descSets = std::vector<VkDescriptorSet>(1),
+            .descSets = std::vector<VkDescriptorSet>(2),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                             // result buffer, vec1, vec2
@@ -78,8 +85,18 @@ private:
             .descSets = std::vector<VkDescriptorSet>(),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                            // result buffer, vec1
+                    // result buffer, vec1
                     .addSameTypeBindings(1, 2,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    .build()
+    };
+
+    vkb::SimulationKernel m_finishDotKernel {
+            .computeSystem{m_deviceRef, m_shaderPaths[3]},
+            .descSets = std::vector<VkDescriptorSet>(3),
+            .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
+                    .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+                    // result buffer, vec1, constant
+                    .addSameTypeBindings(1, 3,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 
