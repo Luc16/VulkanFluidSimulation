@@ -7,6 +7,11 @@
 
 #include <iostream>
 
+struct ComputeUniformBufferObject {
+    uint32_t size;
+    uint32_t numTilesX;
+};
+
 struct UniformBufferObject {
     glm::mat4 view;
     glm::mat4 proj;

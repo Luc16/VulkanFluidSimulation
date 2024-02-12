@@ -5,10 +5,11 @@
 - [x] Create a vector on the GPU, add one and print it
 - [x] Implement vector addition
 - [x] Implement dot product
-- [ ] Use the vector to print a matrix
-- [ ] Implement matrix multiplication by a vector
-- [ ] Create a scenario with a grid with only gravity
-- [ ] Calculate determinant
+- [x] Use the vector to print a matrix
+- [x] Implement matrix multiplication by a vector
+- [x] Create a scenario with a grid with only gravity
+- [x] Calculate determinant
+- [ ] Transfer buffers to PressureSolver
 - [ ] Implement CG
 - [ ] Test convergence for initial scenario
 

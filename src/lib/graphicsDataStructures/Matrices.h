@@ -55,11 +55,11 @@ private:
     std::array<T, totalSize> m_matrix{};
 };
 
-template<typename T, uint32_t row>
+template<typename T, uint32_t row = 0>
 class HeapMatrix{
 public:
-    explicit HeapMatrix(size_t size) {
-        resize(size);
+    explicit HeapMatrix(size_t size, uint32_t _row = row) {
+        resize(size, _row);
     };
     HeapMatrix() = default;
 
@@ -67,28 +67,29 @@ public:
         m_matrix.swap(other.m_matrix);
     }
 
-    void resize(size_t size) {
-        m_numRows = size/row;
+    void resize(size_t size, uint32_t _row = row) {
+        m_row = _row;
+        m_numRows = size/m_row;
         m_matrix.resize(size);
     }
 
     constexpr T& operator() (uint32_t i, uint32_t j) {
-        return m_matrix[i + row*j];
+        return m_matrix[i + m_row*j];
     }
     constexpr const T& operator()(uint32_t i, uint32_t j) const{
-        return m_matrix[i + row*j];
+        return m_matrix[i + m_row*j];
     }
     constexpr T& operator() (glm::ivec2& vec) {
-        return m_matrix[vec.x + row*vec.y];
+        return m_matrix[vec.x + m_row*vec.y];
     }
     constexpr const T& operator()(glm::ivec2& vec) const{
-        return m_matrix[vec.x + row*vec.y];
+        return m_matrix[vec.x + m_row*vec.y];
     }
     constexpr T& operator() (const glm::ivec2& vec) {
-        return m_matrix[vec.x + row*vec.y];
+        return m_matrix[vec.x + m_row*vec.y];
     }
     constexpr const T& operator()(const glm::ivec2& vec) const{
-        return m_matrix[vec.x + row*vec.y];
+        return m_matrix[vec.x + m_row*vec.y];
     }
     constexpr T& operator[] (uint32_t i) {
         return m_matrix[i];
@@ -110,7 +111,7 @@ public:
     }
 
     [[nodiscard]] uint32_t nCols() const {
-        return row;
+        return m_row;
     }
 
     [[nodiscard]] constexpr T infNorm() const {
@@ -124,6 +125,7 @@ public:
 private:
     std::vector<T> m_matrix{};
     uint32_t m_numRows{};
+    uint32_t m_row{};
 };
 
 template<typename T>

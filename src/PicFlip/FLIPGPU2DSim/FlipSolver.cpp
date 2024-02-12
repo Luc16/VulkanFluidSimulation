@@ -12,37 +12,47 @@ void FlipSolver::updateSimulation(float deltaTime, float flipRatio) {
         }
         std::cout << "\n";
     };
-
-    std::vector<uint32_t> types = {
-            0, 0, 0, 0, 0,
-            0, 1, 1, 1, 0,
-            0, 1, 1, 1, 0,
-            0, 1, 1, 1, 0,
-            0, 0, 0, 0, 0,
+    auto printMatrix = []<typename T>(const HeapMatrix<T> &matrix) {
+        for (uint32_t j = 0; j < matrix.nRows(); j++) {
+            std::cout << "Row " << j << ": ";
+            for (uint32_t i = 0; i < matrix.nCols(); i++) {
+                std::cout << matrix(i, j) << ", ";
+            }
+            std::cout << "\n";
+        }
     };
-    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_typesBuffer, types);
 
-    std::vector<double> vecData = {
-            0, 0, 0, 0, 0,
-            0, 1, 1, 1, 0,
-            0, 1, 1, 1, 0,
-            0, 1, 1, 1, 0,
-            0, 0, 0, 0, 0,
-    };
-    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_auxBuffer, vecData);
+    HeapMatrix<uint32_t> types(m_cUbo.size, m_cUbo.numTilesX);
+    HeapMatrix<double> velY(m_cUbo.size, m_cUbo.numTilesX);
+
+    for (uint32_t j = 0; j < types.nRows(); j++) {
+        for (uint32_t i = 0; i < types.nCols(); i++) {
+            if (i == 0 || j == 0 || i == types.nCols() - 1 || j == types.nRows() - 1)
+                types(i, j) = 0;
+            else if (i >= 6 && i < 14 && j >= 6 && j < 14) {
+                types(i, j) = 1;
+                velY(i, j) = -9.8*(1.0/60.0);
+            } else {
+                types(i, j) = 2;
+            }
+        }
+    }
+
+    printMatrix(types);
+    printMatrix(velY);
+
+    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_typesBuffer, types.getVector());
+    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_auxBuffer, velY.getVector());
 
     m_computeHandler.runComputeIsolated(0, [this](VkCommandBuffer commandBuffer) {
-        m_createMatrixKernel.bindAndDispatch(commandBuffer, 0, 1, 1, 1);
-        vkb::ComputeShaderHandler::computeBarrier(commandBuffer, m_matrixBuffer);
-        m_matrixMultiplyKernel.bindAndDispatch(commandBuffer, 0, 1, 1, 1);
+        m_createMatrixAndRhsKernel.bindAndDispatch(commandBuffer, 0, m_cUbo.size/256 + 1, 1, 1);
+//        vkb::ComputeShaderHandler::computeBarrier(commandBuffer, m_matrixBuffer);
+//        m_matrixMultiplyKernel.bindAndDispatch(commandBuffer, 0, 1, 1, 1);
     });
 
-    std::vector<double> result(m_cUbo.size);
-    vkb::Buffer::writeBufferToVector(m_deviceRef, m_directionBuffer, result);
-    printVec(result);
-
-
-
+    HeapMatrix<double> result(m_cUbo.size, m_cUbo.numTilesX);
+    vkb::Buffer::writeBufferToVector(m_deviceRef, m_rhsBuffer, result.getVector());
+    printMatrix(result);
 
     {
     double errMax = 0;
@@ -96,14 +106,9 @@ void FlipSolver::updateSimulation(float deltaTime, float flipRatio) {
 }
 
 void FlipSolver::initializeParticles(const std::unique_ptr<vkb::DescriptorPool> &globalPool)  {
-    m_createMatrixKernel.createPipeline();
-    m_matrixMultiplyKernel.createPipeline();
-    m_addScaledKernel.createPipeline();
-    m_dotProductKernel.createPipeline();
-    m_reduceKernel.createPipeline();
-    m_cUbo.size = 25;
-    m_cUbo.numTilesX = 5;
-    std::cout << "size: " << m_cUbo.size << "\n";
+    m_createMatrixAndRhsKernel.createPipeline();
+    m_cUbo.size = 20*20;
+    m_cUbo.numTilesX = 20;
 //    m_cUbo.size = 1'000'000;
     m_computeUniformBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
                                                           sizeof(m_cUbo),
@@ -122,96 +127,23 @@ void FlipSolver::initializeParticles(const std::unique_ptr<vkb::DescriptorPool> 
                                                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
                                                       VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    m_directionBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
-                                                 m_cUbo.size*sizeof(double),
-                                                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-                                                 VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-                                                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
 
-    m_auxBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
-                                                      m_cUbo.size*sizeof(double),
-                                                      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-                                                      VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    m_rhsBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
+                                                m_cUbo.size*sizeof(double),
+                                                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                                                VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                                                VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
 
-    m_alphaBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
-                                                      sizeof(double),
-                                                      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-                                                      VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-                                                      VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-
-    for (uint32_t n = m_cUbo.size/m_workGroupSize + (m_cUbo.size%m_workGroupSize != 0); n > 1; n = n/m_workGroupSize + (n%m_workGroupSize != 0)) {
-        m_dotProductAuxBuffers.emplace_back(std::make_unique<vkb::Buffer>(m_deviceRef,
-                                                                 n*sizeof(double),
-                                                                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                                                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
-    }
-
-
-    std::vector<double> alpha = {-0.5};
-    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_alphaBuffer, alpha);
-
-    m_createMatrixKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_createMatrixKernel.layout, {
+    m_createMatrixAndRhsKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_createMatrixAndRhsKernel.layout, {
             {m_computeUniformBuffer->descriptorInfo()},
             {m_matrixBuffer->descriptorInfo()},
             {m_typesBuffer->descriptorInfo()},
+            {m_rhsBuffer->descriptorInfo()},
+//            {m_directionBuffer->descriptorInfo()}, // vel X
+//            {m_auxBuffer->descriptorInfo()}, // vel Y
     });
-
-    m_matrixMultiplyKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_matrixMultiplyKernel.layout, {
-            {m_computeUniformBuffer->descriptorInfo()},
-            {m_matrixBuffer->descriptorInfo()},
-            {m_auxBuffer->descriptorInfo()},
-            {m_directionBuffer->descriptorInfo()},
-    });
-
-    m_addScaledKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_addScaledKernel.layout, {
-            {m_computeUniformBuffer->descriptorInfo()},
-            {m_directionBuffer->descriptorInfo()},
-            {m_directionBuffer->descriptorInfo()},
-            {m_alphaBuffer->descriptorInfo()},
-            {m_auxBuffer->descriptorInfo()},
-    });
-
-    m_dotProductKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_dotProductKernel.layout, {
-            {m_computeUniformBuffer->descriptorInfo()},
-            {(!m_dotProductAuxBuffers.empty()) ? m_dotProductAuxBuffers[0]->descriptorInfo() : m_alphaBuffer->descriptorInfo()},
-            {m_directionBuffer->descriptorInfo()},
-            {m_auxBuffer->descriptorInfo()},
-    });
-
-    for (uint32_t i = 1; i < m_dotProductAuxBuffers.size(); i++) {
-        m_reduceKernel.descSets.push_back(vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_reduceKernel.layout, {
-                {m_computeUniformBuffer->descriptorInfo()},
-                {m_dotProductAuxBuffers[i]->descriptorInfo()},
-                {m_dotProductAuxBuffers[i-1]->descriptorInfo()},
-        }));
-    }
-
-    if (!m_dotProductAuxBuffers.empty()) {
-        m_reduceKernel.descSets.push_back(vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_reduceKernel.layout, {
-                {m_computeUniformBuffer->descriptorInfo()},
-                {m_alphaBuffer->descriptorInfo()},
-                {m_dotProductAuxBuffers[m_dotProductAuxBuffers.size()-1]->descriptorInfo()},
-        }));
-    }
-
-}
-
-void FlipSolver::applyDotProductKernel(VkCommandBuffer commandBuffer,
-                                       uint32_t dotProductDescSetIdx,
-                                       uint32_t resDescSetIdx) {
-    uint32_t numGroups = m_cUbo.size / m_workGroupSize + (m_cUbo.size % m_workGroupSize != 0);
-    m_dotProductKernel.bindAndDispatch(commandBuffer, dotProductDescSetIdx, numGroups, 1, 1);
-    for (uint32_t i = 0, n = numGroups; n > 256; n = n / m_workGroupSize + (n % m_workGroupSize != 0), i++) {
-        m_reduceKernel.bindAndDispatch(commandBuffer, i, n, 1, 1);
-    }
-    if (!m_dotProductAuxBuffers.empty()) {
-        m_reduceKernel.bindAndDispatch(commandBuffer, resDescSetIdx, 1, 1, 1);
-    }
 
 }

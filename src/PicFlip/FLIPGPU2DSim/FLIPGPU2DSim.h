@@ -40,6 +40,7 @@ public:
             VulkanApp(WIDTH, HEIGHT, appName, type) {}
 
     void compileShaders();
+    constexpr static uint32_t workGroupSize = 256;
 
 private:
     std::string DIR = std::string("../src/PicFlip/FLIPGPU2DSim/");

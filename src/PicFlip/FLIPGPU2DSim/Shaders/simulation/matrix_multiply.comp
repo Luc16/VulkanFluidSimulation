@@ -9,11 +9,15 @@ layout(std430, binding = 1) readonly buffer MatrixSSBO {
     double matrix[ ];
 };
 
-layout(std430, binding = 2) readonly buffer InputSSBO {
+layout(std430, binding = 2) readonly buffer TypesSSBO {
+    uint types[ ];
+};
+
+layout(std430, binding = 3) readonly buffer InputSSBO {
     double x[ ];
 };
 
-layout(std430, binding = 3) buffer ResultSSBO {
+layout(std430, binding = 4) buffer ResultSSBO {
     double res[ ];
 };
 
@@ -21,7 +25,8 @@ layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 void main() {
     uint i = gl_GlobalInvocationID.x;
-    if (i < ubo.numTilesX || // TODO: add types check
+    if ( types[i] != 1 ||
+    i < ubo.numTilesX ||
     i % ubo.numTilesX == 0 ||
     i % ubo.numTilesX == ubo.numTilesX - 1 ||
     i >= ubo.size) return;

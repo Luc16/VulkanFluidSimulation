@@ -13,33 +13,48 @@ layout(std430, binding = 2) readonly buffer TypesSSBO {
     uint types[ ];
 };
 
+layout(std430, binding = 3) buffer RhsSSBO {
+    double rhs[ ];
+};
+
+layout(std430, binding = 4) buffer VelxSSBO {
+    double velX[ ];
+};
+
+layout(std430, binding = 5) buffer VelySSBO {
+    double velY[ ];
+};
+
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 void main() {
     uint i = gl_GlobalInvocationID.x;
-    if (types[i] == 0 ||
+    if ( types[i] != 1 ||
         i < ubo.numTilesX ||
         i % ubo.numTilesX == 0 ||
         i % ubo.numTilesX == ubo.numTilesX - 1 ||
         i >= ubo.size) return;
 
     double total = 0;
-    if (types[i+1] == 1) {
-        matrix[5*i + 1] = -1;
-        total++;
-    }
-    if (types[i-1] == 1) {
-        matrix[5*i + 2] = -1;
-        total++;
-    }
-    if (types[i+ubo.numTilesX] == 1) {
-        matrix[5*i + 3] = -1;
-        total++;
-    }
-    if (types[i-ubo.numTilesX] == 1) {
-        matrix[5*i + 4] = -1;
-        total++;
-    }
+    uint typeUp = types[i+1];
+    matrix[5*i + 1] = (typeUp == 1) ? -1 : 0;
+    total += (typeUp != 0) ? 1 : 0;
+
+    uint typeDown = types[i-1];
+    matrix[5*i + 2] = (typeDown == 1) ? -1 : 0;
+    total += (typeDown != 0) ? 1 : 0;
+
+    uint typeRight = types[i+ubo.numTilesX];
+    matrix[5*i + 3] = (typeRight == 1) ? -1 : 0;
+    total += (typeRight != 0) ? 1 : 0;
+
+    uint typeLeft = types[i-ubo.numTilesX];
+    matrix[5*i + 4] = (typeLeft == 1) ? -1 : 0;
+    total += (typeLeft != 0) ? 1 : 0;
+
     matrix[5*i] = total;
+
+    rhs[i] = velX[i+1] - velX[i] + velY[i+ubo.numTilesX] - velY[i];
+
 }
