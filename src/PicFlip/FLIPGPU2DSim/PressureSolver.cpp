@@ -19,14 +19,22 @@ int PressureSolver::solve() {
         uint32_t n = m_size/m_workGroupSize + 1;
         // d = r
         m_addScaledKernel.bindAndDispatch(commandBuffer, 0, n, 1, 1);
+
         // gamma = dot(r, r) && gamma0 = initial gamma
         applyDotProductKernel(commandBuffer, 0, 0);
+
         for (uint32_t i = 0; i < 10; i++) {
+            vkb::ComputeShaderHandler::computeBarrier(commandBuffer, m_directionBuffer);
+
             // z = A*d
             m_matrixMultiplyKernel.bindAndDispatch(commandBuffer, 0, n, 1, 1);
 
+            vkb::ComputeShaderHandler::computeBarrier(commandBuffer, m_auxBuffer);
+
             // alpha = gamma/dot(d, z)
             applyDotProductKernel(commandBuffer, 1, 1);
+
+            vkb::ComputeShaderHandler::computeBarrier(commandBuffer, m_alphaBuffer);
 
             // p = p + alpha*d
             m_addScaledKernel.bindAndDispatch(commandBuffer, 1, n, 1, 1);
@@ -34,19 +42,31 @@ int PressureSolver::solve() {
             // r = r - alpha*z
             m_addScaledKernel.bindAndDispatch(commandBuffer, 2, n, 1, 1);
 
-            // gamma_prev == gramma -> gamma = dot -> beta = gamma/gamma_prev
+            vkb::ComputeShaderHandler::computeBarriers(commandBuffer, m_externalBarriers);
+
+            // gamma_prev = gramma -> gamma = dot -> beta = gamma/gamma_prev
             applyDotProductKernel(commandBuffer, 0, 2);
+
+            vkb::ComputeShaderHandler::computeBarriers(commandBuffer, {m_gammaBuffer->getBarrierData(), m_betaBuffer->getBarrierData()});
 
             // d = r + beta*d
             m_addScaledKernel.bindAndDispatch(commandBuffer, 0, n, 1, 1);
 
         }
-
-
-//        applyDotProductKernel(commandBuffer, 0, 0);
-//        applyDotProductKernel(commandBuffer, 1, 1);
-//        applyDotProductKernel(commandBuffer, 2, 2);
     });
+
+    std::vector<double> gamma = {0.0, 0.0, 0.0};
+    vkb::Buffer::writeBufferToVector(m_deviceRef, m_gammaBuffer, gamma);
+    std::cout << "gamma: " << gamma[0] << ", " << gamma[1] << ", " << gamma[2] << "\n";
+    std::cout << "error: " << gamma[0]/gamma[2] << "\n";
+
+    vkb::Buffer::writeBufferToVector(m_deviceRef, m_betaBuffer, gamma);
+    std::cout << "beta: " << gamma[0] << "\n";
+
+    vkb::Buffer::writeBufferToVector(m_deviceRef, m_alphaBuffer, gamma);
+    std::cout << "alpha: " << gamma[0] << "\n";
+
+    return 0;
 }
 
 void PressureSolver::applyDotProductKernel(VkCommandBuffer commandBuffer,
@@ -54,9 +74,13 @@ void PressureSolver::applyDotProductKernel(VkCommandBuffer commandBuffer,
                                        uint32_t resDescSetIdx) {
     uint32_t numGroups = m_size / m_workGroupSize + (m_size % m_workGroupSize != 0);
     m_dotProductKernel.bindAndDispatch(commandBuffer, dotProductDescSetIdx, numGroups, 1, 1);
-    for (uint32_t i = 0, n = numGroups; n > 256; n = n / m_workGroupSize + (n % m_workGroupSize != 0), i++) {
+    vkb::ComputeShaderHandler::computeBarrier(commandBuffer, m_dotProductAuxBuffers[0]);
+
+    for (uint32_t i = 0, n = numGroups; n > m_workGroupSize; n = n / m_workGroupSize + (n % m_workGroupSize != 0), i++) {
         m_reduceKernel.bindAndDispatch(commandBuffer, i, n, 1, 1);
+        vkb::ComputeShaderHandler::computeBarrier(commandBuffer, m_dotProductAuxBuffers[i+1]);
     }
+
     m_finishDotKernel.bindAndDispatch(commandBuffer, resDescSetIdx, 1, 1, 1);
 
 
@@ -81,7 +105,8 @@ void PressureSolver::createBuffers() {
     m_auxBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
                                                 m_size*sizeof(double),
                                                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-                                                VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                                VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                                                VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     m_alphaBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
@@ -127,15 +152,21 @@ void PressureSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool
     m_matrixMultiplyKernel.createPipeline();
     m_addScaledKernel.createPipeline();
     m_dotProductKernel.createPipeline();
+    m_finishDotKernel.createPipeline();
     m_reduceKernel.createPipeline();
+
+    m_externalBarriers = {
+            residualBuffer->getBarrierData(),
+            pressureBuffer->getBarrierData(),
+    };
 
     // z = A*d
     m_matrixMultiplyKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_matrixMultiplyKernel.layout, {
             {uniformBuffer->descriptorInfo()},
             {matrixBuffer->descriptorInfo()},
             {typesBuffer->descriptorInfo()},
-            {m_auxBuffer->descriptorInfo()},
             {m_directionBuffer->descriptorInfo()},
+            {m_auxBuffer->descriptorInfo()},
     });
 
     // d = r + beta*d

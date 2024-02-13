@@ -40,6 +40,8 @@ private:
     std::unique_ptr<vkb::Buffer> m_typesBuffer;
     std::unique_ptr<vkb::Buffer> m_rhsBuffer;
     std::unique_ptr<vkb::Buffer> m_pressureBuffer;
+    std::unique_ptr<vkb::Buffer> m_velXBuffer;
+    std::unique_ptr<vkb::Buffer> m_velYBuffer;
 
     PressureSolver m_pressureSolver{m_deviceRef, m_shaderPaths, m_cUbo.size};
 

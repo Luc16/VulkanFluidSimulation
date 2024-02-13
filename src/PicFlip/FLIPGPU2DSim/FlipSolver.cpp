@@ -5,8 +5,6 @@
 #include "FlipSolver.h"
 
 void FlipSolver::updateSimulation(float deltaTime, float flipRatio) {
-    m_pressureSolver.solve();
-
     auto printVec = [](const std::vector<double> &vec) {
         for (auto &v: vec) {
             std::cout << v << ", ";
@@ -39,9 +37,16 @@ void FlipSolver::updateSimulation(float deltaTime, float flipRatio) {
         }
     }
 
-    printMatrix(types);
-    printMatrix(velY);
+    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_typesBuffer, types.getVector());
+    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_velYBuffer, velY.getVector());
 
+    m_computeHandler.runComputeIsolated(0, [&](VkCommandBuffer commandBuffer) {
+        m_createMatrixAndRhsKernel.bindAndDispatch(commandBuffer, 0, m_cUbo.size/m_workGroupSize + 1, 1, 1);
+    });
+
+    vkb::Buffer::writeBufferToVector(m_deviceRef, m_rhsBuffer, velY.getVector());
+
+    m_pressureSolver.solve();
 }
 
 void FlipSolver::initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPool)  {
@@ -80,14 +85,28 @@ void FlipSolver::initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPo
                                                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
+    m_velXBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
+                                                     m_cUbo.size*sizeof(double),
+                                                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                                                     VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                                                     VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    m_velYBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
+                                                     m_cUbo.size*sizeof(double),
+                                                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                                                     VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                                                     VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
 
     m_createMatrixAndRhsKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_createMatrixAndRhsKernel.layout, {
             {m_computeUniformBuffer->descriptorInfo()},
             {m_matrixBuffer->descriptorInfo()},
             {m_typesBuffer->descriptorInfo()},
             {m_rhsBuffer->descriptorInfo()},
-//            {m_directionBuffer->descriptorInfo()}, // vel X
-//            {m_auxBuffer->descriptorInfo()}, // vel Y
+            {m_velXBuffer->descriptorInfo()},
+            {m_velYBuffer->descriptorInfo()},
     });
 
 

@@ -31,5 +31,5 @@ void main() {
     i % ubo.numTilesX == ubo.numTilesX - 1 ||
     i >= ubo.size) return;
 
-    res[i] = 2*matrix[5*i] * x[i] + matrix[5*i + 1] * x[i+1] + matrix[5*i + 2] * x[i-1] + matrix[5*i + 3] * x[i+ubo.numTilesX] + matrix[5*i + 4] * x[i-ubo.numTilesX];
+    res[i] = matrix[5*i] * x[i] + matrix[5*i + 1] * x[i+1] + matrix[5*i + 2] * x[i-1] + matrix[5*i + 3] * x[i+ubo.numTilesX] + matrix[5*i + 4] * x[i-ubo.numTilesX];
 }
