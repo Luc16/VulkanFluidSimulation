@@ -28,7 +28,7 @@ void FlipSolver::updateSimulation(float deltaTime, float flipRatio) {
         for (uint32_t i = 0; i < types.nCols(); i++) {
             if (i == 0 || j == 0 || i == types.nCols() - 1 || j == types.nRows() - 1)
                 types(i, j) = 0;
-            else if (i >= 6 && i < 14 && j >= 6 && j < 14) {
+            else if (i >= 10 && i < 40 && j >= 10 && j < 40) {
                 types(i, j) = 1;
                 velY(i, j) = -9.8*(1.0/60.0);
             } else {
@@ -46,7 +46,10 @@ void FlipSolver::updateSimulation(float deltaTime, float flipRatio) {
 
     vkb::Buffer::writeBufferToVector(m_deviceRef, m_rhsBuffer, velY.getVector());
 
-    m_pressureSolver.solve();
+    auto res = m_pressureSolver.solve(1e-4, 200);
+    if (res == 1) {
+        std::cout << "Pressure solver did not converge\n";
+    }
 }
 
 void FlipSolver::initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPool)  {

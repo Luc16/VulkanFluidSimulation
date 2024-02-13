@@ -9,9 +9,9 @@
 - [x] Implement matrix multiplication by a vector
 - [x] Create a scenario with a grid with only gravity
 - [x] Calculate determinant
-- [ ] Transfer buffers to PressureSolver
-- [ ] Implement CG
-- [ ] Test convergence for initial scenario
+- [x] Transfer buffers to PressureSolver
+- [x] Implement CG
+- [x] Test convergence for initial scenario
 
 ## FLIP
 

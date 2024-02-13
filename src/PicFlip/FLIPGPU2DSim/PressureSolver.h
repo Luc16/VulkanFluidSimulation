@@ -27,7 +27,7 @@ public:
 
     PressureSolver(const vkb::Device &device, const std::vector<std::string> &shaders, uint32_t size);
 
-    int solve();
+    int solve(double epsilon, uint32_t maxIters);
 
     void initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &globalPool,
                            const std::unique_ptr<vkb::Buffer>& uniformBuffer,

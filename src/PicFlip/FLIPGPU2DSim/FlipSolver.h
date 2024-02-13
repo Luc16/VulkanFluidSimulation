@@ -32,7 +32,7 @@ private:
     const vkb::Device& m_deviceRef;
     const std::vector<std::string>& m_shaderPaths;
 
-    ComputeUniformBufferObject m_cUbo{20*20, 20};
+    ComputeUniformBufferObject m_cUbo{50*50, 50};
     std::unique_ptr<vkb::Buffer> m_computeUniformBuffer;
     vkb::ComputeShaderHandler m_computeHandler{m_deviceRef};
 

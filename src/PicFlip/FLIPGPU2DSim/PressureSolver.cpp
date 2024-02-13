@@ -11,62 +11,67 @@ PressureSolver::PressureSolver(const vkb::Device &device, const std::vector<std:
     createBuffers();
 }
 
-int PressureSolver::solve() {
+int PressureSolver::solve(double epsilon, uint32_t maxIters) {
 
     std::vector<double> beta = {0.0};
     vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_betaBuffer, beta);
-    m_computeHandler.runComputeIsolated(0, [&](VkCommandBuffer commandBuffer){
+    m_computeHandler.runComputeIsolated(0, [this](VkCommandBuffer commandBuffer){
         uint32_t n = m_size/m_workGroupSize + 1;
         // d = r
         m_addScaledKernel.bindAndDispatch(commandBuffer, 0, n, 1, 1);
 
         // gamma = dot(r, r) && gamma0 = initial gamma
         applyDotProductKernel(commandBuffer, 0, 0);
-
-        for (uint32_t i = 0; i < 10; i++) {
-            vkb::ComputeShaderHandler::computeBarrier(commandBuffer, m_directionBuffer);
-
-            // z = A*d
-            m_matrixMultiplyKernel.bindAndDispatch(commandBuffer, 0, n, 1, 1);
-
-            vkb::ComputeShaderHandler::computeBarrier(commandBuffer, m_auxBuffer);
-
-            // alpha = gamma/dot(d, z)
-            applyDotProductKernel(commandBuffer, 1, 1);
-
-            vkb::ComputeShaderHandler::computeBarrier(commandBuffer, m_alphaBuffer);
-
-            // p = p + alpha*d
-            m_addScaledKernel.bindAndDispatch(commandBuffer, 1, n, 1, 1);
-
-            // r = r - alpha*z
-            m_addScaledKernel.bindAndDispatch(commandBuffer, 2, n, 1, 1);
-
-            vkb::ComputeShaderHandler::computeBarriers(commandBuffer, m_externalBarriers);
-
-            // gamma_prev = gramma -> gamma = dot -> beta = gamma/gamma_prev
-            applyDotProductKernel(commandBuffer, 0, 2);
-
-            vkb::ComputeShaderHandler::computeBarriers(commandBuffer, {m_gammaBuffer->getBarrierData(), m_betaBuffer->getBarrierData()});
-
-            // d = r + beta*d
-            m_addScaledKernel.bindAndDispatch(commandBuffer, 0, n, 1, 1);
-
-        }
     });
 
-    std::vector<double> gamma = {0.0, 0.0, 0.0};
-    vkb::Buffer::writeBufferToVector(m_deviceRef, m_gammaBuffer, gamma);
-    std::cout << "gamma: " << gamma[0] << ", " << gamma[1] << ", " << gamma[2] << "\n";
-    std::cout << "error: " << gamma[0]/gamma[2] << "\n";
+    uint32_t gpuIters = 10;
+    for (uint32_t i = 0; i < maxIters; i+=gpuIters) {
+        m_computeHandler.runComputeIsolated(0, [this, &gpuIters](VkCommandBuffer commandBuffer) {
+            uint32_t n = m_size/m_workGroupSize + 1;
 
-    vkb::Buffer::writeBufferToVector(m_deviceRef, m_betaBuffer, gamma);
-    std::cout << "beta: " << gamma[0] << "\n";
+            for (uint32_t i = 0; i < gpuIters; i++) {
+                vkb::ComputeShaderHandler::computeBarrier(commandBuffer, m_directionBuffer);
 
-    vkb::Buffer::writeBufferToVector(m_deviceRef, m_alphaBuffer, gamma);
-    std::cout << "alpha: " << gamma[0] << "\n";
+                // z = A*d
+                m_matrixMultiplyKernel.bindAndDispatch(commandBuffer, 0, n, 1, 1);
 
-    return 0;
+                vkb::ComputeShaderHandler::computeBarrier(commandBuffer, m_auxBuffer);
+
+                // alpha = gamma/dot(d, z)
+                applyDotProductKernel(commandBuffer, 1, 1);
+
+                vkb::ComputeShaderHandler::computeBarrier(commandBuffer, m_alphaBuffer);
+
+                // p = p + alpha*d
+                m_addScaledKernel.bindAndDispatch(commandBuffer, 1, n, 1, 1);
+
+                // r = r - alpha*z
+                m_addScaledKernel.bindAndDispatch(commandBuffer, 2, n, 1, 1);
+
+                vkb::ComputeShaderHandler::computeBarriers(commandBuffer, m_externalBarriers);
+
+                // gamma_prev = gramma -> gamma = dot -> beta = gamma/gamma_prev
+                applyDotProductKernel(commandBuffer, 0, 2);
+
+                vkb::ComputeShaderHandler::computeBarriers(commandBuffer, {m_gammaBuffer->getBarrierData(),
+                                                                           m_betaBuffer->getBarrierData()});
+
+                // d = r + beta*d
+                m_addScaledKernel.bindAndDispatch(commandBuffer, 0, n, 1, 1);
+
+            }
+        });
+
+        std::vector<double> gamma = {0.0, 0.0, 0.0};
+        vkb::Buffer::writeBufferToVector(m_deviceRef, m_gammaBuffer, gamma);
+
+        if (gamma[0]/gamma[2] < epsilon) {
+            std::cout << "Converged in " << i+gpuIters << " iterations\n";
+            return 0;
+        }
+    }
+
+    return 1;
 }
 
 void PressureSolver::applyDotProductKernel(VkCommandBuffer commandBuffer,
@@ -122,8 +127,6 @@ void PressureSolver::createBuffers() {
                                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                                                   VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    std::vector<double> beta = {0.0};
-    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_betaBuffer, beta);
 
     m_gammaBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
                                                   3*sizeof(double),

@@ -142,6 +142,10 @@ namespace vkb {
 
     void
     ComputeShaderHandler::runComputeIsolated(uint32_t currentFrame, const std::function<void(VkCommandBuffer)> &func) {
+        vkWaitForFences(m_deviceRef.device(), 1, &m_computeInFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+
+        vkResetFences(m_deviceRef.device(), 1, &m_computeInFlightFences[currentFrame]);
+
         auto& commandBuffer = m_computeCommandBuffers[currentFrame];
 
         vkResetCommandBuffer(commandBuffer, /*VkCommandBufferResetFlagBits*/ 0);
@@ -166,11 +170,9 @@ namespace vkb {
         submitInfo.signalSemaphoreCount = 0;
         submitInfo.pSignalSemaphores = nullptr;
 
-        if (vkQueueSubmit(m_deviceRef.computeQueue(), 1, &submitInfo, nullptr) != VK_SUCCESS) {
+        if (vkQueueSubmit(m_deviceRef.computeQueue(), 1, &submitInfo, m_computeInFlightFences[currentFrame]) != VK_SUCCESS) {
             throw std::runtime_error("failed to submit compute command buffer!");
         };
-
-        vkDeviceWaitIdle(m_deviceRef.device());
     }
 
 }
