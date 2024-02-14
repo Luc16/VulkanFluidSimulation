@@ -34,6 +34,7 @@ void main() {
         i < ubo.numTilesX ||
         i % ubo.numTilesX == 0 ||
         i % ubo.numTilesX == ubo.numTilesX - 1 ||
+        i > ubo.size - ubo.numTilesX ||
         i >= ubo.size) return;
 
     double total = 0;

@@ -16,11 +16,31 @@
 ## FLIP
 
 - [ ] Draw particles with buffers in the GPU
-- [ ] Transfer particles to GRID
-- [ ] Apply Gravity
-- [ ] Solve pressure
-- [ ] Transfer grid velocities to particles
-- [ ] Use PIC
-- [ ] Add FLIP
-- [ ] advect with rk2
-- [ ] extend velocities
+- [ ] Create kernels
+  - [ ] Advect particles
+  
+  - [ ] Transfer particles to GRID
+    - [ ] Reset grid (reset velocity, weights, rhs and pressure) 
+    - [ ] Add vel component to grid
+    
+  - [ ] Apply Weights and Gravity
+
+  - [ ] Apply boundary conditions
+      - [ ] x axis
+      - [ ] y axis
+
+  - [ ] Project
+    - [ ] Set previous velocity as current
+    - [x] Create matrix
+    - [x] Solve pressure
+    - [ ] Apply pressure on velocities
+    
+
+  
+  - [ ] Transfer grid velocities to particles
+    - [ ] Use PIC
+    - [ ] Add FLIP
+  
+  - [ ] Extend velocities
+    - [ ] Reset air cells
+    - [ ] Expand velocities

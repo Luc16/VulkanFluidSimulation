@@ -102,9 +102,14 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::resetGrid(bool ha
         }
         current.velX[i] = 0.0f;
         current.velY[i] = 0.0f;
-        cellTypes[i] = (solidCells[i] == 0.0f) ? SOLID: AIR;
         weightVelX[i] = 0.0f;
         weightVelY[i] = 0.0f;
+        cellTypes[i] = (i < numTilesX ||
+                        i % numTilesX == 0 ||
+                        i % numTilesX == numTilesX - 1 ||
+                        i > totalCells - numTilesX) ? SOLID: AIR;
+        pressure[i] = 0.0f;
+        rhs[i] = 0.0f;
     }
 }
 
@@ -311,7 +316,7 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::enforceBoundaryCo
     }
     for (uint32_t i = 0; i < numTilesX; i++) {
         cellTypes(i, 0) = cellTypes(i, numTilesY-1) = SOLID;
-        current.velX(i, 0) = current.velX(i, 1) = 0;//current.velX(i, numTilesY-1) = current.velX(i, numTilesY-2) = 0.0f;
+//        current.velX(i, 0) = current.velX(i, 1) = 0;//current.velX(i, numTilesY-1) = current.velX(i, numTilesY-2) = 0.0f;
         current.velY(i, 0) = current.velY(i, 1) = current.velY(i, numTilesY-1) = current.velY(i, numTilesY-2) = 0.0f;
     }
 
@@ -383,8 +388,8 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::projectVelocities
     fluidCells = 0;
     for (uint32_t i = 0; i < totalCells; i++) {
         if (cellTypes[i] == FLUID) fluidCells++;
-        rhs[i] = 0;
-        pressure[i] = 0;
+//        rhs[i] = 0;
+//        pressure[i] = 0;
         previous.velX[i] = current.velX[i];
         previous.velY[i] = current.velY[i];
     }
