@@ -21,7 +21,11 @@
 
 class FlipSolver {
 public:
-    FlipSolver(const vkb::Device& device, const std::vector<std::string>& shaders): m_deviceRef(device), m_shaderPaths(shaders) {}
+    FlipSolver(const vkb::Device& device, const std::vector<std::string>& shaders,
+               const std::vector<std::string>& pressureSolverShaders):
+               m_deviceRef(device),
+               m_shaderPaths(shaders),
+               m_pressureSolverShaderPaths(pressureSolverShaders) {}
 
     void updateSimulation(float deltaTime, float flipRatio);
     void initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPool);
@@ -31,6 +35,7 @@ private:
 
     const vkb::Device& m_deviceRef;
     const std::vector<std::string>& m_shaderPaths;
+    const std::vector<std::string>& m_pressureSolverShaderPaths;
 
     ComputeUniformBufferObject m_cUbo{50*50, 50};
     std::unique_ptr<vkb::Buffer> m_computeUniformBuffer;
@@ -43,10 +48,10 @@ private:
     std::unique_ptr<vkb::Buffer> m_velXBuffer;
     std::unique_ptr<vkb::Buffer> m_velYBuffer;
 
-    PressureSolver m_pressureSolver{m_deviceRef, m_shaderPaths, m_cUbo.size};
+    PressureSolver m_pressureSolver{m_deviceRef, m_pressureSolverShaderPaths, m_cUbo.size};
 
     vkb::SimulationKernel m_createMatrixAndRhsKernel {
-            .computeSystem{m_deviceRef, m_shaderPaths[5]},
+            .computeSystem{m_deviceRef, m_shaderPaths[0]},
             .descSets = std::vector<VkDescriptorSet>(1),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})

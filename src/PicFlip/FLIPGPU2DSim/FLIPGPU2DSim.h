@@ -36,7 +36,7 @@ public:
     constexpr static uint32_t WIDTH = 10;
     constexpr static uint32_t HEIGHT = 10;
 
-    explicit FLIPGPU2DSim(const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::INTEL):
+    explicit FLIPGPU2DSim(const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::NVIDIA):
             VulkanApp(WIDTH, HEIGHT, appName, type) {}
 
     void compileShaders();
@@ -46,8 +46,8 @@ private:
     const std::string SHADER_DIR = DIR + "Shaders/";
     const std::string RENDER_SHADER_DIR = SHADER_DIR + "rendering/";
     const std::string SIMULATIONS_SHADER_DIR = SHADER_DIR + "simulation/";
+    const std::string PRESSURE_SOLVER_SHADER_DIR = SHADER_DIR + "pressure_solver/";
     const std::string COMPILED_SHADER_DIR = SHADER_DIR + "bin/";
-    const std::string PRESET_DIR = DIR + "presets/";
 
     static constexpr uint32_t PARTICLE_COUNT = 20000;
     static constexpr float dt = 1/60.0f;
@@ -59,7 +59,9 @@ private:
     uint32_t numIterations = 200;
     uint32_t extensions = 4;
 
-    static constexpr uint32_t computeShaderStartIdx = 4;
+    static constexpr uint32_t pressureSolverStartIdx = 4;
+    static constexpr uint32_t computeShaderStartIdx = 9;
+
     const std::vector<std::string> shaders = {
             "default.vert",
             "default.frag",
@@ -100,7 +102,18 @@ private:
             simulationShaderPaths = shaders |
                                     std::ranges::views::drop(computeShaderStartIdx) |
                                     std::ranges::views::transform(transformFunc);
-    FlipSolver flipSolver {device, {simulationShaderPaths.begin(), simulationShaderPaths.end()}};
+
+    std::ranges::transform_view<std::ranges::take_view<std::ranges::drop_view<std::ranges::ref_view<const std::vector<std::string>>>>, std::function<std::string(const std::string&)>>
+            pressureSolverShaderPaths = shaders |
+                                    std::ranges::views::drop(pressureSolverStartIdx) |
+                                    std::ranges::views::take(computeShaderStartIdx - pressureSolverStartIdx) |
+                                    std::ranges::views::transform(transformFunc);
+
+    FlipSolver flipSolver {
+        device,
+        {simulationShaderPaths.begin(), simulationShaderPaths.end()},
+        {pressureSolverShaderPaths.begin(), pressureSolverShaderPaths.end()}
+    };
     std::unique_ptr<vkb::Buffer> particleBuffer;
     bool showParticles = true;
 

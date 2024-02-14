@@ -218,8 +218,10 @@ void FLIPGPU2DSim::showImGui(){
 void FLIPGPU2DSim::compileShaders() {
     for (uint32_t i = 0; i < shaders.size(); i++) {
         std::string command{"glslc "};
-        if (i < computeShaderStartIdx) {
+        if (i < pressureSolverStartIdx) {
             command += RENDER_SHADER_DIR;
+        } else if (i < computeShaderStartIdx) {
+            command += PRESSURE_SOLVER_SHADER_DIR;
         } else {
             command += SIMULATIONS_SHADER_DIR;
         }
