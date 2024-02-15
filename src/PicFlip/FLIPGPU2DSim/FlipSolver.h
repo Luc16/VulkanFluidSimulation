@@ -33,6 +33,9 @@ public:
 private:
     constexpr static uint32_t m_workGroupSize = workGroupSize;
 
+    void createBuffers();
+    void initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &globalPool);
+
     const vkb::Device& m_deviceRef;
     const std::vector<std::string>& m_shaderPaths;
     const std::vector<std::string>& m_pressureSolverShaderPaths;
@@ -47,6 +50,11 @@ private:
     std::unique_ptr<vkb::Buffer> m_pressureBuffer;
     std::unique_ptr<vkb::Buffer> m_velXBuffer;
     std::unique_ptr<vkb::Buffer> m_velYBuffer;
+    std::unique_ptr<vkb::Buffer> m_prevVelXBuffer;
+    std::unique_ptr<vkb::Buffer> m_prevVelYBuffer;
+    std::unique_ptr<vkb::Buffer> m_weightsBuffer;
+    std::unique_ptr<vkb::Buffer> m_particlePosBuffer;
+    std::unique_ptr<vkb::Buffer> m_particleVelBuffer;
 
     PressureSolver m_pressureSolver{m_deviceRef, m_pressureSolverShaderPaths, m_cUbo.size};
 

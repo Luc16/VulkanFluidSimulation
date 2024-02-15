@@ -1,0 +1,53 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+
+#include "common.glsl"
+
+layout (binding = 0) uniform ParameterUBO {
+    uint size;
+    uint numTilesX;
+} ubo;
+
+layout(std430, binding = 1) readonly buffer TypesSSBO {
+    uint types[ ];
+};
+
+layout(std430, binding = 2) buffer VelxSSBO {
+    float velX[ ];
+};
+
+layout(std430, binding = 3) buffer VelySSBO {
+    float velY[ ];
+};
+
+layout(std430, binding = 4) buffer WeightsSSBO {
+    vec2 wheights[ ];
+};
+
+layout(std430, binding = 5) buffer PressureSSBO {
+    double pressure[ ];
+};
+
+layout(std430, binding = 6) buffer RhsSSBO {
+    double rhs[ ];
+};
+
+
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= ubo.size) return;
+
+    types[i] = (i < ubo.numTilesX ||
+                i % ubo.numTilesX == 0 ||
+                i % ubo.numTilesX == ubo.numTilesX - 1 ||
+                i > ubo.size - ubo.numTilesX) ? SOLID : AIR;
+    velY[i] = 0.0;
+    velX[i] = 0.0;
+    weights[i] = vec2(0.0, 0.0);
+    rhs[i] = 0.0;
+    pressure[i] = 0.0;
+
+}

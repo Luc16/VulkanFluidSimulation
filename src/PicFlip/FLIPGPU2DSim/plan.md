@@ -20,7 +20,7 @@
   - [ ] Advect particles
   
   - [ ] Transfer particles to GRID
-    - [ ] Reset grid (reset velocity, weights, rhs and pressure) 
+    - [ ] Reset grid (reset velocity, weights, types, rhs and pressure) 
     - [ ] Add vel component to grid
     
   - [ ] Apply Weights and Gravity
