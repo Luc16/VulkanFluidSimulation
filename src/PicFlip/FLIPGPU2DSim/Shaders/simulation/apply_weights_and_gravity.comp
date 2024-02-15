@@ -1,0 +1,48 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+
+#include "common.glsl"
+
+layout (binding = 0) uniform ParameterUBO {
+    ComputeUBO ubo;
+};
+
+layout(std430, binding = 1) readonly buffer TypesSSBO {
+    uint types[ ];
+};
+
+layout(std430, binding = 2) buffer VelxSSBO {
+    float velX[ ];
+};
+
+layout(std430, binding = 3) buffer VelySSBO {
+    float velY[ ];
+};
+
+layout(std430, binding = 4) readonly buffer WeightsSSBO {
+    vec2 weights[ ];
+};
+
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i < ubo.dim.x ||
+        i % ubo.dim.x == 0 ||
+        i % ubo.dim.x == ubo.dim.x - 1 ||
+        i > ubo.size - ubo.dim.x ||
+        i >= ubo.size) return;
+
+    vec2 weight = weights[i];
+    if (weight.x > 1e-6) {
+        velX[i] /= weight.x;
+    }
+    if (weight.y > 1e-6) {
+        velY[i] /= weight.y;
+    }
+    // apply gravity
+    velY[i] -= 9.8f * ubo.dt * 500.0f;
+
+
+}

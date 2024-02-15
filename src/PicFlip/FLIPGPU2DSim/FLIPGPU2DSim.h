@@ -33,8 +33,6 @@ class FLIPGPU2DSim: public vkb::VulkanApp {
 public:
     constexpr static uint32_t WIDTH = 1500;
     constexpr static uint32_t HEIGHT = 1000;
-//    constexpr static uint32_t WIDTH = 10;
-//    constexpr static uint32_t HEIGHT = 10;
 
     explicit FLIPGPU2DSim(const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::NVIDIA):
             VulkanApp(WIDTH, HEIGHT, appName, type) {}
@@ -63,6 +61,11 @@ private:
             "finish_dot.comp",
             "matrix_multiply.comp",
             "create_matrix.comp",
+            "reset_grid.comp",
+            "particles_to_grid.comp",
+            "apply_weights_and_gravity.comp",
+            "apply_boundary_conditions.comp",
+            "pressure_update.comp",
     };
 
     const vkb::RenderSystem::ShaderPaths defaultShaderPaths = vkb::RenderSystem::ShaderPaths {

@@ -61,7 +61,7 @@ private:
     const std::vector<std::string>& m_shaderPaths;
     const std::vector<std::string>& m_pressureSolverShaderPaths;
 
-    ComputeUniformBufferObject m_cUbo{50*50, 50};
+    ComputeUniformBufferObject m_cUbo{50*50, {50, 50}};
     std::unique_ptr<vkb::Buffer> m_computeUniformBuffer;
     vkb::ComputeShaderHandler m_computeHandler{m_deviceRef};
 

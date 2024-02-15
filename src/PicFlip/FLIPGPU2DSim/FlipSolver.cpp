@@ -11,8 +11,8 @@ void FlipSolver::updateSimulation(float deltaTime) {
 //        std::cout << "Particle at " << particle.x << " " << particle.y << "\n";
     }
 
-    HeapMatrix<uint32_t> types(m_cUbo.size, m_cUbo.numTilesX);
-    HeapMatrix<float> velY(m_cUbo.size, m_cUbo.numTilesX);
+    HeapMatrix<uint32_t> types(m_cUbo.size, m_cUbo.dim.x);
+    HeapMatrix<float> velY(m_cUbo.size, m_cUbo.dim.x);
 
     for (uint32_t j = 0; j < types.nRows(); j++) {
         for (uint32_t i = 0; i < types.nCols(); i++) {

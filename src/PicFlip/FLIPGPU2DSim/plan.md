@@ -15,19 +15,17 @@
 
 ## FLIP
 
-- [ ] Draw particles with buffers in the GPU
+- [x] Draw particles with buffers in the GPU
 - [ ] Create kernels
   - [ ] Advect particles
   
-  - [ ] Transfer particles to GRID
-    - [ ] Reset grid (reset velocity, weights, types, rhs and pressure) 
-    - [ ] Add vel component to grid
+  - [x] Transfer particles to GRID
+    - [x] Reset grid (reset velocity, weights, types, rhs and pressure) 
+    - [x] Add vel component to grid
     
-  - [ ] Apply Weights and Gravity
+  - [x] Apply Weights and Gravity
 
-  - [ ] Apply boundary conditions
-      - [ ] x axis
-      - [ ] y axis
+  - [x] Apply boundary conditions
 
   - [ ] Project
     - [ ] Set previous velocity as current

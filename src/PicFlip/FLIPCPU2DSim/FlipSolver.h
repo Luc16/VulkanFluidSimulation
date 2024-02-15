@@ -35,8 +35,8 @@ private:
     };
 
     [[nodiscard]] glm::ivec2 gridPos(const glm::vec3& pos, uint32_t xShift = 0, uint32_t yShift = 0) const { return {
-                (uint32_t(std::clamp(pos.x, float(cellSize), float(cellSize*(numTilesX - 1)))) - xShift) / cellSize,
-                (uint32_t(std::clamp(pos.y, float(cellSize), float(cellSize*(numTilesY - 1)))) - yShift) / cellSize }; };
+                uint32_t(pos.x - float(xShift)) / cellSize,
+                uint32_t(pos.y - float(yShift)) / cellSize }; };
     [[nodiscard]] glm::ivec2 gridPos(const Particle& particle, uint32_t xShift = 0, uint32_t yShift = 0) const { return gridPos(particle.position, xShift, yShift); }
 
 
@@ -227,14 +227,16 @@ std::tuple<float, float, float, float> FlipSolver<numTilesX, numTilesY, cellSize
     auto fSize = float(cellSize);
 
     float dx;
-    if (gridPos.x < 0) dx = 0;
-    else if (gridPos.x >= numTilesX - 1) dx = fSize;
-    else dx = pos.x - float(cellSize * gridPos.x + xShift);
+//    if (gridPos.x < 0) dx = 0;
+//    else if (gridPos.x >= numTilesX - 1) dx = fSize;
+//    else
+        dx = pos.x - float(cellSize * gridPos.x + xShift);
 
     float dy;
-    if (gridPos.y < 0) dy = 0;
-    else if (gridPos.y >= numTilesY - 1) dy = fSize;
-    else dy = pos.y - float(cellSize * gridPos.y + yShift);
+//    if (gridPos.y < 0) dy = 0;
+//    else if (gridPos.y >= numTilesY - 1) dy = fSize;
+//    else
+        dy = pos.y - float(cellSize * gridPos.y + yShift);
 
     return {
             (1.0f - dx / fSize) * (1.0f - dy / fSize), // down left
