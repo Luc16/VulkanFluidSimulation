@@ -22,19 +22,40 @@
 class FlipSolver {
 public:
     FlipSolver(const vkb::Device& device, const std::vector<std::string>& shaders,
-               const std::vector<std::string>& pressureSolverShaders):
+               const std::vector<std::string>& pressureSolverShaders, uint32_t width, uint32_t height):
                m_deviceRef(device),
                m_shaderPaths(shaders),
-               m_pressureSolverShaderPaths(pressureSolverShaders) {}
+               m_pressureSolverShaderPaths(pressureSolverShaders),
+               cellSize(10),
+               numTilesX(width/cellSize),
+               numTilesY(height/cellSize){}
 
-    void updateSimulation(float deltaTime, float flipRatio);
+    void updateSimulation(float deltaTime);
     void initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPool);
+    [[nodiscard]] uint32_t getNumTilesX() const { return numTilesX; }
+    [[nodiscard]] uint32_t getNumTilesY() const { return numTilesY; }
+    [[nodiscard]] uint32_t getCellSize() const { return cellSize; }
+    [[nodiscard]] uint32_t getParticleCount() const { return particleCount; }
+    [[nodiscard]] float particleRadius() const { return radius; }
+    [[nodiscard]] VkBuffer particleBuffer() const { return m_particlePosBuffer->getBuffer(); }
 
 private:
     constexpr static uint32_t m_workGroupSize = workGroupSize;
 
+    // simulation params
+    uint32_t particleCount = 20000;
+    float dt = 1/60.0f;
+    float radius = 4.0f;
+    uint32_t cellSize = 10;
+    uint32_t numTilesX;
+    uint32_t numTilesY;
+    float flipRatio = 0.90f;
+    uint32_t numIterations = 200;
+    uint32_t extensions = 4;
+
     void createBuffers();
     void initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &globalPool);
+    void initializeParticles();
 
     const vkb::Device& m_deviceRef;
     const std::vector<std::string>& m_shaderPaths;
@@ -67,7 +88,6 @@ private:
                     .addSameTypeBindings(1, 5,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
-
 
 };
 

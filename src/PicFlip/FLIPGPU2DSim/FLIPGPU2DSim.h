@@ -31,10 +31,10 @@
 
 class FLIPGPU2DSim: public vkb::VulkanApp {
 public:
-//    constexpr static uint32_t WIDTH = 1500;
-//    constexpr static uint32_t HEIGHT = 1000;
-    constexpr static uint32_t WIDTH = 10;
-    constexpr static uint32_t HEIGHT = 10;
+    constexpr static uint32_t WIDTH = 1500;
+    constexpr static uint32_t HEIGHT = 1000;
+//    constexpr static uint32_t WIDTH = 10;
+//    constexpr static uint32_t HEIGHT = 10;
 
     explicit FLIPGPU2DSim(const std::string &appName, vkb::Device::PhysicalDeviceType type = vkb::Device::NVIDIA):
             VulkanApp(WIDTH, HEIGHT, appName, type) {}
@@ -48,16 +48,6 @@ private:
     const std::string SIMULATIONS_SHADER_DIR = SHADER_DIR + "simulation/";
     const std::string PRESSURE_SOLVER_SHADER_DIR = SHADER_DIR + "pressure_solver/";
     const std::string COMPILED_SHADER_DIR = SHADER_DIR + "bin/";
-
-    static constexpr uint32_t PARTICLE_COUNT = 20000;
-    static constexpr float dt = 1/60.0f;
-    static constexpr float radius = 4.0f;
-    static constexpr uint32_t SIZE = 10;
-    constexpr static uint32_t numTilesX = WIDTH/SIZE;
-    constexpr static uint32_t numTilesY = HEIGHT/SIZE;
-    float flipRatio = 0.90f;
-    uint32_t numIterations = 200;
-    uint32_t extensions = 4;
 
     static constexpr uint32_t pressureSolverStartIdx = 4;
     static constexpr uint32_t computeShaderStartIdx = 9;
@@ -112,9 +102,9 @@ private:
     FlipSolver flipSolver {
         device,
         {simulationShaderPaths.begin(), simulationShaderPaths.end()},
-        {pressureSolverShaderPaths.begin(), pressureSolverShaderPaths.end()}
+        {pressureSolverShaderPaths.begin(), pressureSolverShaderPaths.end()},
+        WIDTH, HEIGHT
     };
-    std::unique_ptr<vkb::Buffer> particleBuffer;
     bool showParticles = true;
 
     // render grid

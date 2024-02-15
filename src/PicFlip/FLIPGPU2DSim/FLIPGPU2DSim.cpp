@@ -18,9 +18,11 @@ void FLIPGPU2DSim::onCreate() {
     particleSystem.createPipeline(renderer.renderPass(), particleShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& configInfo){
         configInfo.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
 
-        configInfo.attributeDescription = Particle::getAttributeDescriptions();
-        configInfo.bindingDescription = {Particle::getBindingDescription()};
-        configInfo.enableAlphaBlending();
+        configInfo.attributeDescription.clear();
+        configInfo.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32_SFLOAT, 0});
+        configInfo.bindingDescription.clear();
+        configInfo.bindingDescription.push_back({0, sizeof(glm::vec2), VK_VERTEX_INPUT_RATE_VERTEX});
+
     });
     lineSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
     lineSystem.createPipeline(renderer.renderPass(), defaultShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& configInfo){
@@ -47,18 +49,15 @@ void FLIPGPU2DSim::initializeObjects() {
     camera.setOrthographicProjection(0.0f, (float) extent.width, (float) extent.height, 0.0f, 0.1f, 1000.f);
     ubo.view = camera.getView();
     ubo.proj = camera.getProjection();
-    ubo.radius = 2.0f*radius;
+    ubo.radius = 2.0f*flipSolver.particleRadius();
 
-    vkDeviceWaitIdle(device.device());
-
-    // initialize particles
     flipSolver.initialize(globalDescriptorPool);
 }
 
 void FLIPGPU2DSim::generateGridLines() {
-    gridLines.reserve(numTilesX + numTilesY);
-    for (uint32_t i = 0; i < numTilesX; i++) {
-        auto x = float(i * SIZE);
+    gridLines.reserve(flipSolver.getNumTilesX() + flipSolver.getNumTilesY());
+    for (uint32_t i = 0; i < flipSolver.getNumTilesX(); i++) {
+        auto x = float(i * flipSolver.getCellSize());
 
         gridLines.push_back(Line{
                         {{x, 0.0f, 0.0f}, gridColor},
@@ -66,8 +65,8 @@ void FLIPGPU2DSim::generateGridLines() {
                 });
     }
 
-    for (uint32_t i = 0; i < numTilesY; i++) {
-        auto y = float(i * SIZE);
+    for (uint32_t i = 0; i < flipSolver.getNumTilesY(); i++) {
+        auto y = float(i * flipSolver.getCellSize());
 
         gridLines.push_back(Line{
                         {{0.0f, y, 0.0f}, gridColor},
@@ -81,10 +80,7 @@ void FLIPGPU2DSim::generateGridLines() {
 }
 
 void FLIPGPU2DSim::createBuffers() {
-    particleBuffer = std::make_unique<vkb::Buffer>(device, PARTICLE_COUNT * sizeof(Particle), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-                                                                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-//    vkb::Buffer::writeVectorToBuffer(device, particleBuffer, flipSolver.particles);
-    gridLinesBuffer = std::make_unique<vkb::Buffer>(device, (numTilesX + numTilesY) * sizeof(Line), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+    gridLinesBuffer = std::make_unique<vkb::Buffer>(device, (flipSolver.getNumTilesX() + flipSolver.getNumTilesY()) * sizeof(Line), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
                                                                                VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
 
@@ -100,7 +96,7 @@ void FLIPGPU2DSim::createBuffers() {
 void FLIPGPU2DSim::mainLoop(float deltaTime) {
     auto currentTime = std::chrono::high_resolution_clock::now();
 
-    if (!paused) flipSolver.updateSimulation(deltaTime, flipRatio);
+    if (!paused) flipSolver.updateSimulation(deltaTime);
 
     updateBuffers(renderer.currentFrame());
 
@@ -110,8 +106,8 @@ void FLIPGPU2DSim::mainLoop(float deltaTime) {
         currentTime = time;
     }
 
-//    renderObjects();
-    endProgram();
+    renderObjects();
+//    endProgram();
 
     if (activateTimer) gpuTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
 }
@@ -124,10 +120,10 @@ void FLIPGPU2DSim::renderObjects() {
 
             if (showParticles) {
                 particleSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
-                VkBuffer vb = particleBuffer->getBuffer();
+                VkBuffer vb = flipSolver.particleBuffer();
                 VkDeviceSize offsets[] = {0};
                 vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
-                vkCmdDraw(commandBuffer, PARTICLE_COUNT, 1, 0, 0);
+                vkCmdDraw(commandBuffer, flipSolver.getParticleCount(), 1, 0, 0);
             }
 
             if (showGrid) drawGrid(commandBuffer);
@@ -157,8 +153,6 @@ void FLIPGPU2DSim::applyGridLineColor() {
 
 void FLIPGPU2DSim::updateBuffers(uint32_t frameIndex) {
     uniformBuffers[frameIndex]->write(&ubo);
-
-//    vkb::Buffer::writeVectorToBuffer(device, particleBuffer, flipSolver.particles);
 }
 
 
@@ -167,7 +161,7 @@ void FLIPGPU2DSim::showImGui(){
 
     ImGui::Begin("Control Panel");
 
-    ImGui::Text("Rendering %d instances", PARTICLE_COUNT);
+    ImGui::Text("Rendering %d particles", flipSolver.getParticleCount());
     ImGui::Checkbox("Display time", &activateTimer);
     if(activateTimer){
         ImGui::Text("Gpu time: %f ms", gpuTime);
@@ -184,7 +178,7 @@ void FLIPGPU2DSim::showImGui(){
     }
 
 
-    ImGui::DragFloat("Flip ratio", &flipRatio, 0.001f, 0.0001f, 1.0f);
+//    ImGui::DragFloat("Flip ratio", &flipRatio, 0.001f, 0.0001f, 1.0f);
 
     if (ImGui::Button("Reset") || glfwIsKeyJustPressed<GLFW_KEY_R>()) initializeObjects();
     if (ImGui::Button("Pause") || glfwIsKeyJustPressed<GLFW_KEY_SPACE>()) paused = !paused;
