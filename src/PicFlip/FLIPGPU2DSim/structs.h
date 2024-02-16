@@ -12,11 +12,11 @@ constexpr static uint32_t workGroupSize = 256;
 
 struct ComputeUniformBufferObject {
     uint32_t size;
-    glm::ivec2 dim;
     uint32_t numParticles;
     float overCellSize;
     float cellSize;
     float dt;
+    alignas(8) glm::ivec2 dim;
 };
 
 struct UniformBufferObject {

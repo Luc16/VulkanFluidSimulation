@@ -26,7 +26,7 @@ public:
                m_deviceRef(device),
                m_shaderPaths(shaders),
                m_pressureSolverShaderPaths(pressureSolverShaders),
-               cellSize(10),
+               cellSize(50),
                numTilesX(width/cellSize),
                numTilesY(height/cellSize){}
 
@@ -38,6 +38,8 @@ public:
     [[nodiscard]] uint32_t getParticleCount() const { return numParticles; }
     [[nodiscard]] float particleRadius() const { return radius; }
     [[nodiscard]] VkBuffer particleBuffer() const { return m_particlePosBuffer->getBuffer(); }
+    [[nodiscard]] std::vector<VkSemaphore> computeSemaphore() { return m_computeHandler.currentSemaphore(0); }
+
 
 private:
     constexpr static uint32_t m_workGroupSize = workGroupSize;
@@ -46,7 +48,7 @@ private:
     uint32_t numParticles = 20000;
     float dt = 1/60.0f;
     float radius = 4.0f;
-    uint32_t cellSize = 10;
+    uint32_t cellSize;
     uint32_t numTilesX;
     uint32_t numTilesY;
     float flipRatio = 0.90f;
@@ -63,10 +65,11 @@ private:
 
     ComputeUniformBufferObject m_cUbo{
         numTilesX*numTilesY,
-        {numTilesX, numTilesY},
         numParticles,
         1.0f/float(cellSize),
-        float(cellSize)
+        float(cellSize),
+        dt,
+        {numTilesX, numTilesY}
     };
     std::unique_ptr<vkb::Buffer> m_computeUniformBuffer;
     vkb::ComputeShaderHandler m_computeHandler{m_deviceRef};

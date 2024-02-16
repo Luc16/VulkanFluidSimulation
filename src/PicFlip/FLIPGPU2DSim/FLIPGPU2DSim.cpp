@@ -107,16 +107,36 @@ void FLIPGPU2DSim::mainLoop(float deltaTime) {
     }
 
     renderObjects();
-//    endProgram();
 
     if (activateTimer) gpuTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
 }
 
 void FLIPGPU2DSim::renderObjects() {
-    renderer.runFrame([this](VkCommandBuffer commandBuffer){
+    if (paused) {
+        renderer.runFrame([this](VkCommandBuffer commandBuffer) {
+            showImGui();
+
+            renderer.runRenderPass([this](VkCommandBuffer &commandBuffer) {
+
+                if (showParticles) {
+                    particleSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
+                    VkBuffer vb = flipSolver.particleBuffer();
+                    VkDeviceSize offsets[] = {0};
+                    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
+                    vkCmdDraw(commandBuffer, flipSolver.getParticleCount(), 1, 0, 0);
+                }
+
+                if (showGrid) drawGrid(commandBuffer);
+
+
+            });
+        });
+        return;
+    }
+    renderer.runFrame([this](VkCommandBuffer commandBuffer) {
         showImGui();
 
-        renderer.runRenderPass([this](VkCommandBuffer& commandBuffer){
+        renderer.runRenderPass([this](VkCommandBuffer &commandBuffer) {
 
             if (showParticles) {
                 particleSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
@@ -130,7 +150,8 @@ void FLIPGPU2DSim::renderObjects() {
 
 
         });
-    });
+    }, flipSolver.computeSemaphore(), vkb::ComputeShaderHandler::waitStages());
+
 }
 
 void FLIPGPU2DSim::drawGrid(VkCommandBuffer commandBuffer) {

@@ -7,11 +7,11 @@ const uint AIR = 2;
 
 struct ComputeUBO {
     uint size;
-    ivec2 dim;
     uint numParticles;
     float overCellSize;
     float cellSize;
     float dt;
+    ivec2 dim;
 };
 
 struct IdxWeight {

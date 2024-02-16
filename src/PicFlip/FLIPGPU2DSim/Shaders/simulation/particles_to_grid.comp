@@ -42,7 +42,7 @@ void main() {
 
     vec2 pos = pPos[i];
     uint pIdx = particleIdx(pos, vec2(0), ubo.overCellSize, ubo.dim.x);
-    types[i] = FLUID;
+    types[pIdx] = FLUID;
 
     IdxWeight iw = particleIdxWeight(pos, vec2(0.0, ubo.cellSize/2), ubo.overCellSize, ubo.dim.x);
     float w0 = (1.0 - iw.weight.x)*(1.0 - iw.weight.y);

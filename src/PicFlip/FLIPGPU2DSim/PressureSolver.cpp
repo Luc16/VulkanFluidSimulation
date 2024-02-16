@@ -2,6 +2,7 @@
 // Created by luc on 23/01/24.
 //
 
+#include <iomanip>
 #include "PressureSolver.h"
 
 PressureSolver::PressureSolver(const vkb::Device &device, const std::vector<std::string> &shaders, uint32_t size): m_deviceRef(device), m_shaderPaths(shaders), m_size(size) {
@@ -23,6 +24,15 @@ int PressureSolver::solve(double epsilon, uint32_t maxIters) {
         // gamma = dot(r, r) && gamma0 = initial gamma
         applyDotProductKernel(commandBuffer, 0, 0);
     });
+
+    std::vector<double> gamma = {0.0, 0.0, 0.0};
+    vkb::Buffer::writeBufferToVector(m_deviceRef, m_gammaBuffer, gamma);
+
+//    std::cout << "Initial gamma: " << gamma[0] << "\n";
+    if (std::abs(gamma[0]) < 1e-30) {
+        std::cout << "Zero divergent\n";
+        return 0;
+    }
 
     uint32_t gpuIters = 10;
     for (uint32_t i = 0; i < maxIters; i+=gpuIters) {
@@ -62,12 +72,13 @@ int PressureSolver::solve(double epsilon, uint32_t maxIters) {
             }
         });
 
-        std::vector<double> gamma = {0.0, 0.0, 0.0};
         vkb::Buffer::writeBufferToVector(m_deviceRef, m_gammaBuffer, gamma);
-
         if (gamma[0]/gamma[2] < epsilon) {
             std::cout << "Converged in " << i+gpuIters << " iterations\n";
             return 0;
+        }  else if (gamma[0] != gamma[0]) {
+            vkDeviceWaitIdle(m_deviceRef.device());
+            throw std::runtime_error("Nan divergent");
         }
     }
 

@@ -63,7 +63,6 @@ void main() {
 
     pos += ubo.dt*getVelAt(midWay);
 
-
     if (pos.x < minX) {
         pVel[i].x = 0;
         pos.x = minX + 0.001f;

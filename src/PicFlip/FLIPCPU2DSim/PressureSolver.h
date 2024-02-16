@@ -37,7 +37,10 @@ int PressureSolver<T, cells_per_row>::solve(SparseMatrix<T, cells_per_row>& A, H
     // PCG
     auto maxB = maxAbs(r);
 
-    if (maxB < 1e-20) return 0;
+    if (maxB < 1e-20) {
+//        std::cout << "maxB is too small\n";
+        return 0;
+    }
     m_preconditioner.resize(r.size());
     formPreconditioner(A);
 
