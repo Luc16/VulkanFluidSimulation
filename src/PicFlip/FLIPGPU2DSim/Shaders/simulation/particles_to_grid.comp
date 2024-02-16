@@ -40,10 +40,11 @@ void main() {
     uint i = gl_GlobalInvocationID.x;
     if (i >= ubo.numParticles) return;
 
-    uint pIdx = particleIdx(pPos[i], vec2(0), ubo.overCellSize, ubo.dim.x);
+    vec2 pos = pPos[i];
+    uint pIdx = particleIdx(pos, vec2(0), ubo.overCellSize, ubo.dim.x);
     types[i] = FLUID;
 
-    IdxWeight iw = particleIdxWeight(pPos[i], vec2(0.0, ubo.cellSize/2), ubo.overCellSize, ubo.dim.x);
+    IdxWeight iw = particleIdxWeight(pos, vec2(0.0, ubo.cellSize/2), ubo.overCellSize, ubo.dim.x);
     float w0 = (1.0 - iw.weight.x)*(1.0 - iw.weight.y);
     float w1 = (iw.weight.x)*(1.0 - iw.weight.y);
     float w2 = (1.0 - iw.weight.x)*(iw.weight.y);
@@ -60,7 +61,7 @@ void main() {
     atomicAdd(weights[gPosToIdx(iw.gIdx + ivec2(1, 1), ubo.dim.x)].x, w3);
 
 
-    iw = particleIdxWeight(pPos[i], vec2(ubo.cellSize/2, 0.0), ubo.overCellSize, ubo.dim.x);
+    iw = particleIdxWeight(pos, vec2(ubo.cellSize/2, 0.0), ubo.overCellSize, ubo.dim.x);
     w0 = (1.0 - iw.weight.x)*(1.0 - iw.weight.y);
     w1 = (iw.weight.x)*(1.0 - iw.weight.y);
     w2 = (1.0 - iw.weight.x)*(iw.weight.y);

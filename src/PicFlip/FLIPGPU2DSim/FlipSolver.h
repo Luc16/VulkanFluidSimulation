@@ -35,7 +35,7 @@ public:
     [[nodiscard]] uint32_t getNumTilesX() const { return numTilesX; }
     [[nodiscard]] uint32_t getNumTilesY() const { return numTilesY; }
     [[nodiscard]] uint32_t getCellSize() const { return cellSize; }
-    [[nodiscard]] uint32_t getParticleCount() const { return particleCount; }
+    [[nodiscard]] uint32_t getParticleCount() const { return numParticles; }
     [[nodiscard]] float particleRadius() const { return radius; }
     [[nodiscard]] VkBuffer particleBuffer() const { return m_particlePosBuffer->getBuffer(); }
 
@@ -43,7 +43,7 @@ private:
     constexpr static uint32_t m_workGroupSize = workGroupSize;
 
     // simulation params
-    uint32_t particleCount = 20000;
+    uint32_t numParticles = 20000;
     float dt = 1/60.0f;
     float radius = 4.0f;
     uint32_t cellSize = 10;
@@ -61,7 +61,13 @@ private:
     const std::vector<std::string>& m_shaderPaths;
     const std::vector<std::string>& m_pressureSolverShaderPaths;
 
-    ComputeUniformBufferObject m_cUbo{50*50, {50, 50}};
+    ComputeUniformBufferObject m_cUbo{
+        numTilesX*numTilesY,
+        {numTilesX, numTilesY},
+        numParticles,
+        1.0f/float(cellSize),
+        float(cellSize)
+    };
     std::unique_ptr<vkb::Buffer> m_computeUniformBuffer;
     vkb::ComputeShaderHandler m_computeHandler{m_deviceRef};
 
@@ -77,10 +83,62 @@ private:
     std::unique_ptr<vkb::Buffer> m_particlePosBuffer;
     std::unique_ptr<vkb::Buffer> m_particleVelBuffer;
 
+    std::vector<std::pair<VkBuffer, VkDeviceSize>> m_velBarrier, m_velWeightBarrier;
+
     PressureSolver m_pressureSolver{m_deviceRef, m_pressureSolverShaderPaths, m_cUbo.size};
 
-    vkb::SimulationKernel m_createMatrixAndRhsKernel {
+    vkb::SimulationKernel m_advectParticlesKernel {
             .computeSystem{m_deviceRef, m_shaderPaths[0]},
+            .descSets = std::vector<VkDescriptorSet>(1),
+            .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
+                    .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+                    //velX, velY, pPos, pVel
+                    .addSameTypeBindings(1, 4,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    .build()
+    };
+
+    vkb::SimulationKernel m_resetGridKernel {
+            .computeSystem{m_deviceRef, m_shaderPaths[1]},
+            .descSets = std::vector<VkDescriptorSet>(1),
+            .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
+                    .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+                    // types, velX, velY, weights, pressure, rhs
+                    .addSameTypeBindings(1, 6,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    .build()
+    };
+
+    vkb::SimulationKernel m_particleToGridKernel {
+            .computeSystem{m_deviceRef, m_shaderPaths[2]},
+            .descSets = std::vector<VkDescriptorSet>(1),
+            .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
+                    .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+                    // types, velX, velY, weights, pPos, pVel
+                    .addSameTypeBindings(1, 6,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    .build()
+    };
+
+    vkb::SimulationKernel m_applyWeightsAndGravityKernel {
+            .computeSystem{m_deviceRef, m_shaderPaths[3]},
+            .descSets = std::vector<VkDescriptorSet>(1),
+            .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
+                    .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+                    // types, velX, velY, weights
+                    .addSameTypeBindings(1, 4,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    .build()
+    };
+
+    vkb::SimulationKernel m_applyBoundaryConditionsKernel {
+            .computeSystem{m_deviceRef, m_shaderPaths[4]},
+            .descSets = std::vector<VkDescriptorSet>(1),
+            .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
+                    .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+                    // types, velX, velY
+                    .addSameTypeBindings(1, 3,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    .build()
+    };
+
+    vkb::SimulationKernel m_createMatrixAndRhsKernel {
+            .computeSystem{m_deviceRef, m_shaderPaths[5]},
             .descSets = std::vector<VkDescriptorSet>(1),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
@@ -89,6 +147,25 @@ private:
                     .build()
     };
 
+    vkb::SimulationKernel m_applyPressureKernel {
+            .computeSystem{m_deviceRef, m_shaderPaths[6]},
+            .descSets = std::vector<VkDescriptorSet>(1),
+            .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
+                    .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+                    // types, velX, velY, pressure
+                    .addSameTypeBindings(1, 4,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    .build()
+    };
+
+    vkb::SimulationKernel m_gridToParticleKernel {
+            .computeSystem{m_deviceRef, m_shaderPaths[7]},
+            .descSets = std::vector<VkDescriptorSet>(1),
+            .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
+                    .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+                    // types, velX, velY, pPos, pVel
+                    .addSameTypeBindings(1, 5,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    .build()
+    };
 };
 
 

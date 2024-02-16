@@ -5,39 +5,47 @@
 #include "FlipSolver.h"
 
 void FlipSolver::updateSimulation(float deltaTime) {
-    std::vector<glm::vec2> p{particleCount};
-    vkb::Buffer::writeBufferToVector(m_deviceRef, m_particlePosBuffer, p);
-    for (auto& particle : p) {
-//        std::cout << "Particle at " << particle.x << " " << particle.y << "\n";
-    }
-
-    HeapMatrix<uint32_t> types(m_cUbo.size, m_cUbo.dim.x);
-    HeapMatrix<float> velY(m_cUbo.size, m_cUbo.dim.x);
-
-    for (uint32_t j = 0; j < types.nRows(); j++) {
-        for (uint32_t i = 0; i < types.nCols(); i++) {
-            if (i == 0 || j == 0 || i == types.nCols() - 1 || j == types.nRows() - 1)
-                types(i, j) = 0;
-            else if (i >= 10 && i < 40 && j >= 10 && j < 40) {
-                types(i, j) = 1;
-                velY(i, j) = -9.8f*(1.0/60.0);
-            } else {
-                types(i, j) = 2;
-            }
-        }
-    }
-
-    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_typesBuffer, types.getVector());
-    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_velYBuffer, velY.getVector());
-
+    uint32_t nGrid = m_cUbo.size/m_workGroupSize + 1;
+    uint32_t nParticles = m_cUbo.numParticles/m_workGroupSize + 1;
     m_computeHandler.runComputeIsolated(0, [&](VkCommandBuffer commandBuffer) {
-        m_createMatrixAndRhsKernel.bindAndDispatch(commandBuffer, 0, m_cUbo.size/m_workGroupSize + 1, 1, 1);
+        m_advectParticlesKernel.bindAndDispatch(commandBuffer, 0, nParticles, 1, 1);
+
+        vkb::ComputeShaderHandler::computeBarrier(commandBuffer, m_particlePosBuffer);
+
+        m_resetGridKernel.bindAndDispatch(commandBuffer, 0, nGrid, 1, 1);
+
+        vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velWeightBarrier);
+
+        m_particleToGridKernel.bindAndDispatch(commandBuffer, 0, nParticles, 1, 1);
+
+        vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velWeightBarrier);
+
+        m_applyWeightsAndGravityKernel.bindAndDispatch(commandBuffer, 0, nGrid, 1, 1);
+
+        vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velBarrier);
+
+        uint32_t nBound = std::max(numTilesX, numTilesY)/m_workGroupSize + 1;
+        m_applyBoundaryConditionsKernel.bindAndDispatch(commandBuffer, 0, nBound, 1, 1);
+
+        vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velBarrier);
+
+        m_createMatrixAndRhsKernel.bindAndDispatch(commandBuffer, 0, nGrid, 1, 1);
     });
 
     auto res = m_pressureSolver.solve(1e-4, 200);
     if (res == 1) {
         std::cout << "Pressure solver did not converge\n";
     }
+
+    m_computeHandler.runCompute(0, [&](VkCommandBuffer commandBuffer) {
+        vkb::ComputeShaderHandler::computeBarrier(commandBuffer, m_pressureBuffer);
+
+        m_applyPressureKernel.bindAndDispatch(commandBuffer, 0, nGrid, 1, 1);
+
+        vkb::ComputeShaderHandler::computeBarriers(commandBuffer, m_velBarrier);
+
+        m_gridToParticleKernel.bindAndDispatch(commandBuffer, 0, nParticles, 1, 1);
+    });
 }
 
 void FlipSolver::initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPool)  {
@@ -47,7 +55,7 @@ void FlipSolver::initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPo
 }
 
 void FlipSolver::initializeParticles() {
-    std::vector<glm::vec2> particles{particleCount};
+    std::vector<glm::vec2> particles{numParticles};
     uint32_t k = 0, na = 3, nb = 3;
     uint32_t s = numTilesX/4, e = 3*numTilesX/4;
     for (uint32_t j = 4 ; j < numTilesY-1; j++) {
@@ -70,7 +78,58 @@ void FlipSolver::initializeParticles() {
 }
 
 void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &globalPool) {
+    m_advectParticlesKernel.createPipeline();
+    m_resetGridKernel.createPipeline();
+    m_particleToGridKernel.createPipeline();
+    m_applyWeightsAndGravityKernel.createPipeline();
+    m_applyBoundaryConditionsKernel.createPipeline();
     m_createMatrixAndRhsKernel.createPipeline();
+    m_applyPressureKernel.createPipeline();
+    m_gridToParticleKernel.createPipeline();
+
+    m_advectParticlesKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_advectParticlesKernel.layout, {
+            {m_computeUniformBuffer->descriptorInfo()},
+            {m_velXBuffer->descriptorInfo()},
+            {m_velYBuffer->descriptorInfo()},
+            {m_particlePosBuffer->descriptorInfo()},
+            {m_particleVelBuffer->descriptorInfo()},
+    });
+
+    m_resetGridKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_resetGridKernel.layout, {
+            {m_computeUniformBuffer->descriptorInfo()},
+            {m_typesBuffer->descriptorInfo()},
+            {m_velXBuffer->descriptorInfo()},
+            {m_velYBuffer->descriptorInfo()},
+            {m_weightsBuffer->descriptorInfo()},
+            {m_pressureBuffer->descriptorInfo()},
+            {m_rhsBuffer->descriptorInfo()},
+
+    });
+
+    m_particleToGridKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_particleToGridKernel.layout, {
+            {m_computeUniformBuffer->descriptorInfo()},
+            {m_typesBuffer->descriptorInfo()},
+            {m_velXBuffer->descriptorInfo()},
+            {m_velYBuffer->descriptorInfo()},
+            {m_weightsBuffer->descriptorInfo()},
+            {m_particlePosBuffer->descriptorInfo()},
+            {m_particleVelBuffer->descriptorInfo()},
+    });
+
+    m_applyWeightsAndGravityKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_applyWeightsAndGravityKernel.layout, {
+            {m_computeUniformBuffer->descriptorInfo()},
+            {m_typesBuffer->descriptorInfo()},
+            {m_velXBuffer->descriptorInfo()},
+            {m_velYBuffer->descriptorInfo()},
+            {m_weightsBuffer->descriptorInfo()},
+    });
+
+    m_applyBoundaryConditionsKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_applyBoundaryConditionsKernel.layout, {
+            {m_computeUniformBuffer->descriptorInfo()},
+            {m_typesBuffer->descriptorInfo()},
+            {m_velXBuffer->descriptorInfo()},
+            {m_velYBuffer->descriptorInfo()},
+    });
 
     m_createMatrixAndRhsKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_createMatrixAndRhsKernel.layout, {
             {m_computeUniformBuffer->descriptorInfo()},
@@ -81,8 +140,27 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
             {m_velYBuffer->descriptorInfo()},
     });
 
+    m_applyPressureKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_applyPressureKernel.layout, {
+            {m_computeUniformBuffer->descriptorInfo()},
+            {m_typesBuffer->descriptorInfo()},
+            {m_velXBuffer->descriptorInfo()},
+            {m_velYBuffer->descriptorInfo()},
+            {m_pressureBuffer->descriptorInfo()},
+    });
+
+    m_gridToParticleKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_gridToParticleKernel.layout, {
+            {m_computeUniformBuffer->descriptorInfo()},
+            {m_typesBuffer->descriptorInfo()},
+            {m_velXBuffer->descriptorInfo()},
+            {m_velYBuffer->descriptorInfo()},
+            {m_particlePosBuffer->descriptorInfo()},
+            {m_particleVelBuffer->descriptorInfo()},
+    });
 
     m_pressureSolver.initializeKernels(globalPool, m_computeUniformBuffer, m_matrixBuffer, m_typesBuffer, m_rhsBuffer, m_pressureBuffer);
+
+    m_velBarrier = {m_velXBuffer->getBarrierData(), m_velYBuffer->getBarrierData()};
+    m_velWeightBarrier = {m_velXBuffer->getBarrierData(), m_velYBuffer->getBarrierData(), m_weightsBuffer->getBarrierData()};
 
 }
 
@@ -157,15 +235,15 @@ void FlipSolver::createBuffers() {
                                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     m_particlePosBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
-                                                    particleCount*sizeof(glm::vec2),
+                                                        numParticles * sizeof(glm::vec2),
                                                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
                                                     VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                                                     VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
                                                     VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                                                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+                                                        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     m_particleVelBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
-                                                        particleCount*sizeof(glm::vec2),
+                                                        numParticles * sizeof(glm::vec2),
                                                         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
                                                         VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                                         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);

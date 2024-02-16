@@ -17,7 +17,7 @@
 
 - [x] Draw particles with buffers in the GPU
 - [ ] Create kernels
-  - [ ] Advect particles
+  - [x] Advect particles
   
   - [x] Transfer particles to GRID
     - [x] Reset grid (reset velocity, weights, types, rhs and pressure) 
@@ -31,12 +31,12 @@
     - [ ] Set previous velocity as current
     - [x] Create matrix
     - [x] Solve pressure
-    - [ ] Apply pressure on velocities
+    - [x] Apply pressure on velocities
     
 
   
   - [ ] Transfer grid velocities to particles
-    - [ ] Use PIC
+    - [x] Use PIC
     - [ ] Add FLIP
   
   - [ ] Extend velocities

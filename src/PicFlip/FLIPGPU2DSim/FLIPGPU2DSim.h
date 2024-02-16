@@ -60,12 +60,14 @@ private:
             "reduce.comp",
             "finish_dot.comp",
             "matrix_multiply.comp",
-            "create_matrix.comp",
+            "advect_particles.comp",
             "reset_grid.comp",
             "particles_to_grid.comp",
             "apply_weights_and_gravity.comp",
             "apply_boundary_conditions.comp",
+            "create_matrix.comp",
             "pressure_update.comp",
+            "grid_to_particles.comp",
     };
 
     const vkb::RenderSystem::ShaderPaths defaultShaderPaths = vkb::RenderSystem::ShaderPaths {
