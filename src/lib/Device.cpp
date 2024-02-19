@@ -117,10 +117,10 @@ namespace vkb {
         createInfo.pQueueCreateInfos = queueCreateInfos.data();
         createInfo.pEnabledFeatures = &deviceFeatures;
 
+        VkPhysicalDeviceShaderAtomicFloatFeaturesEXT floatFeatures{};
         if (m_deviceType == NVIDIA) {
-            VkPhysicalDeviceShaderAtomicFloatFeaturesEXT floatFeatures{};
             floatFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT;
-            floatFeatures.shaderBufferFloat32AtomicAdd = true; // this allows to perform atomic operations on storage buffers
+            floatFeatures.shaderBufferFloat32AtomicAdd = VK_TRUE; // this allows to perform atomic operations on storage buffers
             createInfo.pNext = &floatFeatures;
         }
 

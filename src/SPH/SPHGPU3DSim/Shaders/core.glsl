@@ -11,6 +11,7 @@ struct computeUBO {
     float GAS_CONST; // const for equation of state
     float H;           // kernel radius
     float HSQ;        // radius^2 for optimization
+    float MASS;
     float VISC;       // viscosity constant
     float DT;       // integration timestep
     float POLY6;

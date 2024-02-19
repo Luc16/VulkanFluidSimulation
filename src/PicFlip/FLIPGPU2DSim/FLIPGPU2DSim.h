@@ -113,7 +113,7 @@ private:
     bool showParticles = true;
 
     // render grid
-    std::vector<Line> gridLines;
+    std::vector<Line> gridLines{};
     glm::vec3 gridColor{0.02f};
     bool showGrid = false;
     std::unique_ptr<vkb::Buffer> gridLinesBuffer;
