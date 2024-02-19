@@ -114,7 +114,7 @@ private:
 
     // render grid
     std::vector<Line> gridLines;
-    glm::vec3 gridColor{0.01f};
+    glm::vec3 gridColor{0.02f};
     bool showGrid = false;
     std::unique_ptr<vkb::Buffer> gridLinesBuffer;
 

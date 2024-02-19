@@ -88,7 +88,6 @@ private:
 
     std::vector<std::pair<VkBuffer, VkDeviceSize>> m_velBarrier, m_velWeightBarrier;
 
-    PressureSolver<double, 150> pressureSolver{};
     PressureSolver m_pressureSolver{m_deviceRef, m_pressureSolverShaderPaths, m_cUbo.size};
 
     vkb::SimulationKernel m_advectParticlesKernel {
