@@ -30,7 +30,7 @@ int PressureSolver::solve(double epsilon, uint32_t maxIters) {
 
 //    std::cout << "Initial gamma: " << gamma[0] << "\n";
     if (std::abs(gamma[0]) < 1e-30) {
-        std::cout << "Zero divergent\n";
+//        std::cout << "Zero divergent\n";
         return 0;
     }
 
@@ -60,7 +60,7 @@ int PressureSolver::solve(double epsilon, uint32_t maxIters) {
 
                 vkb::ComputeShaderHandler::computeBarriers(commandBuffer, m_externalBarriers);
 
-                // gamma_prev = gramma -> gamma = dot -> beta = gamma/gamma_prev
+                // gamma_prev = gramma -> gamma = dot(r, r) -> beta = gamma/gamma_prev
                 applyDotProductKernel(commandBuffer, 0, 2);
 
                 vkb::ComputeShaderHandler::computeBarriers(commandBuffer, {m_gammaBuffer->getBarrierData(),
@@ -73,8 +73,10 @@ int PressureSolver::solve(double epsilon, uint32_t maxIters) {
         });
 
         vkb::Buffer::writeBufferToVector(m_deviceRef, m_gammaBuffer, gamma);
-        if (gamma[0]/gamma[2] < epsilon) {
-            std::cout << "Converged in " << i+gpuIters << " iterations\n";
+
+//        std::cout << "Iteration " << i+gpuIters << " gamma error: " << std::scientific << gamma[0]/gamma[2] << "\n";
+        if (gamma[0] < epsilon*gamma[2]) {
+//            std::cout << "Converged in " << i+gpuIters << " iterations\n";
             return 0;
         }  else if (gamma[0] != gamma[0]) {
             vkDeviceWaitIdle(m_deviceRef.device());
@@ -86,9 +88,9 @@ int PressureSolver::solve(double epsilon, uint32_t maxIters) {
 }
 
 void PressureSolver::applyDotProductKernel(VkCommandBuffer commandBuffer,
-                                       uint32_t dotProductDescSetIdx,
-                                       uint32_t resDescSetIdx) {
-    uint32_t numGroups = m_size / m_workGroupSize + (m_size % m_workGroupSize != 0);
+                                           uint32_t dotProductDescSetIdx,
+                                           uint32_t resDescSetIdx) {
+    uint32_t numGroups = m_size / m_workGroupSize + 1;
     m_dotProductKernel.bindAndDispatch(commandBuffer, dotProductDescSetIdx, numGroups, 1, 1);
     vkb::ComputeShaderHandler::computeBarrier(commandBuffer, m_dotProductAuxBuffers[0]);
 
@@ -98,8 +100,6 @@ void PressureSolver::applyDotProductKernel(VkCommandBuffer commandBuffer,
     }
 
     m_finishDotKernel.bindAndDispatch(commandBuffer, resDescSetIdx, 1, 1, 1);
-
-
 }
 
 void PressureSolver::createBuffers() {

@@ -32,29 +32,29 @@ layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 void main() {
     uint i = gl_GlobalInvocationID.x;
-    if (types[i] != FLUID ||
-        i < ubo.dim.x ||
+    if (i < ubo.dim.x ||
         i % ubo.dim.x == 0 ||
         i % ubo.dim.x == ubo.dim.x - 1 ||
         i > ubo.size - ubo.dim.x ||
+        types[i] != FLUID ||
         i >= ubo.size) return;
 
     double total = 0;
-    uint typeUp = types[i+1];
-    matrix[5*i + 1] = (typeUp == 1) ? -1 : 0;
-    total += (typeUp != 0) ? 1 : 0;
+    uint typeRight = types[i+1];
+    matrix[5*i + 1] = (typeRight == 1) ? -1 : 0;
+    total += double(typeRight != 0);
 
-    uint typeDown = types[i-1];
-    matrix[5*i + 2] = (typeDown == 1) ? -1 : 0;
-    total += (typeDown != 0) ? 1 : 0;
+    uint typeLeft = types[i-1];
+    matrix[5*i + 2] = (typeLeft == 1) ? -1 : 0;
+    total += double(typeLeft != 0);
 
-    uint typeRight = types[i+ubo.dim.x];
-    matrix[5*i + 3] = (typeRight == 1) ? -1 : 0;
-    total += (typeRight != 0) ? 1 : 0;
+    uint typeUp = types[i+ubo.dim.x];
+    matrix[5*i + 3] = (typeUp == 1) ? -1 : 0;
+    total += double(typeUp != 0);
 
-    uint typeLeft = types[i-ubo.dim.x];
-    matrix[5*i + 4] = (typeLeft == 1) ? -1 : 0;
-    total += (typeLeft != 0) ? 1 : 0;
+    uint typeDown = types[i-ubo.dim.x];
+    matrix[5*i + 4] = (typeDown == 1) ? -1 : 0;
+    total += double(typeDown != 0);
 
     matrix[5*i] = total;
 

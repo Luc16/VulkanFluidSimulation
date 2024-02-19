@@ -55,7 +55,6 @@ void main() {
     w2 = (1.0 - iw.weight.x)*(iw.weight.y);
     w3 = (iw.weight.x)*(iw.weight.y);
 
-    // add vel y to grid
     pVel[i].y = w0*velY[gPosToIdx(iw.gIdx, ubo.dim.x)] +
                 w1*velY[gPosToIdx(iw.gIdx + ivec2(1, 0), ubo.dim.x)] +
                 w2*velY[gPosToIdx(iw.gIdx + ivec2(0, 1), ubo.dim.x)] +

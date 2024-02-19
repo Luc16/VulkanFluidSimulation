@@ -173,6 +173,9 @@ namespace vkb {
         if (vkQueueSubmit(m_deviceRef.computeQueue(), 1, &submitInfo, m_computeInFlightFences[currentFrame]) != VK_SUCCESS) {
             throw std::runtime_error("failed to submit compute command buffer!");
         };
+
+        vkWaitForFences(m_deviceRef.device(), 1, &m_computeInFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+
     }
 
 }

@@ -33,14 +33,26 @@ void main() {
         velY[i + dim.x] = 0.0f;
         velY[i + dim.x * (dim.y - 1)] = 0.0f;
         velY[i + dim.x * (dim.y - 2)] = 0.0f;
+
+        velX[i] = 0.0f;
+        velX[i + dim.x] = 0.0f;
+        velX[i + dim.x * (dim.y - 1)] = 0.0f;
+        velX[i + dim.x * (dim.y - 2)] = 0.0f;
+
     }
 
     if (i < dim.y) {
         types[i*dim.x] = SOLID;
         types[i*dim.x + dim.x - 1] = SOLID;
+
         velX[i*dim.x] = 0.0f;
         velX[i*dim.x + 1] = 0.0f;
         velX[i*dim.x + dim.x - 1] = 0.0f;
         velX[i*dim.x + dim.x - 2] = 0.0f;
+
+        velY[i*dim.x] = 0.0f;
+        velY[i*dim.x + 1] = 0.0f;
+        velY[i*dim.x + dim.x - 1] = 0.0f;
+        velY[i*dim.x + dim.x - 2] = 0.0f;
     }
 }

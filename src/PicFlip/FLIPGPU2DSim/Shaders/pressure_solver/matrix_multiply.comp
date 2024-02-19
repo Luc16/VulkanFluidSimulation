@@ -27,12 +27,10 @@ layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 void main() {
     uint i = gl_GlobalInvocationID.x;
-    if (types[i] != FLUID ||
-        i < ubo.dim.x ||
-        i % ubo.dim.x == 0 ||
-        i % ubo.dim.x == ubo.dim.x - 1 ||
-        i > ubo.size - ubo.dim.x ||
-        i >= ubo.size) return;
+    if (i >= ubo.size) return;
 
-    res[i] = matrix[5*i] * x[i] + matrix[5*i + 1] * x[i+1] + matrix[5*i + 2] * x[i-1] + matrix[5*i + 3] * x[i+ubo.dim.x] + matrix[5*i + 4] * x[i-ubo.dim.x];
+    if (types[i] == FLUID)
+        res[i] = matrix[5*i] * x[i] + matrix[5*i + 1] * x[i+1] + matrix[5*i + 2] * x[i-1] + matrix[5*i + 3] * x[i+ubo.dim.x] + matrix[5*i + 4] * x[i-ubo.dim.x];
+    else
+        res[i] = 0;
 }

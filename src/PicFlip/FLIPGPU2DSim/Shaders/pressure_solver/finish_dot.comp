@@ -55,7 +55,7 @@ void main() {
         if (ubo.extra == 2) {
             result[1] = result[0]; // setting gamma_prev to gamma
         }
-        result[gl_WorkGroupID.x] = sum;
+        result[0] = sum;
         if (ubo.extra == 0) {
             result[2] = sum; // setting gamma0 to the initial sum
         } else if (ubo.extra == 1) {
