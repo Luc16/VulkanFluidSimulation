@@ -140,8 +140,18 @@ private:
                     .build()
     };
 
-    vkb::SimulationKernel m_createMatrixAndRhsKernel {
+    vkb::SimulationKernel m_setPrevVelocitiesKernel {
             .computeSystem{m_deviceRef, m_shaderPaths[5]},
+            .descSets = std::vector<VkDescriptorSet>(1),
+            .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
+                    .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+                    // velX, velY, prevVelX, prevVelY
+                    .addSameTypeBindings(1, 4,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    .build()
+    };
+
+    vkb::SimulationKernel m_createMatrixAndRhsKernel {
+            .computeSystem{m_deviceRef, m_shaderPaths[6]},
             .descSets = std::vector<VkDescriptorSet>(1),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
@@ -151,7 +161,7 @@ private:
     };
 
     vkb::SimulationKernel m_applyPressureKernel {
-            .computeSystem{m_deviceRef, m_shaderPaths[6]},
+            .computeSystem{m_deviceRef, m_shaderPaths[7]},
             .descSets = std::vector<VkDescriptorSet>(1),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
@@ -161,7 +171,7 @@ private:
     };
 
     vkb::SimulationKernel m_gridToParticleKernel {
-            .computeSystem{m_deviceRef, m_shaderPaths[7]},
+            .computeSystem{m_deviceRef, m_shaderPaths[8]},
             .descSets = std::vector<VkDescriptorSet>(1),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})

@@ -65,6 +65,7 @@ private:
             "particles_to_grid.comp",
             "apply_weights_and_gravity.comp",
             "apply_boundary_conditions.comp",
+            "set_prev_vel.comp",
             "create_matrix.comp",
             "pressure_update.comp",
             "grid_to_particles.comp",

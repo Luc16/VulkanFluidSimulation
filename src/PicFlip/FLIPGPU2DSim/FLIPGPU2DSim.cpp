@@ -43,6 +43,8 @@ void FLIPGPU2DSim::onCreate() {
 }
 
 void FLIPGPU2DSim::initializeObjects() {
+    vkDeviceWaitIdle(device.device());
+
     camera.setViewTarget({0.0f, 0.0f, -1.0f}, {0.0f, 0.0f, 0.0f }, {0.0f, 1.0f, 0.0f});
     camera.updateView();
     auto extent = window.extent();

@@ -30,6 +30,10 @@ void FlipSolver::updateSimulation(float deltaTime) {
 
         vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velBarrier);
 
+        m_setPrevVelocitiesKernel.bindAndDispatch(commandBuffer, 0, nGrid, 1, 1);
+
+        vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velBarrier);
+
         m_createMatrixAndRhsKernel.bindAndDispatch(commandBuffer, 0, nGrid, 1, 1);
 
         vkb::ComputeShaderHandler::computeBarriers(commandBuffer, {m_matrixBuffer->getBarrierData(), m_rhsBuffer->getBarrierData()});
@@ -87,6 +91,7 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
     m_particleToGridKernel.createPipeline();
     m_applyWeightsAndGravityKernel.createPipeline();
     m_applyBoundaryConditionsKernel.createPipeline();
+    m_setPrevVelocitiesKernel.createPipeline();
     m_createMatrixAndRhsKernel.createPipeline();
     m_applyPressureKernel.createPipeline();
     m_gridToParticleKernel.createPipeline();
@@ -133,6 +138,14 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
             {m_typesBuffer->descriptorInfo()},
             {m_velXBuffer->descriptorInfo()},
             {m_velYBuffer->descriptorInfo()},
+    });
+
+    m_setPrevVelocitiesKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_setPrevVelocitiesKernel.layout, {
+            {m_computeUniformBuffer->descriptorInfo()},
+            {m_velXBuffer->descriptorInfo()},
+            {m_velYBuffer->descriptorInfo()},
+            {m_prevVelXBuffer->descriptorInfo()},
+            {m_prevVelYBuffer->descriptorInfo()},
     });
 
     m_createMatrixAndRhsKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_createMatrixAndRhsKernel.layout, {

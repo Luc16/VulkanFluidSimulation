@@ -1,0 +1,36 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+
+#include "common.glsl"
+
+layout (binding = 0) uniform ParameterUBO {
+    ComputeUBO ubo;
+};
+
+layout(std430, binding = 1) readonly buffer VelxSSBO {
+    float velX[ ];
+};
+
+layout(std430, binding = 2) readonly buffer VelySSBO {
+    float velY[ ];
+};
+
+layout(std430, binding = 3) buffer PrevVelXSSBO {
+    float prevVelX[ ];
+};
+
+layout(std430, binding = 4) buffer PrevVelYSSBO {
+    float prevVelY[ ];
+};
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= ubo.size) return;
+
+    prevVelX[i] = velX[i];
+    prevVelY[i] = velY[i];
+
+
+}
