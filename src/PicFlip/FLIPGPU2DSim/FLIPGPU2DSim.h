@@ -64,6 +64,7 @@ private:
             "reset_grid.comp",
             "particles_to_grid.comp",
             "apply_weights_and_gravity.comp",
+            "extend_velocities.comp",
             "apply_boundary_conditions.comp",
             "set_prev_vel.comp",
             "create_matrix.comp",
@@ -118,7 +119,6 @@ private:
     glm::vec3 gridColor{0.02f};
     bool showGrid = false;
     std::unique_ptr<vkb::Buffer> gridLinesBuffer;
-
 
 
     float gpuTime = 0, cpuTime = 0;

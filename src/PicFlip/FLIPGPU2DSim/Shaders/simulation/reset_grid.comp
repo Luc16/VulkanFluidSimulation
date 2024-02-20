@@ -31,6 +31,10 @@ layout(std430, binding = 6) buffer RhsSSBO {
     double rhs[ ];
 };
 
+layout(std430, binding = 7) buffer HasVelSSBO {
+    uint hasVel[ ];
+};
+
 
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
@@ -48,5 +52,6 @@ void main() {
     weights[i] = vec2(0.0, 0.0);
     rhs[i] = 0.0;
     pressure[i] = 0.0;
+    hasVel[i] = 0;
 
 }

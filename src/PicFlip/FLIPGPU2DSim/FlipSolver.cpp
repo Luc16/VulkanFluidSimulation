@@ -25,6 +25,9 @@ void FlipSolver::updateSimulation(float deltaTime) {
 
         vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velBarrier);
 
+        // todo extend velocities
+        vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velBarrier);
+
         uint32_t nBound = std::max(numTilesX, numTilesY)/m_workGroupSize + 1;
         m_applyBoundaryConditionsKernel.bindAndDispatch(commandBuffer, 0, nBound, 1, 1);
 
@@ -112,6 +115,7 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
             {m_weightsBuffer->descriptorInfo()},
             {m_pressureBuffer->descriptorInfo()},
             {m_rhsBuffer->descriptorInfo()},
+            {m_hasVelBuffer->descriptorInfo()},
 
     });
 
@@ -123,6 +127,7 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
             {m_weightsBuffer->descriptorInfo()},
             {m_particlePosBuffer->descriptorInfo()},
             {m_particleVelBuffer->descriptorInfo()},
+            {m_hasVelBuffer->descriptorInfo()},
     });
 
     m_applyWeightsAndGravityKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_applyWeightsAndGravityKernel.layout, {
@@ -131,6 +136,14 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
             {m_velXBuffer->descriptorInfo()},
             {m_velYBuffer->descriptorInfo()},
             {m_weightsBuffer->descriptorInfo()},
+    });
+
+    m_extendVelocitiesKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_extendVelocitiesKernel.layout, {
+            {m_computeUniformBuffer->descriptorInfo()},
+            {m_typesBuffer->descriptorInfo()},
+            {m_velXBuffer->descriptorInfo()},
+            {m_velYBuffer->descriptorInfo()},
+            {m_hasVelBuffer->descriptorInfo()},
     });
 
     m_applyBoundaryConditionsKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_applyBoundaryConditionsKernel.layout, {
@@ -183,6 +196,7 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
 }
 
 void FlipSolver::createBuffers() {
+    // todo create uniform buffers for extend velocities kernel
     m_computeUniformBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
                                                            sizeof(ComputeUniformBufferObject),
                                                            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -204,6 +218,13 @@ void FlipSolver::createBuffers() {
                                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                                                   VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    m_hasVelBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
+                                                   m_cUbo.size*sizeof(uint32_t),
+                                                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                                                   VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
 
     m_rhsBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,

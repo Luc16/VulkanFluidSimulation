@@ -353,8 +353,6 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::extendVelocities(
                 uint32_t hadVel = hasVel(i, j);
                 if (cellTypes(i, j) != SOLID && cellTypes(i-1, j) != SOLID && cellTypes(i, j-1) != SOLID && hadVel == 0){
                     expandVelComponentCell(i, j, k, current.velX);
-                }
-                if (cellTypes(i, j) != SOLID && cellTypes(i-1, j) != SOLID && cellTypes(i, j-1) != SOLID && hadVel == 0){
                     expandVelComponentCell(i, j, k, current.velY);
                 }
             }

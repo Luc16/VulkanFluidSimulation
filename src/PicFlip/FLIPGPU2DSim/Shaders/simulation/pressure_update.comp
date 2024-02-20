@@ -11,11 +11,11 @@ layout(std430, binding = 1) readonly buffer TypesSSBO {
     uint types[ ];
 };
 
-layout(std430, binding = 2) buffer VelxSSBO {
+layout(std430, binding = 2) buffer VelXSSBO {
     float velX[ ];
 };
 
-layout(std430, binding = 3) buffer VelySSBO {
+layout(std430, binding = 3) buffer VelYSSBO {
     float velY[ ];
 };
 
