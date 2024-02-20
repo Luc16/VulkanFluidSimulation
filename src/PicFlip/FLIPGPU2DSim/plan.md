@@ -32,12 +32,10 @@
     - [x] Create matrix
     - [x] Solve pressure
     - [x] Apply pressure on velocities
-    
 
-  
-  - [ ] Transfer grid velocities to particles
+  - [x] Transfer grid velocities to particles
     - [x] Use PIC
-    - [ ] Add FLIP
+    - [x] Add FLIP
   
   - [ ] Extend velocities
     - [ ] Reset air cells

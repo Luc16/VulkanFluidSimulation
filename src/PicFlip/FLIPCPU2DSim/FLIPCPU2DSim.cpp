@@ -208,15 +208,14 @@ void FLIPCPU2DSim::updateAndDrawFluidQuads(VkCommandBuffer commandBuffer) {
     fluidQuads.reserve(numTilesX*numTilesY);
     for (uint32_t j = 0; j < numTilesY; j++) {
         for (uint32_t i = 0; i < numTilesX; i++) {
-            if (flipSolver.getCellType(i, j) == AIR) continue;
+//            if (flipSolver.getCellType(i, j) == AIR) continue;
             auto origin = glm::vec3(float(i*SIZE), float(j*SIZE), 0.0f);
 
             if (flipSolver.getSolidCells(i, j) == 0) {
                 fluidQuads.emplace_back(origin, SIZE, glm::vec3(0.0f, 1.0f, 0.0f));
-            } else if (flipSolver.getCellType(i, j) == FLUID) {
+            } else if (flipSolver.hasVelAt(i, j) > 0) {
                 fluidQuads.emplace_back(origin, SIZE, glm::vec3(0.0f, 0.0f, 1.0f));
             }
-
         }
     }
 

@@ -24,6 +24,7 @@ public:
     [[nodiscard]] float getVelX(uint32_t i, uint32_t j) { return current.velX(i, j); }
     [[nodiscard]] float getVelY(uint32_t i, uint32_t j) { return current.velY(i, j); }
     [[nodiscard]] CellType getCellType(uint32_t i, uint32_t j) { return cellTypes(i, j); }
+    [[nodiscard]] uint32_t hasVelAt(uint32_t i, uint32_t j) { return hasVel(i, j); }
     [[nodiscard]] float getSolidCells(uint32_t i, uint32_t j) { return solidCells(i, j); }
 
 private:
@@ -48,6 +49,7 @@ private:
 
         FluidData current, previous;
         Matrix<CellType, totalCells, numTilesX> cellTypes{};
+        Matrix<uint32_t , totalCells, numTilesX> hasVel{};
         Matrix<float, totalCells, numTilesX> weightVelX{}, weightVelY{};
         Matrix<float, totalCells, numTilesX> solidCells{};
         HeapMatrix<double, numTilesX> pressure{totalCells};
@@ -108,6 +110,7 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::resetGrid(bool ha
                         i % numTilesX == 0 ||
                         i % numTilesX == numTilesX - 1 ||
                         i > totalCells - numTilesX) ? SOLID: AIR;
+        hasVel[i] = 0;
         pressure[i] = 0.0f;
         rhs[i] = 0.0f;
     }
@@ -115,33 +118,6 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::resetGrid(bool ha
 
 template<uint32_t numTilesX, uint32_t numTilesY, uint32_t cellSize, uint32_t numParticles>
 void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::initializeParticles() {
-//    float startingX = 1*float(cellSize*numTilesX)/4;
-//    float lastX = 3*float(cellSize*numTilesX)/4;
-//    float startingX = 1.5*float(cellSize);
-//    float lastX = float(numTilesX*cellSize) - startingX;
-
-//    auto accPos = glm::vec3(startingX, 20, 0);
-//    float step = 1.2f*particleRadius;
-//
-//    for (uint32_t i = 0; i < numParticles; i++) {
-//        auto& particle = particles[i];
-//        particle.position = accPos;
-//        particle.position += glm::vec3(
-//                randomFloat(0.0f, 0.5f*particleRadius),
-//                randomFloat(0.0f, 0.5f*particleRadius),
-//                0.0f
-//        );
-//        particle.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
-//        particle.color = glm::vec4(0.2f, 0.6f, 1.0f, 1.0f);
-//
-//        accPos.x += step;
-//
-//        if (accPos.x > (float) lastX) {
-//            accPos.y += step;
-//            accPos.x = startingX;
-//        }
-//    }
-
     uint32_t k = 0, na = 3, nb = 3;
     uint32_t s = numTilesX/4, e = 3*numTilesX/4;
 //    uint32_t s = 0, e = numTilesX - 1;
@@ -274,7 +250,10 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::transferParticles
             glm::ivec2 gPos = gridPos(particle, xShift, yShift);
 
             // set all cells with particles to fluid
-            if (cellTypes(gridPos(particle)) != SOLID) cellTypes(gridPos(particle)) = FLUID;
+            if (cellTypes(gridPos(particle)) != SOLID) {
+                cellTypes(gridPos(particle)) = FLUID;
+                hasVel(gridPos(particle)) = 1;
+            }
 
 
             // transfer velocities to grid
@@ -326,58 +305,57 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::enforceBoundaryCo
 
 template<uint32_t numTilesX, uint32_t numTilesY, uint32_t cellSize, uint32_t numParticles>
 void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::extendVelocities() {
-    for (uint32_t j = 1; j < numTilesY; j++) {
-        for (uint32_t i = 1; i < numTilesX; i++) {
-            if (cellTypes(i, j) != FLUID && cellTypes(i-1, j) != FLUID){
-                current.velX(i, j) = 0.0f;
-            }
-            if (cellTypes(i, j) != FLUID && cellTypes(i, j-1) != FLUID){
-                current.velY(i, j) = 0.0f;
-            }
-            previous.velX(i, j) = current.velX(i, j);
-            previous.velY(i, j) = current.velY(i, j);
-        }
-    }
+//    for (uint32_t j = 1; j < numTilesY; j++) {
+//        for (uint32_t i = 1; i < numTilesX; i++) {
+//            if (cellTypes(i, j) != FLUID && cellTypes(i-1, j) != FLUID){
+//                current.velX(i, j) = 0.0f;
+//            }
+//            if (cellTypes(i, j) != FLUID && cellTypes(i, j-1) != FLUID){
+//                current.velY(i, j) = 0.0f;
+//            }
+//            previous.velX(i, j) = current.velX(i, j);
+//            previous.velY(i, j) = current.velY(i, j);
+//        }
+//    }
 
-    auto expandVelComponentCell = [this](uint32_t i, uint32_t j,
-                                         Matrix<float, totalCells, numTilesX>& cur, Matrix<float, totalCells, numTilesX>& prev){
+    auto expandVelComponentCell = [this](uint32_t i, uint32_t j, uint32_t k,
+                                         Matrix<float, totalCells, numTilesX>& cur){
         uint32_t validNeighbors = 0;
-        if (std::abs(prev(i-1, j)) > 0) {
-            cur(i, j) += prev(i-1, j);
+        cur(i, j) = 0;
+        if (hasVel(i-1, j) == k) {
+            cur(i, j) += cur(i-1, j);
             validNeighbors++;
         }
-        if (std::abs(prev(i+1, j)) > 0) {
-            cur(i, j) += prev(i+1, j);
+        if (hasVel(i+1, j) == k) {
+            cur(i, j) += cur(i+1, j);
             validNeighbors++;
         }
-        if (std::abs(prev(i, j-1)) > 0) {
-            cur(i, j) += prev(i, j-1);
+        if (hasVel(i, j-1) == k) {
+            cur(i, j) += cur(i, j-1);
             validNeighbors++;
         }
-        if (std::abs(prev(i, j+1)) > 0) {
-            cur(i, j) += prev(i, j+1);
+        if (hasVel(i, j+1) == k) {
+            cur(i, j) += cur(i, j+1);
             validNeighbors++;
         }
 
         if (validNeighbors > 0) {
             cur(i, j) /= float(validNeighbors);
+            hasVel(i, j) = k+1;
         }
     };
 
-    for (uint32_t _ = 0; _ < extensions; _++) {
-        current.velX.swap(previous.velX);
-        current.velY.swap(previous.velY);
+    for (uint32_t k = 1; k < extensions+1; k++) {
+//        current.velX.swap(previous.velX);
+//        current.velY.swap(previous.velY);
         for (uint32_t j = 1; j < numTilesY-1; j++) {
             for (uint32_t i = 1; i < numTilesX-1; i++) {
-                if (cellTypes(i, j) != SOLID && cellTypes(i-1, j) != SOLID && cellTypes(i, j-1) != SOLID && std::abs(previous.velX(i, j)) < 1e-6){
-                    expandVelComponentCell(i, j, current.velX, previous.velX);
-                } else {
-                    current.velX(i, j) = previous.velX(i, j);
+                uint32_t hadVel = hasVel(i, j);
+                if (cellTypes(i, j) != SOLID && cellTypes(i-1, j) != SOLID && cellTypes(i, j-1) != SOLID && hadVel == 0){
+                    expandVelComponentCell(i, j, k, current.velX);
                 }
-                if (cellTypes(i, j) != SOLID && cellTypes(i-1, j) != SOLID && cellTypes(i, j-1) != SOLID && std::abs(previous.velY(i, j)) < 1e-6){
-                    expandVelComponentCell(i, j, current.velY, previous.velY);
-                } else {
-                    current.velY(i, j) = previous.velY(i, j);
+                if (cellTypes(i, j) != SOLID && cellTypes(i-1, j) != SOLID && cellTypes(i, j-1) != SOLID && hadVel == 0){
+                    expandVelComponentCell(i, j, k, current.velY);
                 }
             }
         }

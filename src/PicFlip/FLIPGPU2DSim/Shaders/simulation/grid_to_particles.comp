@@ -65,6 +65,7 @@ void main() {
     if (i >= ubo.numParticles) return;
 
     vec2 pos = pPos[i];
+    vec2 vel = pVel[i];
 
     IdxWeight iw = particleIdxWeight(pos, vec2(0.0, ubo.cellSize/2), ubo.overCellSize, ubo.dim.x);
     float w0 = (1.0 - iw.weight.x)*(1.0 - iw.weight.y);
@@ -73,8 +74,7 @@ void main() {
     float w3 = (iw.weight.x)*(iw.weight.y);
 
     float picX = getPic(iw.gIdx, w0, w1, w2, w3, true);
-    float flipX = pVel[i].x + picX - getFlipPrev(iw.gIdx, w0, w1, w2, w3, true);
-    pVel[i].x = (1 - ubo.flipRatio)*picX + ubo.flipRatio*flipX;
+    float flipX = vel.x + picX - getFlipPrev(iw.gIdx, w0, w1, w2, w3, true);
 
     iw = particleIdxWeight(pos, vec2(ubo.cellSize/2, 0.0), ubo.overCellSize, ubo.dim.x);
     w0 = (1.0 - iw.weight.x)*(1.0 - iw.weight.y);
@@ -83,7 +83,12 @@ void main() {
     w3 = (iw.weight.x)*(iw.weight.y);
 
     float picY = getPic(iw.gIdx, w0, w1, w2, w3, false);
-    float flipY = pVel[i].y + picY - getFlipPrev(iw.gIdx, w0, w1, w2, w3, false);
-    pVel[i].y = (1 - ubo.flipRatio)*picY + ubo.flipRatio*flipY;
+    float flipY = vel.y + picY - getFlipPrev(iw.gIdx, w0, w1, w2, w3, false);
+
+    pVel[i] = vec2(
+        (1 - ubo.flipRatio)*picX + ubo.flipRatio*flipX,
+        (1 - ubo.flipRatio)*picY + ubo.flipRatio*flipY
+    );
+
 
 }
