@@ -7,27 +7,57 @@ layout (binding = 0) uniform ParameterUBO {
     ComputeUBO ubo;
 };
 
-layout(std430, binding = 1) buffer TypesSSBO {
-    uint types[ ];
-};
-
-layout(std430, binding = 2) buffer VelxSSBO {
+layout(std430, binding = 1) readonly buffer VelxSSBO {
     float velX[ ];
 };
 
-layout(std430, binding = 3) buffer VelySSBO {
+layout(std430, binding = 2) readonly buffer VelySSBO {
     float velY[ ];
 };
 
-layout(std430, binding = 4) buffer ParticlePosSSBO {
+layout(std430, binding = 3) buffer PrevVelXSSBO {
+    float prevVelX[ ];
+};
+
+layout(std430, binding = 4) buffer PrevVelYSSBO {
+    float prevVelY[ ];
+};
+
+layout(std430, binding = 5) buffer ParticlePosSSBO {
     vec2 pPos[ ];
 };
 
-layout(std430, binding = 5) buffer ParticleVelSSBO {
+layout(std430, binding = 6) buffer ParticleVelSSBO {
     vec2 pVel[ ];
 };
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+float getPic(ivec2 gIdx, float w0, float w1, float w2, float w3, bool isX) {
+    if (isX) {
+        return  w0*velX[gPosToIdx(gIdx, ubo.dim.x)] +
+                w1*velX[gPosToIdx(gIdx + ivec2(1, 0), ubo.dim.x)] +
+                w2*velX[gPosToIdx(gIdx + ivec2(0, 1), ubo.dim.x)] +
+                w3*velX[gPosToIdx(gIdx + ivec2(1, 1), ubo.dim.x)];
+    }
+    return  w0*velY[gPosToIdx(gIdx, ubo.dim.x)] +
+            w1*velY[gPosToIdx(gIdx + ivec2(1, 0), ubo.dim.x)] +
+            w2*velY[gPosToIdx(gIdx + ivec2(0, 1), ubo.dim.x)] +
+            w3*velY[gPosToIdx(gIdx + ivec2(1, 1), ubo.dim.x)];
+}
+
+float getFlipPrev(ivec2 gIdx, float w0, float w1, float w2, float w3, bool isX) {
+    if (isX) {
+        return  w0*prevVelX[gPosToIdx(gIdx, ubo.dim.x)] +
+                w1*prevVelX[gPosToIdx(gIdx + ivec2(1, 0), ubo.dim.x)] +
+                w2*prevVelX[gPosToIdx(gIdx + ivec2(0, 1), ubo.dim.x)] +
+                w3*prevVelX[gPosToIdx(gIdx + ivec2(1, 1), ubo.dim.x)];
+    }
+    return  w0*prevVelY[gPosToIdx(gIdx, ubo.dim.x)] +
+            w1*prevVelY[gPosToIdx(gIdx + ivec2(1, 0), ubo.dim.x)] +
+            w2*prevVelY[gPosToIdx(gIdx + ivec2(0, 1), ubo.dim.x)] +
+            w3*prevVelY[gPosToIdx(gIdx + ivec2(1, 1), ubo.dim.x)];
+}
 
 
 void main() {
@@ -42,12 +72,9 @@ void main() {
     float w2 = (1.0 - iw.weight.x)*(iw.weight.y);
     float w3 = (iw.weight.x)*(iw.weight.y);
 
-    pVel[i].x = w0*velX[gPosToIdx(iw.gIdx, ubo.dim.x)] +
-                w1*velX[gPosToIdx(iw.gIdx + ivec2(1, 0), ubo.dim.x)] +
-                w2*velX[gPosToIdx(iw.gIdx + ivec2(0, 1), ubo.dim.x)] +
-                w3*velX[gPosToIdx(iw.gIdx + ivec2(1, 1), ubo.dim.x)];
-
-
+    float picX = getPic(iw.gIdx, w0, w1, w2, w3, true);
+    float flipX = pVel[i].x + picX - getFlipPrev(iw.gIdx, w0, w1, w2, w3, true);
+    pVel[i].x = (1 - ubo.flipRatio)*picX + ubo.flipRatio*flipX;
 
     iw = particleIdxWeight(pos, vec2(ubo.cellSize/2, 0.0), ubo.overCellSize, ubo.dim.x);
     w0 = (1.0 - iw.weight.x)*(1.0 - iw.weight.y);
@@ -55,9 +82,8 @@ void main() {
     w2 = (1.0 - iw.weight.x)*(iw.weight.y);
     w3 = (iw.weight.x)*(iw.weight.y);
 
-    pVel[i].y = w0*velY[gPosToIdx(iw.gIdx, ubo.dim.x)] +
-                w1*velY[gPosToIdx(iw.gIdx + ivec2(1, 0), ubo.dim.x)] +
-                w2*velY[gPosToIdx(iw.gIdx + ivec2(0, 1), ubo.dim.x)] +
-                w3*velY[gPosToIdx(iw.gIdx + ivec2(1, 1), ubo.dim.x)];
+    float picY = getPic(iw.gIdx, w0, w1, w2, w3, false);
+    float flipY = pVel[i].y + picY - getFlipPrev(iw.gIdx, w0, w1, w2, w3, false);
+    pVel[i].y = (1 - ubo.flipRatio)*picY + ubo.flipRatio*flipY;
 
 }

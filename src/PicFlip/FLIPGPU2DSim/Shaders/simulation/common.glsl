@@ -11,6 +11,7 @@ struct ComputeUBO {
     float overCellSize;
     float cellSize;
     float dt;
+    float flipRatio;
     ivec2 dim;
 };
 

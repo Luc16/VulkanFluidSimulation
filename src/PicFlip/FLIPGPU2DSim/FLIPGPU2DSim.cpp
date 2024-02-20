@@ -201,7 +201,7 @@ void FLIPGPU2DSim::showImGui(){
     }
 
 
-//    ImGui::DragFloat("Flip ratio", &flipRatio, 0.001f, 0.0001f, 1.0f);
+    ImGui::DragFloat("Flip ratio", &flipSolver.flipRatio, 0.001f, 0.0001f, 1.0f);
 
     if (ImGui::Button("Reset") || glfwIsKeyJustPressed<GLFW_KEY_R>()) initializeObjects();
     if (ImGui::Button("Pause") || glfwIsKeyJustPressed<GLFW_KEY_SPACE>()) paused = !paused;

@@ -167,9 +167,10 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
 
     m_gridToParticleKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_gridToParticleKernel.layout, {
             {m_computeUniformBuffer->descriptorInfo()},
-            {m_typesBuffer->descriptorInfo()},
             {m_velXBuffer->descriptorInfo()},
             {m_velYBuffer->descriptorInfo()},
+            {m_prevVelXBuffer->descriptorInfo()},
+            {m_prevVelYBuffer->descriptorInfo()},
             {m_particlePosBuffer->descriptorInfo()},
             {m_particleVelBuffer->descriptorInfo()},
     });

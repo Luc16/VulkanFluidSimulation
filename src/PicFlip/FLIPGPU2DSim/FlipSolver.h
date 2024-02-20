@@ -40,6 +40,7 @@ public:
     [[nodiscard]] VkBuffer particleBuffer() const { return m_particlePosBuffer->getBuffer(); }
     [[nodiscard]] std::vector<VkSemaphore> computeSemaphore() { return m_computeHandler.currentSemaphore(0); }
 
+    float flipRatio = 0.90f;
 
 private:
     constexpr static uint32_t m_workGroupSize = workGroupSize;
@@ -51,7 +52,6 @@ private:
     uint32_t cellSize;
     uint32_t numTilesX;
     uint32_t numTilesY;
-    float flipRatio = 0.90f;
     uint32_t numIterations = 200;
     uint32_t extensions = 4;
 
@@ -69,6 +69,7 @@ private:
         1.0f/float(cellSize),
         float(cellSize),
         dt,
+        flipRatio,
         {numTilesX, numTilesY}
     };
     std::unique_ptr<vkb::Buffer> m_computeUniformBuffer;
@@ -175,8 +176,8 @@ private:
             .descSets = std::vector<VkDescriptorSet>(1),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                    // types, velX, velY, pPos, pVel
-                    .addSameTypeBindings(1, 5,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    // velX, velY, prevVelX, prevVelY, pPos, pVel
+                    .addSameTypeBindings(1, 6,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 };

@@ -27,8 +27,8 @@
 
   - [x] Apply boundary conditions
 
-  - [ ] Project
-    - [ ] Set previous velocity as current
+  - [x] Project
+    - [x] Set previous velocity as current
     - [x] Create matrix
     - [x] Solve pressure
     - [x] Apply pressure on velocities
