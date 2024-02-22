@@ -63,6 +63,13 @@ private:
     const std::vector<std::string>& m_shaderPaths;
     const std::vector<std::string>& m_pressureSolverShaderPaths;
 
+    struct ExtensionUBO {
+        uint32_t size;
+        uint32_t k;
+        alignas(8) glm::ivec2 dim;
+
+    };
+
     ComputeUniformBufferObject m_cUbo{
         numTilesX*numTilesY,
         numParticles,
@@ -73,6 +80,8 @@ private:
         {numTilesX, numTilesY}
     };
     std::unique_ptr<vkb::Buffer> m_computeUniformBuffer;
+    std::vector<std::unique_ptr<vkb::Buffer>> m_extensionUniformBuffers{extensions};
+
     vkb::ComputeShaderHandler m_computeHandler{m_deviceRef};
 
     std::unique_ptr<vkb::Buffer> m_matrixBuffer;
@@ -134,7 +143,7 @@ private:
 
     vkb::SimulationKernel m_extendVelocitiesKernel {
             .computeSystem{m_deviceRef, m_shaderPaths[4]},
-            .descSets = std::vector<VkDescriptorSet>(1),
+            .descSets = std::vector<VkDescriptorSet>(extensions),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     // types, velX, velY, hasVel

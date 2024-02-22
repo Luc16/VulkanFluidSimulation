@@ -25,7 +25,9 @@ void FlipSolver::updateSimulation(float deltaTime) {
 
         vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velBarrier);
 
-        // todo extend velocities
+        for (uint32_t k = 0; k < extensions; k++) {
+            m_extendVelocitiesKernel.bindAndDispatch(commandBuffer, k, nGrid, 1, 1);
+        }
         vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velBarrier);
 
         uint32_t nBound = std::max(numTilesX, numTilesY)/m_workGroupSize + 1;
@@ -93,6 +95,7 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
     m_resetGridKernel.createPipeline();
     m_particleToGridKernel.createPipeline();
     m_applyWeightsAndGravityKernel.createPipeline();
+    m_extendVelocitiesKernel.createPipeline();
     m_applyBoundaryConditionsKernel.createPipeline();
     m_setPrevVelocitiesKernel.createPipeline();
     m_createMatrixAndRhsKernel.createPipeline();
@@ -138,13 +141,15 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
             {m_weightsBuffer->descriptorInfo()},
     });
 
-    m_extendVelocitiesKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_extendVelocitiesKernel.layout, {
-            {m_computeUniformBuffer->descriptorInfo()},
-            {m_typesBuffer->descriptorInfo()},
-            {m_velXBuffer->descriptorInfo()},
-            {m_velYBuffer->descriptorInfo()},
-            {m_hasVelBuffer->descriptorInfo()},
-    });
+    for (uint32_t k = 0; k < extensions; k++) {
+        m_extendVelocitiesKernel.descSets[k] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_extendVelocitiesKernel.layout, {
+                {m_extensionUniformBuffers[k]->descriptorInfo()},
+                {m_typesBuffer->descriptorInfo()},
+                {m_velXBuffer->descriptorInfo()},
+                {m_velYBuffer->descriptorInfo()},
+                {m_hasVelBuffer->descriptorInfo()},
+        });
+    }
 
     m_applyBoundaryConditionsKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_applyBoundaryConditionsKernel.layout, {
             {m_computeUniformBuffer->descriptorInfo()},
@@ -196,7 +201,16 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
 }
 
 void FlipSolver::createBuffers() {
-    // todo create uniform buffers for extend velocities kernel
+    for (uint32_t k = 0; k < extensions; k++) {
+        ExtensionUBO extUbo{m_cUbo.size, k+1, m_cUbo.dim};
+        m_extensionUniformBuffers[k] = std::make_unique<vkb::Buffer>(m_deviceRef,
+                                                                     sizeof(ExtensionUBO),
+                                                                     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+        m_extensionUniformBuffers[k]->singleWrite(&extUbo);
+    }
+
     m_computeUniformBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
                                                            sizeof(ComputeUniformBufferObject),
                                                            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
