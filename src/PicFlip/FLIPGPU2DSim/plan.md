@@ -16,7 +16,7 @@
 ## FLIP
 
 - [x] Draw particles with buffers in the GPU
-- [ ] Create kernels
+- [x] Create kernels
   - [x] Advect particles
   
   - [x] Transfer particles to GRID
@@ -37,6 +37,4 @@
     - [x] Use PIC
     - [x] Add FLIP
   
-  - [ ] Extend velocities
-    - [ ] Reset air cells
-    - [ ] Expand velocities
+  - [x] Extend velocities

@@ -84,6 +84,8 @@ void FLIPGPU2DSim::generateGridLines() {
 void FLIPGPU2DSim::createBuffers() {
     gridLinesBuffer = std::make_unique<vkb::Buffer>(device, (flipSolver.getNumTilesX() + flipSolver.getNumTilesY()) * sizeof(Line), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
                                                                                VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    fluidQuadBuffer = std::make_unique<vkb::Buffer>(device, (flipSolver.getNumTilesX() * flipSolver.getNumTilesY()) * sizeof(GridQuad), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                                                                                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
 
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
@@ -149,6 +151,7 @@ void FLIPGPU2DSim::renderObjects() {
             }
 
             if (showGrid) drawGrid(commandBuffer);
+            if (showFluidQuads) updateAndDrawFluidQuads(commandBuffer);
 
 
         });
@@ -174,6 +177,31 @@ void FLIPGPU2DSim::applyGridLineColor() {
     }
 }
 
+void FLIPGPU2DSim::updateAndDrawFluidQuads(VkCommandBuffer commandBuffer) {
+    fluidQuads.clear();
+    auto hasVel = flipSolver.hasVelBuffer();
+    fluidQuads.reserve(flipSolver.getNumTilesX()*flipSolver.getNumTilesY());
+    for (uint32_t j = 0; j < flipSolver.getNumTilesY(); j++) {
+        for (uint32_t i = 0; i < flipSolver.getNumTilesX(); i++) {
+//            if (flipSolver.getCellType(i, j) == AIR) continue;
+            auto origin = glm::vec3(float(i*flipSolver.getCellSize()), float(j*flipSolver.getCellSize()), 0.0f);
+
+            if (hasVel[i + j*flipSolver.getNumTilesX()] > 0) {
+                fluidQuads.emplace_back(origin, flipSolver.getCellSize(), glm::vec3(0.0f, 0.0f, 1.0f));
+            }
+        }
+    }
+
+    if (!fluidQuads.empty()) vkb::Buffer::writeVectorToBuffer(device, fluidQuadBuffer, fluidQuads);
+
+    quadSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
+
+    VkBuffer vb = fluidQuadBuffer->getBuffer();
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
+    vkCmdDraw(commandBuffer, 6*fluidQuads.size(), 1, 0, 0);
+}
+
 void FLIPGPU2DSim::updateBuffers(uint32_t frameIndex) {
     uniformBuffers[frameIndex]->write(&ubo);
 }
@@ -193,6 +221,7 @@ void FLIPGPU2DSim::showImGui(){
 
     ImGui::Checkbox("Show Particles", &showParticles);
     ImGui::Checkbox("Show Grid", &showGrid);
+    ImGui::Checkbox("Show fluid quads", &showFluidQuads);
 
     if (showGrid) {
         if (ImGui::Button("Change Grid Color")) {

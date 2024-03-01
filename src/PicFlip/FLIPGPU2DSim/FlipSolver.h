@@ -39,6 +39,11 @@ public:
     [[nodiscard]] float particleRadius() const { return radius; }
     [[nodiscard]] VkBuffer particleBuffer() const { return m_particlePosBuffer->getBuffer(); }
     [[nodiscard]] std::vector<VkSemaphore> computeSemaphore() { return m_computeHandler.currentSemaphore(0); }
+    [[nodiscard]] std::vector<uint32_t> hasVelBuffer() {
+        std::vector<uint32_t> vec(numTilesX*numTilesY);
+        vkb::Buffer::writeBufferToVector(m_deviceRef, m_hasVelBuffer, vec);
+        return vec;
+    }
 
     float flipRatio = 0.90f;
 

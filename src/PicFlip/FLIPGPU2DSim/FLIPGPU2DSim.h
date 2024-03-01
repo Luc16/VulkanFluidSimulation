@@ -114,6 +114,11 @@ private:
     };
     bool showParticles = true;
 
+    // render fluid quads
+    std::vector<GridQuad> fluidQuads;
+    std::unique_ptr<vkb::Buffer> fluidQuadBuffer;
+    bool showFluidQuads = false;
+
     // render grid
     std::vector<Line> gridLines{};
     glm::vec3 gridColor{0.02f};
@@ -132,6 +137,7 @@ private:
     void renderObjects();
     void drawGrid(VkCommandBuffer commandBuffer);
     void applyGridLineColor();
+    void updateAndDrawFluidQuads(VkCommandBuffer commandBuffer);
     void updateBuffers(uint32_t frameIndex);
     void showImGui();
 
