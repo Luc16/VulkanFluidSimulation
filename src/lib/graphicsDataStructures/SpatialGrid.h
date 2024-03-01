@@ -21,7 +21,7 @@ namespace vkb {
         [[nodiscard]] uint32_t size() { return m_grid.size(); }
 
         template<typename Entity>
-        void createAndSort(const std::vector<Entity>& entities, std::vector<Entity>& sortedEntities);
+        void createAndSort(const Entity& entities, Entity& sortedEntities);
         template<typename Entity>
         void createAndSortVec(const Entity& entities, Entity& sortedEntities);
 
@@ -39,20 +39,20 @@ namespace vkb {
     };
 
     template<typename Entity>
-    void SpatialGrid::createAndSort(const std::vector<Entity>& entities, std::vector<Entity>& sortedEntities) {
+    void SpatialGrid::createAndSort(const Entity& entities, Entity& sortedEntities) {
         std::fill(m_grid.begin(), m_grid.end(), 0);
 
-        for (const auto& entity : entities) {
-            m_grid[vecToGrid(entity.position)]++;
+        for (uint32_t i = 0; i < entities.position.size(); i++) {
+            m_grid[vecToGrid(entities.position[i])]++;
         }
 
         // prefix sum
         std::inclusive_scan(m_grid.begin(), m_grid.end(), m_grid.begin());
 
-        for (uint32_t i = 0; i < entities.size(); i++) {
-            auto h = vecToGrid(entities[i].position);
+        for (uint32_t i = 0; i < entities.position.size(); i++) {
+            auto h = vecToGrid(entities.position[i]);
             m_grid[h]--;
-            sortedEntities[m_grid[h]] = entities[i];
+            sortedEntities.set(m_grid[h], entities, i);
         }
 
     }

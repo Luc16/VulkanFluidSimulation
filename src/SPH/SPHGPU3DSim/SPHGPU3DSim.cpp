@@ -76,6 +76,10 @@ void SPHGPU3DSim::createComputeDescriptorSets() {
 }
 
 void SPHGPU3DSim::initializeObjects(bool activateRandomOffsets) {
+
+    if (accTime > 0) std::cout << "time per frame: " << 1000*accTime/frames << " ms" << std::endl;
+    accTime = 0;
+    frames = 0;
     gUbo.viewProj = camera.getProjection()*camera.getView();
     gUbo.cameraPos = camera.m_translation;
     gUbo.radius = cUbo.H;
@@ -220,6 +224,8 @@ void SPHGPU3DSim::mainLoop(float deltaTime) {
     }
 
     if (activateTimer) drawTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
+    frames++;
+    accTime += deltaTime;
 }
 
 void SPHGPU3DSim::renderObjects() {
@@ -410,4 +416,7 @@ void SPHGPU3DSim::compileShaders() {
             throw std::runtime_error("Error compiling shader " + shaderName);
         }
     }
+}
+void SPHGPU3DSim::onDestroy() {
+    std::cout << "Average time/frame: " << 1000*accTime/frames << " ms" << std::endl;
 }

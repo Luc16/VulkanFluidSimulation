@@ -134,8 +134,10 @@ public:
     float colorUpdate = 0.008f, densColorThreshold = 0.0f;//1.01f;
     float gpuTime = 0, cpuTime = 0;
     bool activateTimer = false, controlMode = false;
+    double accTime = 0, frames = 0;
 
     void onCreate() override;
+    void onDestroy() override;
     void initializeObjects();
     void createInstances(bool activateRandomOffsets);
     void createUniformBuffers();

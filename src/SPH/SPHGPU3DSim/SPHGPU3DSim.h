@@ -196,8 +196,10 @@ private:
     glm::vec4 initialPos = {cUbo.EPS, cUbo.EPS, cUbo.EPS, 0};
     float drawTime = 0, cpuTime = 0, computeTime = 0, gravityFactor = 50.0f;
     bool activateTimer = false, controlMode = false, objectsInitialized = false;
+    double accTime = 0, frames = 0;
 
     void onCreate() override;
+    void onDestroy() override;
     void initializeObjects(bool activateRandomOffsets);
     void createComputeDescriptorSets();
     void createUniformBuffers();

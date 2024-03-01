@@ -40,6 +40,9 @@ void SPHCPU3DSim::initializeObjects() {
 }
 
 void SPHCPU3DSim::createInstances(bool activateRandomOffsets) {
+    if (accTime > 0) std::cout << "time per frame: " << 1000*accTime/frames << " ms" << std::endl;
+    accTime = 0;
+    frames = 0;
     vkDeviceWaitIdle(device.device());
 
     particles.resize(INSTANCE_COUNT);
@@ -139,6 +142,8 @@ void SPHCPU3DSim::mainLoop(float deltaTime) {
         });
     });
     if (activateTimer) gpuTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
+    frames++;
+    accTime += deltaTime;
 }
 
 void SPHCPU3DSim::updateUniformBuffer(uint32_t frameIndex) {
@@ -194,7 +199,7 @@ void SPHCPU3DSim::showImGui(){
         };
 
         int temp = (int) INSTANCE_COUNT;
-        ImGui::SliderInt("Num Particles", &temp, 16, 500000);
+        ImGui::SliderInt("Num Particles", &temp, 16, 2*500000);
 
 
         auto particleShapeSize = getParticleShapeSize();
@@ -252,7 +257,7 @@ void SPHCPU3DSim::showImGui(){
 
 void SPHCPU3DSim::updateParticles(float deltaTime){
 
-    grid.createAndSortVec(particles, sortedParticles);
+    grid.createAndSort(particles, sortedParticles);
 
     particles.swap(sortedParticles);
 
@@ -357,5 +362,8 @@ void SPHCPU3DSim::updateParticles(float deltaTime){
     }
 }
 
+void SPHCPU3DSim::onDestroy() {
+    std::cout << "Average time/frame: " << 1000*accTime/frames << " ms" << std::endl;
+}
 
 
