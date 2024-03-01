@@ -5,10 +5,10 @@
 #ifndef VULKANFLUIDSIMULATION_OFFSCREENPASS_H
 #define VULKANFLUIDSIMULATION_OFFSCREENPASS_H
 
-#include "../../lib/utils.h"
-#include "../../lib/Device.h"
-#include "../../lib/Image.h"
-#include "../../lib/RenderSystem.h"
+#include "../utils.h"
+#include "../Device.h"
+#include "../Image.h"
+#include "../RenderSystem.h"
 
 
 namespace vkb {

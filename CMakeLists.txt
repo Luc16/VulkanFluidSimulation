@@ -35,6 +35,8 @@ add_library( VkFluidSim
         src/lib/graphicsDataStructures/SpatialGrid.h src/lib/graphicsDataStructures/SpatialGrid.cpp
         src/SPH/SPHGPU3DSim/GpuSpatialGridHandler.cpp src/SPH/SPHGPU3DSim/GpuSpatialGridHandler.h
         src/SPH/PBFGPU3DSim/PbfGpuSpatialGridHandler.cpp src/SPH/PBFGPU3DSim/PbfGpuSpatialGridHandler.h
+        src/lib/simulations/OffscreenPass.cpp
+        src/lib/simulations/OffscreenPass.h
         src/lib/CubeMapModel.cpp
         src/lib/CubeMapModel.h
         external/imgui/imgui_stdlib.h
@@ -73,8 +75,6 @@ set( SPH_APPS
 
 foreach( testsourcefolder ${SPH_APPS} )
     add_executable( ${testsourcefolder} src/SPH/${testsourcefolder}/main.cpp src/SPH/${testsourcefolder}/${testsourcefolder}.h src/SPH/${testsourcefolder}/${testsourcefolder}.cpp
-            src/SPH/PBFGPU3DSim/OffscreenPass.cpp
-            src/SPH/PBFGPU3DSim/OffscreenPass.h
             src/SPH/PBFGPU3DSim/particles_and_ubos.h
             src/SPH/PBFGPU3DSim/RigidObject.cpp
             src/SPH/PBFGPU3DSim/RigidObject.h)
@@ -84,6 +84,7 @@ endforeach( testsourcefolder ${SPH_APPS} )
 set( FLIP_APPS
         "FLIPCPU2DSim"
         "FLIPGPU2DSim"
+        "FLIPGPU3DSim"
 )
 
 foreach( testsourcefolder ${FLIP_APPS} )

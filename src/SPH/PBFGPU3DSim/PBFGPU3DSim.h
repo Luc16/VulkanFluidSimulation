@@ -26,7 +26,7 @@
 #include "../../lib/ComputeSystem.h"
 #include "../../lib/ComputeShaderHandler.h"
 #include "PbfGpuSpatialGridHandler.h"
-#include "OffscreenPass.h"
+#include "../../lib/simulations/OffscreenPass.h"
 #include "../../lib/CubeMapModel.h"
 #include "../../../external/nlohmann_json/json.hpp"
 #include "particles_and_ubos.h"

@@ -1,0 +1,86 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_shader_atomic_float : enable
+
+
+#include "common.glsl"
+
+layout (binding = 0) uniform ParameterUBO {
+    ComputeUBO ubo;
+};
+
+layout(std430, binding = 1) buffer TypesSSBO {
+    uint types[ ];
+};
+
+layout(std430, binding = 2) buffer VelxSSBO {
+    float velX[ ];
+};
+
+layout(std430, binding = 3) buffer VelySSBO {
+    float velY[ ];
+};
+
+layout(std430, binding = 4) buffer WeightsSSBO {
+    vec2 weights[ ];
+};
+
+layout(std430, binding = 5) buffer ParticlePosSSBO {
+    vec2 pPos[ ];
+};
+
+layout(std430, binding = 6) buffer ParticleVelSSBO {
+    vec2 pVel[ ];
+};
+
+layout(std430, binding = 7) buffer HasVelSSBO {
+    uint hasVel[ ];
+};
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= ubo.numParticles) return;
+
+    vec2 pos = pPos[i];
+    uint pIdx = particleIdx(pos, vec2(0), ubo.overCellSize, ubo.dim.x);
+    types[pIdx] = FLUID;
+    hasVel[pIdx] = 1;
+
+    IdxWeight iw = particleIdxWeight(pos, vec2(0.0, ubo.cellSize/2), ubo.overCellSize, ubo.dim.x);
+    float w0 = (1.0 - iw.weight.x)*(1.0 - iw.weight.y);
+    float w1 = (iw.weight.x)*(1.0 - iw.weight.y);
+    float w2 = (1.0 - iw.weight.x)*(iw.weight.y);
+    float w3 = (iw.weight.x)*(iw.weight.y);
+    // add vel x to grid
+    atomicAdd(velX[gPosToIdx(iw.gIdx, ubo.dim.x)], w0*pVel[i].x);
+    atomicAdd(velX[gPosToIdx(iw.gIdx + ivec2(1, 0), ubo.dim.x)], w1*pVel[i].x);
+    atomicAdd(velX[gPosToIdx(iw.gIdx + ivec2(0, 1), ubo.dim.x)], w2*pVel[i].x);
+    atomicAdd(velX[gPosToIdx(iw.gIdx + ivec2(1, 1), ubo.dim.x)], w3*pVel[i].x);
+    // accumulate weights x
+    atomicAdd(weights[gPosToIdx(iw.gIdx, ubo.dim.x)].x, w0);
+    atomicAdd(weights[gPosToIdx(iw.gIdx + ivec2(1, 0), ubo.dim.x)].x, w1);
+    atomicAdd(weights[gPosToIdx(iw.gIdx + ivec2(0, 1), ubo.dim.x)].x, w2);
+    atomicAdd(weights[gPosToIdx(iw.gIdx + ivec2(1, 1), ubo.dim.x)].x, w3);
+
+
+    iw = particleIdxWeight(pos, vec2(ubo.cellSize/2, 0.0), ubo.overCellSize, ubo.dim.x);
+    w0 = (1.0 - iw.weight.x)*(1.0 - iw.weight.y);
+    w1 = (iw.weight.x)*(1.0 - iw.weight.y);
+    w2 = (1.0 - iw.weight.x)*(iw.weight.y);
+    w3 = (iw.weight.x)*(iw.weight.y);
+    // add vel y to grid
+    atomicAdd(velY[gPosToIdx(iw.gIdx, ubo.dim.x)], (1.0 - iw.weight.x)*(1.0 - iw.weight.y)*pVel[i].y);
+    atomicAdd(velY[gPosToIdx(iw.gIdx + ivec2(1, 0), ubo.dim.x)], (iw.weight.x)*(1.0 - iw.weight.y)*pVel[i].y);
+    atomicAdd(velY[gPosToIdx(iw.gIdx + ivec2(0, 1), ubo.dim.x)], (1.0 - iw.weight.x)*(iw.weight.y)*pVel[i].y);
+    atomicAdd(velY[gPosToIdx(iw.gIdx + ivec2(1, 1), ubo.dim.x)], (iw.weight.x)*(iw.weight.y)*pVel[i].y);
+    // accumulate weights y
+    atomicAdd(weights[gPosToIdx(iw.gIdx, ubo.dim.x)].y, (1.0 - iw.weight.x)*(1.0 - iw.weight.y));
+    atomicAdd(weights[gPosToIdx(iw.gIdx + ivec2(1, 0), ubo.dim.x)].y, (iw.weight.x)*(1.0 - iw.weight.y));
+    atomicAdd(weights[gPosToIdx(iw.gIdx + ivec2(0, 1), ubo.dim.x)].y, (1.0 - iw.weight.x)*(iw.weight.y));
+    atomicAdd(weights[gPosToIdx(iw.gIdx + ivec2(1, 1), ubo.dim.x)].y, (iw.weight.x)*(iw.weight.y));
+
+
+}
