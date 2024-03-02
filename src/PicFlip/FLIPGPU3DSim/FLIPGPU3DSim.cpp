@@ -31,9 +31,9 @@ void FLIPGPU3DSim::onCreate() {
         configInfo.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
 
         configInfo.attributeDescription.clear();
-        configInfo.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32_SFLOAT, 0});
+        configInfo.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0});
         configInfo.bindingDescription.clear();
-        configInfo.bindingDescription.push_back({0, sizeof(glm::vec2), VK_VERTEX_INPUT_RATE_VERTEX});
+        configInfo.bindingDescription.push_back({0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX});
 
     });
     lineSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
@@ -52,9 +52,7 @@ void FLIPGPU3DSim::initializeObjects() {
 
     auto extent = window.extent();
     camera.m_translation = {-3.85021f, 6.08832f, 4.48576f};
-    camera.m_rotation = {0.72675f, 2.22789f, 3.14159f};tion.z == 0) {
-        gl_PointSize = 0.0;
-    }
+    camera.m_rotation = {0.72675f, 2.22789f, 3.14159f};
     camera.updateView();
 
 //    ubo.radius = 2.0f*flipSolver.particleRadius();
