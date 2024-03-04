@@ -69,42 +69,29 @@ void FlipSolver::initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPo
 
 void FlipSolver::initializeParticles() {
     std::vector<glm::vec4> particles{numParticles};
-//    uint32_t p = 0, na = 2, nb = 2, nc = 2;
-//    uint32_t s = dim.x/4, e = 3*dim.x/4;
-//    for (uint32_t j = 4; j < dim.y-1; j++) {
-//        for (uint32_t k = dim.z/4; k < 3*dim.z/4; k++) {
-//            for (uint32_t i = s; i < e; i++) {
-//                for (uint32_t a = 0; a < na; a++) {
-//                    for (uint32_t b = 0; b < nb; b++) {
-//                        for (uint32_t c = 0; c < nc; c++) {
-//                            if (p < particles.size()) {
-//                                particles[p++] = glm::vec4(
-//                                        float(i * cellSize) + float(a * cellSize) / float(na) +
-//                                        float(cellSize) / float(na * na) + randomFloat(0.0f, 0.3f * float(cellSize)),
-//                                        10 + float(j * cellSize) + float(b * cellSize) / float(nb) +
-//                                        float(cellSize) / float(nb * nb) + randomFloat(0.0f, 0.3f * float(cellSize)),
-//                                        float(k * cellSize) + float(c * cellSize) / float(nc) +
-//                                        float(cellSize) / float(nc * nc) + randomFloat(0.0f, 0.3f * float(cellSize)),
-//                                        0.0f);
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//    }
-
-    uint32_t p = 0;
-    for (uint32_t j = 0; j < dim.y; j++) {
-        for (uint32_t k = 0; k < dim.z; k++) {
-            for (uint32_t i = 0; i < dim.x; i++) {
-                if (p < particles.size()) {
-                    particles[p++] = glm::vec4(
-                            float(i) * cellSize,
-                            float(j) * cellSize,
-                            float(k) * cellSize,
-                            0.0f);
-
+    uint32_t p = 0, na = 2, nb = 2, nc = 2;
+//    uint32_t sx = dim.x/4, ex = 3*dim.x/4;
+//    uint32_t sz = dim.z/4, ez = 3*dim.z/4;
+    uint32_t sx = 0, ex = dim.x/2;
+    uint32_t sz = 0, ez = dim.z/2;
+    for (uint32_t j = 0; j < dim.y-1; j++) {
+        for (uint32_t k = sz; k < ez; k++) {
+            for (uint32_t i = sx; i < ex; i++) {
+                for (uint32_t a = 0; a < na; a++) {
+                    for (uint32_t b = 0; b < nb; b++) {
+                        for (uint32_t c = 0; c < nc; c++) {
+                            if (p < particles.size()) {
+                                particles[p++] = glm::vec4(
+                                        float(i) * cellSize + float(a) * cellSize / float(na) +
+                                        cellSize / float(na * na) + randomFloat(0.0f, 0.3f * cellSize),
+                                        float(j) * cellSize + float(b) * cellSize / float(nb) +
+                                        cellSize / float(nb * nb) + randomFloat(0.0f, 0.3f * cellSize),
+                                        float(k) * cellSize + float(c) * cellSize / float(nc) +
+                                        cellSize / float(nc * nc) + randomFloat(0.0f, 0.3f * cellSize),
+                                        0.0f);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -113,8 +100,6 @@ void FlipSolver::initializeParticles() {
 
 
     vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_particlePosBuffer, particles);
-
-    vkb::Buffer::writeBufferToVector(m_deviceRef, m_particlePosBuffer, particles);
 }
 
 void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &globalPool) {

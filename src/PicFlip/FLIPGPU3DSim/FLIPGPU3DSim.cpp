@@ -57,7 +57,7 @@ void FLIPGPU3DSim::initializeObjects() {
 
 //    ubo.radius = 2.0f*flipSolver.particleRadius();
 
-    plane.setScale(70);
+    plane.setScale(dimensions);
 
     flipSolver.initialize(globalDescriptorPool);
 }

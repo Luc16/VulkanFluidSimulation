@@ -121,12 +121,13 @@ private:
                                     std::ranges::views::take(computeShaderStartIdx - pressureSolverStartIdx) |
                                     std::ranges::views::transform(transformFunc);
 
+    glm::vec3 dimensions = glm::vec3(7.0f);
     FlipSolver flipSolver {
         device,
         {simulationShaderPaths.begin(), simulationShaderPaths.end()},
         {pressureSolverShaderPaths.begin(), pressureSolverShaderPaths.end()},
-        glm::vec3(70.0f),
-        2.0f
+        dimensions,
+        0.2f
     };
     bool showParticles = true;
 
