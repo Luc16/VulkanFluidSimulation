@@ -19,12 +19,16 @@ layout(std430, binding = 3) buffer RhsSSBO {
     double rhs[ ];
 };
 
-layout(std430, binding = 4) buffer VelxSSBO {
+layout(std430, binding = 4) buffer VelXSSBO {
     float velX[ ];
 };
 
-layout(std430, binding = 5) buffer VelySSBO {
+layout(std430, binding = 5) buffer VelYSSBO {
     float velY[ ];
+};
+
+layout(std430, binding = 6) buffer VelZSSBO {
+    float velZ[ ];
 };
 
 
@@ -58,6 +62,6 @@ void main() {
 
     matrix[5*i] = total;
 
-    rhs[i] = velX[i+1] - velX[i] + velY[i+ubo.dim.x] - velY[i];
+    rhs[i] = velX[i+1] - velX[i] + velY[i+ubo.dim.x*ubo.dim.z] - velY[i] + velZ[i+ubo.dim.x] - velZ[i];
 
 }

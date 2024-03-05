@@ -6,7 +6,7 @@
 layout (binding = 0) uniform ParameterUBO {
     int size;
     int k;
-    ivec2 dim;
+    ivec3 dim;
 } ubo;
 
 layout(std430, binding = 1) readonly buffer TypesSSBO {
@@ -21,7 +21,11 @@ layout(std430, binding = 3) buffer VelYSSBO {
     float velY[ ];
 };
 
-layout(std430, binding = 4) buffer HasVelSSBO {
+layout(std430, binding = 4) buffer VelZSSBO {
+    float velZ[ ];
+};
+
+layout(std430, binding = 5) buffer HasVelSSBO {
     uint hasVel[ ];
 };
 
@@ -30,37 +34,49 @@ layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 void main() {
     uint i = gl_GlobalInvocationID.x;
-    if (i < ubo.dim.x ||
+    if (i < ubo.dim.x * ubo.dim.z ||
         i % ubo.dim.x == 0 ||
         i % ubo.dim.x == ubo.dim.x - 1 ||
-        i > ubo.size - ubo.dim.x ||
+        i % (ubo.dim.x * ubo.dim.z) < ubo.dim.x ||
+        i % (ubo.dim.x * ubo.dim.z) >= (ubo.dim.x)*(ubo.dim.z - 1) ||
+        i >= ubo.size - ubo.dim.x * ubo.dim.z ||
         hasVel[i] != 0 ||
-        types[i] == SOLID || types[i-1] == SOLID || types[i-ubo.dim.x] == SOLID ||
+        types[i] == SOLID || types[i-1] == SOLID || types[i-ubo.dim.x] == SOLID || types[i - ubo.dim.x*ubo.dim.z] == SOLID ||
         i >= ubo.size) return;
 
 
     uint validNeighbors = 0;
-    vec2 vel = vec2(0);
+    vec3 vel = vec3(0);
     if (hasVel[i-1] == ubo.k) {
-        vel += vec2(velX[i-1], velY[i-1]);
+        vel += vec3(velX[i-1], velY[i-1], velZ[i-1]);
         validNeighbors++;
     }
     if (hasVel[i+1] == ubo.k) {
-        vel += vec2(velX[i+1], velY[i+1]);
+        vel += vec3(velX[i+1], velY[i+1], velZ[i-1]);
         validNeighbors++;
     }
-    if (hasVel[i - ubo.dim.x] == ubo.k) {
-        vel += vec2(velX[i-ubo.dim.x], velY[i-ubo.dim.x]);
+    if (hasVel[i-ubo.dim.x] == ubo.k) {
+        vel += vec3(velX[i-ubo.dim.x], velY[i-ubo.dim.x], velZ[i-ubo.dim.x]);
         validNeighbors++;
     }
     if (hasVel[i+ubo.dim.x] == ubo.k) {
-        vel += vec2(velX[i+ubo.dim.x], velY[i+ubo.dim.x]);
+        vel += vec3(velX[i+ubo.dim.x], velY[i+ubo.dim.x], velZ[i+ubo.dim.x]);
+        validNeighbors++;
+    }
+    int floorSize = ubo.dim.x*ubo.dim.z;
+    if (hasVel[i-floorSize] == ubo.k) {
+        vel += vec3(velX[i-floorSize], velY[i-floorSize], velZ[i-floorSize]);
+        validNeighbors++;
+    }
+    if (hasVel[i+floorSize] == ubo.k) {
+        vel += vec3(velX[i+floorSize], velY[i+floorSize], velZ[i+floorSize]);
         validNeighbors++;
     }
 
     if (validNeighbors > 0) {
         velX[i] = vel.x / float(validNeighbors);
         velY[i] = vel.y / float(validNeighbors);
+        velZ[i] = vel.z / float(validNeighbors);
         hasVel[i] = ubo.k+1;
     }
 

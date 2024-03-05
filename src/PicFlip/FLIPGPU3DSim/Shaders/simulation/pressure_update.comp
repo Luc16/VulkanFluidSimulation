@@ -19,7 +19,11 @@ layout(std430, binding = 3) buffer VelYSSBO {
     float velY[ ];
 };
 
-layout(std430, binding = 4) readonly buffer PressureSSBO {
+layout(std430, binding = 4) buffer VelZSSBO {
+    float velZ[ ];
+};
+
+layout(std430, binding = 5) readonly buffer PressureSSBO {
     double pressure[ ];
 };
 
@@ -28,16 +32,26 @@ layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 void main() {
     uint i = gl_GlobalInvocationID.x;
-    if (i < ubo.dim.x ||
+    if (i < ubo.dim.x * ubo.dim.z ||
         i % ubo.dim.x == 0 ||
         i % ubo.dim.x == ubo.dim.x - 1 ||
-        i > ubo.size - ubo.dim.x ||
+        i % (ubo.dim.x * ubo.dim.z) < ubo.dim.x ||
+        i % (ubo.dim.x * ubo.dim.z) >= (ubo.dim.x)*(ubo.dim.z - 1) ||
+        i >= ubo.size - ubo.dim.x * ubo.dim.z ||
         i >= ubo.size) return;
 
     double p = pressure[i];
-    if (i%ubo.dim.x > 1 && i%ubo.dim.x < ubo.dim.x-1 && (types[i-1] == FLUID || types[i] == FLUID))
+    uint x = i%ubo.dim.x;
+    if (x > 1 && x < ubo.dim.x-1 && (types[i-1] == FLUID || types[i] == FLUID)) {
         velX[i] += float(p - pressure[i-1]);
-    if (i/ubo.dim.x > 1 && i/ubo.dim.x < ubo.dim.y-1 && (types[i-ubo.dim.x] == FLUID || types[i] == FLUID))
-        velY[i] += float(p - pressure[i-ubo.dim.x]);
+    }
 
+    uint y = i/(ubo.dim.x*ubo.dim.z);
+    if (y > 1 && y < ubo.dim.y-1 && (types[i-ubo.dim.x*ubo.dim.z] == FLUID || types[i] == FLUID)){
+        velY[i] += float(p - pressure[i-ubo.dim.x*ubo.dim.z]);
+    }
+
+    uint z = (i%(ubo.dim.x*ubo.dim.z))/ubo.dim.x;
+    if (z > 1 && z < ubo.dim.z-1 && (types[i-ubo.dim.x] == FLUID || types[i] == FLUID))
+        velZ[i] += float(p - pressure[i-ubo.dim.x]);
 }

@@ -7,20 +7,28 @@ layout (binding = 0) uniform ParameterUBO {
     ComputeUBO ubo;
 };
 
-layout(std430, binding = 1) readonly buffer VelxSSBO {
+layout(std430, binding = 1) readonly buffer VelXSSBO {
     float velX[ ];
 };
 
-layout(std430, binding = 2) readonly buffer VelySSBO {
+layout(std430, binding = 2) readonly buffer VelYSSBO {
     float velY[ ];
 };
 
-layout(std430, binding = 3) buffer PrevVelXSSBO {
+layout(std430, binding = 3) readonly buffer VelZSSBO {
+    float velZ[ ];
+};
+
+layout(std430, binding = 4) buffer PrevVelXSSBO {
     float prevVelX[ ];
 };
 
-layout(std430, binding = 4) buffer PrevVelYSSBO {
+layout(std430, binding = 5) buffer PrevVelYSSBO {
     float prevVelY[ ];
+};
+
+layout(std430, binding = 6) buffer PrevVelZSSBO {
+    float prevVelZ[ ];
 };
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
@@ -31,6 +39,5 @@ void main() {
 
     prevVelX[i] = velX[i];
     prevVelY[i] = velY[i];
-
-
+    prevVelZ[i] = velZ[i];
 }

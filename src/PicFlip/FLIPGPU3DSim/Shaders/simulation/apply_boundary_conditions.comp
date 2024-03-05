@@ -11,12 +11,16 @@ layout(std430, binding = 1) buffer TypesSSBO {
     uint types[ ];
 };
 
-layout(std430, binding = 2) buffer VelxSSBO {
+layout(std430, binding = 2) buffer VelXSSBO {
     float velX[ ];
 };
 
-layout(std430, binding = 3) buffer VelySSBO {
+layout(std430, binding = 3) buffer VelYSSBO {
     float velY[ ];
+};
+
+layout(std430, binding = 4) buffer VelZSSBO {
+    float velZ[ ];
 };
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
@@ -24,24 +28,31 @@ layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 void main() {
     uint i = gl_GlobalInvocationID.x;
 
-    ivec2 dim = ubo.dim;
+    ivec3 dim = ubo.dim;
 
-    if (i < dim.x) {
+    // y boudary
+    if (i < dim.x*dim.z) {
         types[i] = SOLID;
-        types[i + dim.x * (dim.y - 1)] = SOLID;
+        types[i + dim.x * dim.z * (dim.y - 1)] = SOLID;
         velY[i] = 0.0f;
-        velY[i + dim.x] = 0.0f;
-        velY[i + dim.x * (dim.y - 1)] = 0.0f;
-        velY[i + dim.x * (dim.y - 2)] = 0.0f;
+        velY[i + dim.x * dim.z] = 0.0f;
+        velY[i + dim.x * dim.z * (dim.y - 1)] = 0.0f;
+        velY[i + dim.x * dim.z * (dim.y - 2)] = 0.0f;
 
         velX[i] = 0.0f;
-        velX[i + dim.x] = 0.0f;
-        velX[i + dim.x * (dim.y - 1)] = 0.0f;
-        velX[i + dim.x * (dim.y - 2)] = 0.0f;
+        velX[i + dim.x * dim.z] = 0.0f;
+        velX[i + dim.x * dim.z * (dim.y - 1)] = 0.0f;
+        velX[i + dim.x * dim.z * (dim.y - 2)] = 0.0f;
+
+        velZ[i] = 0.0f;
+        velZ[i + dim.x * dim.z] = 0.0f;
+        velZ[i + dim.x * dim.z * (dim.y - 1)] = 0.0f;
+        velZ[i + dim.x * dim.z * (dim.y - 2)] = 0.0f;
 
     }
 
-    if (i < dim.y) {
+    // x boundary
+    if (i < dim.y * dim.z) {
         types[i*dim.x] = SOLID;
         types[i*dim.x + dim.x - 1] = SOLID;
 
@@ -54,5 +65,34 @@ void main() {
         velY[i*dim.x + 1] = 0.0f;
         velY[i*dim.x + dim.x - 1] = 0.0f;
         velY[i*dim.x + dim.x - 2] = 0.0f;
+
+        velZ[i*dim.x] = 0.0f;
+        velZ[i*dim.x + 1] = 0.0f;
+        velZ[i*dim.x + dim.x - 1] = 0.0f;
+        velZ[i*dim.x + dim.x - 2] = 0.0f;
     }
+
+    // z boundary
+    if (i < dim.x * dim.y) {
+        uint lower = (i / dim.x) * dim.x * dim.z + i % dim.x;
+        uint upper = lower + dim.x * (dim.z - 1);
+        types[lower] = SOLID;
+        types[upper] = SOLID;
+
+        velX[lower] = 0.0f;
+        velX[lower + dim.x] = 0.0f;
+        velX[upper] = 0.0f;
+        velX[upper - dim.x] = 0.0f;
+
+        velY[lower] = 0.0f;
+        velY[lower + dim.x] = 0.0f;
+        velY[upper] = 0.0f;
+        velY[upper - dim.x] = 0.0f;
+
+        velZ[lower] = 0.0f;
+        velZ[lower + dim.x] = 0.0f;
+        velZ[upper] = 0.0f;
+        velZ[upper - dim.x] = 0.0f;
+    }
+
 }

@@ -58,27 +58,12 @@ void main() {
     float minX = ubo.cellSize*1.01, maxX = ubo.cellSize*ubo.dim.x - minX;
     float minY = ubo.cellSize*1.01, maxY = ubo.cellSize*ubo.dim.y - minY;
 
+    float padding = ubo.cellSize*1e-4;
+
     vec2 pos = pPos[i];
     vec2 midWay = clamp(pos + 0.5*ubo.dt*getVelAt(pos), vec2(minX, minY), vec2(maxX, maxY));
 
-    pos += ubo.dt*getVelAt(midWay);
-
-    if (pos.x < minX) {
-        pVel[i].x = 0;
-        pos.x = minX + 0.001f;
-    }
-    if (pos.x > maxX) {
-        pVel[i].x = 0;
-        pos.x = maxX - 0.001f;
-    }
-    if (pos.y < minY) {
-        pVel[i].y = 0;
-        pos.y = minY + 0.001f;
-    }
-    if (pos.y > maxY) {
-        pVel[i].y = 0;
-        pos.y = maxY - 0.001f;
-    }
+    pos = clamp(pos + ubo.dt*getVelAt(midWay), vec2(minX, minY) + vec2(padding), vec2(maxX, maxY) - vec2(padding));
 
     pPos[i] = pos;
 

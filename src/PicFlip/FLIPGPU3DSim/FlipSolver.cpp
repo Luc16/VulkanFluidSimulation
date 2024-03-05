@@ -118,6 +118,7 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
             {m_computeUniformBuffer->descriptorInfo()},
             {m_velXBuffer->descriptorInfo()},
             {m_velYBuffer->descriptorInfo()},
+            {m_velZBuffer->descriptorInfo()},
             {m_particlePosBuffer->descriptorInfo()},
             {m_particleVelBuffer->descriptorInfo()},
     });
@@ -127,6 +128,7 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
             {m_typesBuffer->descriptorInfo()},
             {m_velXBuffer->descriptorInfo()},
             {m_velYBuffer->descriptorInfo()},
+            {m_velZBuffer->descriptorInfo()},
             {m_weightsBuffer->descriptorInfo()},
             {m_pressureBuffer->descriptorInfo()},
             {m_rhsBuffer->descriptorInfo()},
@@ -139,6 +141,7 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
             {m_typesBuffer->descriptorInfo()},
             {m_velXBuffer->descriptorInfo()},
             {m_velYBuffer->descriptorInfo()},
+            {m_velZBuffer->descriptorInfo()},
             {m_weightsBuffer->descriptorInfo()},
             {m_particlePosBuffer->descriptorInfo()},
             {m_particleVelBuffer->descriptorInfo()},
@@ -150,6 +153,7 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
             {m_typesBuffer->descriptorInfo()},
             {m_velXBuffer->descriptorInfo()},
             {m_velYBuffer->descriptorInfo()},
+            {m_velZBuffer->descriptorInfo()},
             {m_weightsBuffer->descriptorInfo()},
     });
 
@@ -159,6 +163,7 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
                 {m_typesBuffer->descriptorInfo()},
                 {m_velXBuffer->descriptorInfo()},
                 {m_velYBuffer->descriptorInfo()},
+                {m_velZBuffer->descriptorInfo()},
                 {m_hasVelBuffer->descriptorInfo()},
         });
     }
@@ -168,14 +173,17 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
             {m_typesBuffer->descriptorInfo()},
             {m_velXBuffer->descriptorInfo()},
             {m_velYBuffer->descriptorInfo()},
+            {m_velZBuffer->descriptorInfo()},
     });
 
     m_setPrevVelocitiesKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_setPrevVelocitiesKernel.layout, {
             {m_computeUniformBuffer->descriptorInfo()},
             {m_velXBuffer->descriptorInfo()},
             {m_velYBuffer->descriptorInfo()},
+            {m_velZBuffer->descriptorInfo()},
             {m_prevVelXBuffer->descriptorInfo()},
             {m_prevVelYBuffer->descriptorInfo()},
+            {m_prevVelZBuffer->descriptorInfo()},
     });
 
     m_createMatrixAndRhsKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_createMatrixAndRhsKernel.layout, {
@@ -185,6 +193,7 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
             {m_rhsBuffer->descriptorInfo()},
             {m_velXBuffer->descriptorInfo()},
             {m_velYBuffer->descriptorInfo()},
+            {m_velZBuffer->descriptorInfo()},
     });
 
     m_applyPressureKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_applyPressureKernel.layout, {
@@ -192,6 +201,7 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
             {m_typesBuffer->descriptorInfo()},
             {m_velXBuffer->descriptorInfo()},
             {m_velYBuffer->descriptorInfo()},
+            {m_velZBuffer->descriptorInfo()},
             {m_pressureBuffer->descriptorInfo()},
     });
 
@@ -199,37 +209,39 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
             {m_computeUniformBuffer->descriptorInfo()},
             {m_velXBuffer->descriptorInfo()},
             {m_velYBuffer->descriptorInfo()},
+            {m_velZBuffer->descriptorInfo()},
             {m_prevVelXBuffer->descriptorInfo()},
             {m_prevVelYBuffer->descriptorInfo()},
+            {m_prevVelZBuffer->descriptorInfo()},
             {m_particlePosBuffer->descriptorInfo()},
             {m_particleVelBuffer->descriptorInfo()},
     });
 
     m_pressureSolver.initializeKernels(globalPool, m_computeUniformBuffer, m_matrixBuffer, m_typesBuffer, m_rhsBuffer, m_pressureBuffer);
 
-    m_velBarrier = {m_velXBuffer->getBarrierData(), m_velYBuffer->getBarrierData()};
-    m_velWeightBarrier = {m_velXBuffer->getBarrierData(), m_velYBuffer->getBarrierData(), m_weightsBuffer->getBarrierData()};
+    m_velBarrier = {m_velXBuffer->getBarrierData(), m_velYBuffer->getBarrierData(), m_velZBuffer->getBarrierData()};
+    m_velWeightBarrier = {m_velXBuffer->getBarrierData(), m_velYBuffer->getBarrierData(), m_velZBuffer->getBarrierData(), m_weightsBuffer->getBarrierData()};
 
 }
 
 void FlipSolver::createBuffers() {
     for (uint32_t k = 0; k < extensions; k++) {
-        ExtensionUBO extUbo{m_cUbo.size, k+1, m_cUbo.dim};
+        std::vector<ExtensionUBO> extUbo = {{m_cUbo.size, k + 1, m_cUbo.dim}};
         m_extensionUniformBuffers[k] = std::make_unique<vkb::Buffer>(m_deviceRef,
                                                                      sizeof(ExtensionUBO),
-                                                                     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+                                                                     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-        m_extensionUniformBuffers[k]->singleWrite(&extUbo);
+        vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_extensionUniformBuffers[k], extUbo);
     }
 
     m_computeUniformBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
                                                            sizeof(ComputeUniformBufferObject),
-                                                           VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                                                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+                                                           VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                                           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    m_computeUniformBuffer->map();
-    m_computeUniformBuffer->write(&m_cUbo);
+    std::vector<ComputeUniformBufferObject> uboVec = {m_cUbo};
+    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_computeUniformBuffer, uboVec);
 
     m_matrixBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
                                                    5*m_cUbo.size*sizeof(double),
@@ -281,6 +293,13 @@ void FlipSolver::createBuffers() {
                                                  VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
+    m_velZBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
+                                                 m_cUbo.size*sizeof(float),
+                                                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                                                 VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                                                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
     m_prevVelXBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
                                                  m_cUbo.size*sizeof(float),
                                                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
@@ -289,11 +308,19 @@ void FlipSolver::createBuffers() {
                                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     m_prevVelYBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
-                                                 m_cUbo.size*sizeof(float),
-                                                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-                                                 VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-                                                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+                                                     m_cUbo.size*sizeof(float),
+                                                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                                                     VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                                                     VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    m_prevVelZBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
+                                                     m_cUbo.size*sizeof(float),
+                                                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                                                     VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                                                     VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
 
     m_weightsBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
                                                      m_cUbo.size*sizeof(glm::vec4),

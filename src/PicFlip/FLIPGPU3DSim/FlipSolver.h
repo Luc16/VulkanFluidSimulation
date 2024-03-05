@@ -33,7 +33,7 @@ public:
     void initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPool);
     [[nodiscard]] uint32_t getNumTilesX() const { return dim.x; }
     [[nodiscard]] uint32_t getNumTilesY() const { return dim.y; }
-    [[nodiscard]] uint32_t getCellSize() const { return cellSize; }
+    [[nodiscard]] float getCellSize() const { return cellSize; }
     [[nodiscard]] uint32_t getParticleCount() const { return numParticles; }
     [[nodiscard]] float particleRadius() const { return radius; }
     [[nodiscard]] VkBuffer particleBuffer() const { return m_particlePosBuffer->getBuffer(); }
@@ -89,8 +89,10 @@ private:
     std::unique_ptr<vkb::Buffer> m_pressureBuffer;
     std::unique_ptr<vkb::Buffer> m_velXBuffer;
     std::unique_ptr<vkb::Buffer> m_velYBuffer;
+    std::unique_ptr<vkb::Buffer> m_velZBuffer;
     std::unique_ptr<vkb::Buffer> m_prevVelXBuffer;
     std::unique_ptr<vkb::Buffer> m_prevVelYBuffer;
+    std::unique_ptr<vkb::Buffer> m_prevVelZBuffer;
     std::unique_ptr<vkb::Buffer> m_weightsBuffer;
     std::unique_ptr<vkb::Buffer> m_particlePosBuffer;
     std::unique_ptr<vkb::Buffer> m_particleVelBuffer;
@@ -104,8 +106,8 @@ private:
             .descSets = std::vector<VkDescriptorSet>(1),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                    //velX, velY, pPos, pVel
-                    .addSameTypeBindings(1, 4,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    //velX, velY, velZ, pPos, pVel
+                    .addSameTypeBindings(1, 5,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 
@@ -114,8 +116,8 @@ private:
             .descSets = std::vector<VkDescriptorSet>(1),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                    // types, velX, velY, weights, pressure, rhs, hasVel
-                    .addSameTypeBindings(1, 7,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    // types, velX, velY, velZ, weights, pressure, rhs, hasVel
+                    .addSameTypeBindings(1, 8,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 
@@ -124,8 +126,8 @@ private:
             .descSets = std::vector<VkDescriptorSet>(1),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                    // types, velX, velY, weights, pPos, pVel, hasVel
-                    .addSameTypeBindings(1, 7,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    // types, velX, velY, velZ, weights, pPos, pVel, hasVel
+                    .addSameTypeBindings(1, 8,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 
@@ -134,8 +136,8 @@ private:
             .descSets = std::vector<VkDescriptorSet>(1),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                    // types, velX, velY, weights
-                    .addSameTypeBindings(1, 4,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    // types, velX, velY, velZ, weights
+                    .addSameTypeBindings(1, 5,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 
@@ -144,8 +146,8 @@ private:
             .descSets = std::vector<VkDescriptorSet>(extensions),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                    // types, velX, velY, hasVel
-                    .addSameTypeBindings(1, 4,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    // types, velX, velY, velZ, hasVel
+                    .addSameTypeBindings(1, 5,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 
@@ -154,8 +156,8 @@ private:
             .descSets = std::vector<VkDescriptorSet>(1),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                    // types, velX, velY
-                    .addSameTypeBindings(1, 3,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    // types, velX, velY, velZ
+                    .addSameTypeBindings(1, 4,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 
@@ -164,8 +166,8 @@ private:
             .descSets = std::vector<VkDescriptorSet>(1),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                    // velX, velY, prevVelX, prevVelY
-                    .addSameTypeBindings(1, 4,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    // velX, velY, velZ, prevVelX, prevVelY, prevVelZ
+                    .addSameTypeBindings(1, 6,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 
@@ -174,8 +176,8 @@ private:
             .descSets = std::vector<VkDescriptorSet>(1),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                    // matrix, types, rhs, velX, velY
-                    .addSameTypeBindings(1, 5,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    // matrix, types, rhs, velX, velY, velZ
+                    .addSameTypeBindings(1, 6,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 
@@ -184,8 +186,8 @@ private:
             .descSets = std::vector<VkDescriptorSet>(1),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                    // types, velX, velY, pressure
-                    .addSameTypeBindings(1, 4,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    // types, velX, velY, velZ, pressure
+                    .addSameTypeBindings(1, 5,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 
@@ -194,8 +196,8 @@ private:
             .descSets = std::vector<VkDescriptorSet>(1),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                    // velX, velY, prevVelX, prevVelY, pPos, pVel
-                    .addSameTypeBindings(1, 6,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    // velX, velY, velZ, prevVelX, prevVelY, prevVelZ, pPos, pVel
+                    .addSameTypeBindings(1, 8,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 };
