@@ -76,7 +76,7 @@ void FLIPGPU3DSim::mainLoop(float deltaTime) {
     auto currentTime = std::chrono::high_resolution_clock::now();
 
     cameraController.moveCamera(window.window(), deltaTime, camera);
-    paused = true;
+
     if (!paused) flipSolver.updateSimulation(deltaTime);
 
     updateBuffers(renderer.currentFrame());
@@ -129,7 +129,6 @@ void FLIPGPU3DSim::updateBuffers(uint32_t frameIndex) {
     ubo.view = camera.getView();
     ubo.inverseView = glm::inverse(ubo.view);
     ubo.proj = camera.getProjection();
-    ubo.restDens = 0;
     uniformBuffers[frameIndex]->write(&ubo);
 }
 

@@ -18,7 +18,6 @@ struct UniformBufferObject {
     float blurScale;
     float blurDepthFalloff;
     vec3 planeSize;
-    float restDens;
     float transparency;
 };
 

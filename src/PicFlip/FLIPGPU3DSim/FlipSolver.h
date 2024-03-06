@@ -22,7 +22,7 @@
 class FlipSolver {
 public:
     FlipSolver(const vkb::Device& device, const std::vector<std::string>& shaders,
-               const std::vector<std::string>& pressureSolverShaders, glm::vec<3, float> boxSize, float _cellSize = 10):
+               const std::vector<std::string>& pressureSolverShaders, glm::vec<3, float> boxSize, float _cellSize = 0.1):
                m_deviceRef(device),
                m_shaderPaths(shaders),
                m_pressureSolverShaderPaths(pressureSolverShaders),
@@ -35,7 +35,6 @@ public:
     [[nodiscard]] uint32_t getNumTilesY() const { return dim.y; }
     [[nodiscard]] float getCellSize() const { return cellSize; }
     [[nodiscard]] uint32_t getParticleCount() const { return numParticles; }
-    [[nodiscard]] float particleRadius() const { return radius; }
     [[nodiscard]] VkBuffer particleBuffer() const { return m_particlePosBuffer->getBuffer(); }
     [[nodiscard]] std::vector<VkSemaphore> computeSemaphore() { return m_computeHandler.currentSemaphore(0); }
 
@@ -47,7 +46,6 @@ private:
     // simulation params
     uint32_t numParticles = 20000;
     float dt = 1/60.0f;
-    float radius = 4.0f;
     float cellSize;
     glm::vec<3, uint32_t> dim;
     uint32_t numIterations = 200;

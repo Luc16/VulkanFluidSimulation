@@ -25,10 +25,10 @@ void FlipSolver::updateSimulation(float deltaTime) {
 
         vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velBarrier);
 
-        for (uint32_t k = 0; k < extensions; k++) {
-            m_extendVelocitiesKernel.bindAndDispatch(commandBuffer, k, nGrid, 1, 1);
-        }
-        vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velBarrier);
+//        for (uint32_t k = 0; k < extensions; k++) {
+//            m_extendVelocitiesKernel.bindAndDispatch(commandBuffer, k, nGrid, 1, 1);
+//        }
+//        vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velBarrier);
 
         uint32_t nBound = std::max(dim.x, std::max(dim.y, dim.z))/m_workGroupSize + 1;
         m_applyBoundaryConditionsKernel.bindAndDispatch(commandBuffer, 0, nBound, 1, 1);
@@ -72,8 +72,8 @@ void FlipSolver::initializeParticles() {
     uint32_t p = 0, na = 2, nb = 2, nc = 2;
 //    uint32_t sx = dim.x/4, ex = 3*dim.x/4;
 //    uint32_t sz = dim.z/4, ez = 3*dim.z/4;
-    uint32_t sx = 0, ex = dim.x/2;
-    uint32_t sz = 0, ez = dim.z/2;
+    uint32_t sx = 2, ex = dim.x/2+2;
+    uint32_t sz = 2, ez = dim.z/2+2;
     for (uint32_t j = 0; j < dim.y-1; j++) {
         for (uint32_t k = sz; k < ez; k++) {
             for (uint32_t i = sx; i < ex; i++) {

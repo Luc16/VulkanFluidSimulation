@@ -1,7 +1,7 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_shader_atomic_float : enable
-
+#extension GL_EXT_debug_printf : enable
 
 #include "common.glsl"
 
@@ -111,7 +111,8 @@ void addVelComponent(vec3 pos, vec3 shift, float velCmp) {
         atomicAdd(weights[gPosToIdx(iw.gIdx + ivec3(0, 0, 1), ubo.dim)].z, w4);
         atomicAdd(weights[gPosToIdx(iw.gIdx + ivec3(1, 0, 1), ubo.dim)].z, w5);
         atomicAdd(weights[gPosToIdx(iw.gIdx + ivec3(0, 1, 1), ubo.dim)].z, w6);
-        atomicAdd(weights[gPosToIdx(iw.gIdx + ivec3(1, 1, 1), ubo.dim)].z, w7);    }
+        atomicAdd(weights[gPosToIdx(iw.gIdx + ivec3(1, 1, 1), ubo.dim)].z, w7);
+    }
 }
 
 
@@ -125,7 +126,7 @@ void main() {
     types[pIdx] = FLUID;
     hasVel[pIdx] = 1;
 
-    float shift = ubo.cellSize/2;
+    float shift = ubo.cellSize/2.0f;
     addVelComponent(pos, vec3(0, shift, shift), vel.x); // add x
     addVelComponent(pos, vec3(shift, 0, shift), vel.y); // add y
     addVelComponent(pos, vec3(shift, shift, 0), vel.z); // add z

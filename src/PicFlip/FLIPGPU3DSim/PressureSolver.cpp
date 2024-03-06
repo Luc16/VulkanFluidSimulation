@@ -28,7 +28,7 @@ int PressureSolver::solve(double epsilon, uint32_t maxIters) {
     std::vector<double> gamma = {0.0, 0.0, 0.0};
     vkb::Buffer::writeBufferToVector(m_deviceRef, m_gammaBuffer, gamma);
 
-//    std::cout << "Initial gamma: " << gamma[0] << "\n";
+    std::cout << "Initial gamma: " << gamma[0] << "\n";
     if (std::abs(gamma[0]) < 1e-30) {
 //        std::cout << "Zero divergent\n";
         return 0;
@@ -76,7 +76,7 @@ int PressureSolver::solve(double epsilon, uint32_t maxIters) {
 
 //        std::cout << "Iteration " << i+gpuIters << " gamma error: " << std::scientific << gamma[0]/gamma[2] << "\n";
         if (gamma[0] < epsilon*gamma[2]) {
-//            std::cout << "Converged in " << i+gpuIters << " iterations\n";
+            std::cout << "Converged in " << i+gpuIters << " iterations\n";
             return 0;
         }  else if (gamma[0] != gamma[0]) {
             vkDeviceWaitIdle(m_deviceRef.device());
