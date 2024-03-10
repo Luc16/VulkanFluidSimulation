@@ -38,17 +38,17 @@ public:
     [[nodiscard]] VkBuffer particleBuffer() const { return m_particlePosBuffer->getBuffer(); }
     [[nodiscard]] std::vector<VkSemaphore> computeSemaphore() { return m_computeHandler.currentSemaphore(0); }
 
-    float flipRatio = 0.90f;
+    float flipRatio = 0.9f;
 
 private:
     constexpr static uint32_t m_workGroupSize = workGroupSize;
 
     // simulation params
-    uint32_t numParticles = 20000;
+    uint32_t numParticles = 40000;
     float dt = 1/60.0f;
     float cellSize;
     glm::vec<3, uint32_t> dim;
-    uint32_t numIterations = 200;
+    uint32_t numIterations = 500;
     uint32_t extensions = 4;
 
     void createBuffers();
@@ -69,8 +69,8 @@ private:
     ComputeUniformBufferObject m_cUbo{
         dim.x*dim.y*dim.z,
         numParticles,
-        1.0f/float(cellSize),
-        float(cellSize),
+        1.0f/cellSize,
+        cellSize,
         dt,
         flipRatio,
         dim

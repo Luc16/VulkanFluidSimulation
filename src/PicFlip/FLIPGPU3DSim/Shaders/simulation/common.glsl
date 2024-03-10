@@ -1,6 +1,3 @@
-#ifndef CORE_SHADER_H
-#define CORE_SHADER_H
-
 const uint SOLID = 0;
 const uint FLUID = 1;
 const uint AIR = 2;
@@ -39,5 +36,3 @@ IdxWeight particleIdxWeight(vec3 pos, vec3 shift, float overCellSize) {
     idxWeight.weight = p - floor(p);
     return idxWeight;
 }
-
-#endif //CORE_SHADER_H

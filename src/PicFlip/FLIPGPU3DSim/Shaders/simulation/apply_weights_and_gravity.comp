@@ -42,13 +42,13 @@ void main() {
         i >= ubo.size) return;
 
     vec3 weight = weights[i];
-    if (weight.x > 1e-6) {
+    if (weight.x > 1e-30) {
         velX[i] /= weight.x;
     }
-    if (weight.y > 1e-6) {
+    if (weight.y > 1e-30) {
         velY[i] /= weight.y;
     }
-    if (weight.z > 1e-6) {
+    if (weight.z > 1e-30) {
         velZ[i] /= weight.z;
     }
     // apply gravity

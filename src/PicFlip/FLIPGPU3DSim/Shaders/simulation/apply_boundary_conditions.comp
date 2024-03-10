@@ -40,15 +40,15 @@ void main() {
         velY[i + dim.x * dim.z * (dim.y - 1)] = 0.0f;
         velY[i + dim.x * dim.z * (dim.y - 2)] = 0.0f;
 
-        velX[i] = 0.0f;
-        velX[i + dim.x * dim.z] = 0.0f;
-        velX[i + dim.x * dim.z * (dim.y - 1)] = 0.0f;
-        velX[i + dim.x * dim.z * (dim.y - 2)] = 0.0f;
-
-        velZ[i] = 0.0f;
-        velZ[i + dim.x * dim.z] = 0.0f;
-        velZ[i + dim.x * dim.z * (dim.y - 1)] = 0.0f;
-        velZ[i + dim.x * dim.z * (dim.y - 2)] = 0.0f;
+//        velX[i] = 0.0f;
+//        velX[i + dim.x * dim.z] = 0.0f;
+//        velX[i + dim.x * dim.z * (dim.y - 1)] = 0.0f;
+//        velX[i + dim.x * dim.z * (dim.y - 2)] = 0.0f;
+//
+//        velZ[i] = 0.0f;
+//        velZ[i + dim.x * dim.z] = 0.0f;
+//        velZ[i + dim.x * dim.z * (dim.y - 1)] = 0.0f;
+//        velZ[i + dim.x * dim.z * (dim.y - 2)] = 0.0f;
 
     }
 
@@ -62,15 +62,15 @@ void main() {
         velX[i*dim.x + dim.x - 1] = 0.0f;
         velX[i*dim.x + dim.x - 2] = 0.0f;
 
-        velY[i*dim.x] = 0.0f;
-        velY[i*dim.x + 1] = 0.0f;
-        velY[i*dim.x + dim.x - 1] = 0.0f;
-        velY[i*dim.x + dim.x - 2] = 0.0f;
-
-        velZ[i*dim.x] = 0.0f;
-        velZ[i*dim.x + 1] = 0.0f;
-        velZ[i*dim.x + dim.x - 1] = 0.0f;
-        velZ[i*dim.x + dim.x - 2] = 0.0f;
+//        velY[i*dim.x] = 0.0f;
+//        velY[i*dim.x + 1] = 0.0f;
+//        velY[i*dim.x + dim.x - 1] = 0.0f;
+//        velY[i*dim.x + dim.x - 2] = 0.0f;
+//
+//        velZ[i*dim.x] = 0.0f;
+//        velZ[i*dim.x + 1] = 0.0f;
+//        velZ[i*dim.x + dim.x - 1] = 0.0f;
+//        velZ[i*dim.x + dim.x - 2] = 0.0f;
     }
 
     // z boundary
@@ -80,15 +80,15 @@ void main() {
         types[lower] = SOLID;
         types[upper] = SOLID;
 
-        velX[lower] = 0.0f;
-        velX[lower + dim.x] = 0.0f;
-        velX[upper] = 0.0f;
-        velX[upper - dim.x] = 0.0f;
-
-        velY[lower] = 0.0f;
-        velY[lower + dim.x] = 0.0f;
-        velY[upper] = 0.0f;
-        velY[upper - dim.x] = 0.0f;
+//        velX[lower] = 0.0f;
+//        velX[lower + dim.x] = 0.0f;
+//        velX[upper] = 0.0f;
+//        velX[upper - dim.x] = 0.0f;
+//
+//        velY[lower] = 0.0f;
+//        velY[lower + dim.x] = 0.0f;
+//        velY[upper] = 0.0f;
+//        velY[upper - dim.x] = 0.0f;
 
         velZ[lower] = 0.0f;
         velZ[lower + dim.x] = 0.0f;

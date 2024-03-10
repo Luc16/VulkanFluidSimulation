@@ -5,6 +5,9 @@
 #include "FLIPGPU3DSim.h"
 
 void FLIPGPU3DSim::onCreate() {
+    camera.m_translation = {-3.85021f, 6.08832f, 4.48576f};
+    camera.m_rotation = {0.72675f, 2.22789f, 3.14159f};
+    camera.updateView();
     initializeObjects();
     createBuffers();
 
@@ -49,13 +52,6 @@ void FLIPGPU3DSim::onCreate() {
 
 void FLIPGPU3DSim::initializeObjects() {
     vkDeviceWaitIdle(device.device());
-
-    auto extent = window.extent();
-    camera.m_translation = {-3.85021f, 6.08832f, 4.48576f};
-    camera.m_rotation = {0.72675f, 2.22789f, 3.14159f};
-    camera.updateView();
-
-//    ubo.radius = 2.0f*flipSolver.particleRadius();
 
     plane.setScale(dimensions);
 
@@ -151,12 +147,11 @@ void FLIPGPU3DSim::showImGui(){
     if (ImGui::Button("Reset") || glfwIsKeyJustPressed<GLFW_KEY_R>()) initializeObjects();
     if (ImGui::Button("Pause") || glfwIsKeyJustPressed<GLFW_KEY_SPACE>()) paused = !paused;
 
-    static bool singleStep = false;
     if (singleStep) {
         paused = true;
         singleStep = false;
     }
-    if (ImGui::Button("Step") || glfwIsKeyJustPressed<GLFW_KEY_S>()) {
+    if (ImGui::Button("Step") || (paused && glfwIsKeyJustPressed<GLFW_KEY_S>())) {
         singleStep = true;
         paused = false;
     }

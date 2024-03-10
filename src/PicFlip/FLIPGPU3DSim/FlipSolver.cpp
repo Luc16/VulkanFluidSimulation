@@ -25,12 +25,12 @@ void FlipSolver::updateSimulation(float deltaTime) {
 
         vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velBarrier);
 
-//        for (uint32_t k = 0; k < extensions; k++) {
-//            m_extendVelocitiesKernel.bindAndDispatch(commandBuffer, k, nGrid, 1, 1);
-//        }
-//        vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velBarrier);
+        for (uint32_t k = 0; k < extensions; k++) {
+            m_extendVelocitiesKernel.bindAndDispatch(commandBuffer, k, nGrid, 1, 1);
+        }
+        vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velBarrier);
 
-        uint32_t nBound = std::max(dim.x, std::max(dim.y, dim.z))/m_workGroupSize + 1;
+        uint32_t nBound = std::max(dim.x*dim.y, std::max(dim.x*dim.z, dim.y*dim.z))/m_workGroupSize + 1;
         m_applyBoundaryConditionsKernel.bindAndDispatch(commandBuffer, 0, nBound, 1, 1);
 
         vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velBarrier);
@@ -45,7 +45,7 @@ void FlipSolver::updateSimulation(float deltaTime) {
     });
 
 
-    int res = m_pressureSolver.solve(1e-4, 500);
+    int res = m_pressureSolver.solve(1e-4, numIterations);
     if (res == 1) {
         std::cout << "Pressure solver did not converge\n";
     }
@@ -70,11 +70,11 @@ void FlipSolver::initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPo
 void FlipSolver::initializeParticles() {
     std::vector<glm::vec4> particles{numParticles};
     uint32_t p = 0, na = 2, nb = 2, nc = 2;
-//    uint32_t sx = dim.x/4, ex = 3*dim.x/4;
-//    uint32_t sz = dim.z/4, ez = 3*dim.z/4;
-    uint32_t sx = 2, ex = dim.x/2+2;
-    uint32_t sz = 2, ez = dim.z/2+2;
-    for (uint32_t j = 0; j < dim.y-1; j++) {
+    uint32_t sx = dim.x/4, ex = 3*dim.x/4;
+    uint32_t sz = dim.z/4, ez = 3*dim.z/4;
+//    uint32_t sx = 2, ex = dim.x/2+2;
+//    uint32_t sz = 2, ez = dim.z/2+2;
+    for (uint32_t j = 2; j < dim.y-1; j++) {
         for (uint32_t k = sz; k < ez; k++) {
             for (uint32_t i = sx; i < ex; i++) {
                 for (uint32_t a = 0; a < na; a++) {
@@ -244,7 +244,7 @@ void FlipSolver::createBuffers() {
     vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_computeUniformBuffer, uboVec);
 
     m_matrixBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
-                                                   5*m_cUbo.size*sizeof(double),
+                                                   7*m_cUbo.size*sizeof(double),
                                                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
                                                    VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                                                    VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -340,7 +340,9 @@ void FlipSolver::createBuffers() {
     m_particleVelBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
                                                         numParticles * sizeof(glm::vec4),
                                                         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-                                                        VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                                        VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                                                        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                                         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
+    m_pressureSolver.createBuffers();
 }

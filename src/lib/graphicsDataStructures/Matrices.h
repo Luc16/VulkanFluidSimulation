@@ -122,6 +122,13 @@ public:
         return max;
     }
 
+    [[nodiscard]] constexpr bool containsNaN() const {
+        for (size_t i = 0; i < m_matrix.size(); ++i) {
+            if (m_matrix[i] != m_matrix[i]) return true;
+        }
+        return false;
+    }
+
 private:
     std::vector<T> m_matrix{};
     uint32_t m_numRows{};
