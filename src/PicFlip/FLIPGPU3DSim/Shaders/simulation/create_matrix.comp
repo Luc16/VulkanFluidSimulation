@@ -37,31 +37,50 @@ layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 void main() {
     uint i = gl_GlobalInvocationID.x;
-    if (i < ubo.dim.x ||
+    if (i < ubo.dim.x * ubo.dim.z ||
         i % ubo.dim.x == 0 ||
         i % ubo.dim.x == ubo.dim.x - 1 ||
-        i > ubo.size - ubo.dim.x ||
-        types[i] != FLUID ||
-        i >= ubo.size) return;
+        i % (ubo.dim.x * ubo.dim.z) < ubo.dim.x ||
+        i % (ubo.dim.x * ubo.dim.z) >= (ubo.dim.x)*(ubo.dim.z - 1) ||
+        i >= ubo.size - ubo.dim.x * ubo.dim.z) return;
 
-    double total = 0;
+    if (types[i] != FLUID) {
+//        matrix[7*i] = 0;
+//        matrix[7*i + 1] = 0;
+//        matrix[7*i + 2] = 0;
+//        matrix[7*i + 3] = 0;
+//        matrix[7*i + 4] = 0;
+//        matrix[7*i + 5] = 0;
+//        matrix[7*i + 6] = 0;
+//        rhs[i] = 0;
+        return;
+    }
+    uint total = 0;
     uint typeRight = types[i+1];
-    matrix[5*i + 1] = (typeRight == 1) ? -1 : 0;
-    total += double(typeRight != 0);
+    matrix[7*i + 1] = (typeRight == 1) ? -1 : 0;
+    total += uint(typeRight != 0);
 
     uint typeLeft = types[i-1];
-    matrix[5*i + 2] = (typeLeft == 1) ? -1 : 0;
-    total += double(typeLeft != 0);
+    matrix[7*i + 2] = (typeLeft == 1) ? -1 : 0;
+    total += uint(typeLeft != 0);
 
-    uint typeUp = types[i+ubo.dim.x];
-    matrix[5*i + 3] = (typeUp == 1) ? -1 : 0;
-    total += double(typeUp != 0);
+    uint typeForward = types[i+ubo.dim.x];
+    matrix[7*i + 3] = (typeForward == 1) ? -1 : 0;
+    total += uint(typeForward != 0);
 
-    uint typeDown = types[i-ubo.dim.x];
-    matrix[5*i + 4] = (typeDown == 1) ? -1 : 0;
-    total += double(typeDown != 0);
+    uint typeBackward = types[i-ubo.dim.x];
+    matrix[7*i + 4] = (typeBackward == 1) ? -1 : 0;
+    total += uint(typeBackward != 0);
 
-    matrix[5*i] = total;
+    uint typeUp = types[i+ubo.dim.x*ubo.dim.z];
+    matrix[7*i + 5] = (typeUp == 1) ? -1 : 0;
+    total += uint(typeUp != 0);
+
+    uint typeDown = types[i-ubo.dim.x*ubo.dim.z];
+    matrix[7*i + 6] = (typeDown == 1) ? -1 : 0;
+    total += uint(typeDown != 0);
+
+    matrix[7*i] = double(total);
 
     rhs[i] = velX[i+1] - velX[i] + velY[i+ubo.dim.x*ubo.dim.z] - velY[i] + velZ[i+ubo.dim.x] - velZ[i];
 

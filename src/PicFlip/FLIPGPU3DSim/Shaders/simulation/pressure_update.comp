@@ -53,6 +53,7 @@ void main() {
     }
 
     uint z = (i%(ubo.dim.x*ubo.dim.z))/ubo.dim.x;
-    if (z > 1 && z < ubo.dim.z-1 && (types[i-ubo.dim.x] == FLUID || types[i] == FLUID))
+    if (z > 1 && z < ubo.dim.z-1 && (types[i-ubo.dim.x] == FLUID || types[i] == FLUID)){
         velZ[i] += float(p - pressure[i-ubo.dim.x]);
+    }
 }
