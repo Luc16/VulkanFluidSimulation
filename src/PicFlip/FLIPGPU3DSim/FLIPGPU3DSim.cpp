@@ -141,8 +141,9 @@ void FLIPGPU3DSim::showImGui(){
 
     ImGui::Checkbox("Show Particles", &showParticles);
 
-
-    ImGui::DragFloat("Flip ratio", &flipSolver.flipRatio, 0.001f, 0.0001f, 1.0f);
+    int ext = int(flipSolver.extensions);
+    ImGui::SliderInt("Velocity extensions", &ext, 0, int(flipSolver.maxExtensions));
+    flipSolver.extensions = ext;
 
     if (ImGui::Button("Reset") || glfwIsKeyJustPressed<GLFW_KEY_R>()) initializeObjects();
     if (ImGui::Button("Pause") || glfwIsKeyJustPressed<GLFW_KEY_SPACE>()) paused = !paused;

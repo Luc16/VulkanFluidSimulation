@@ -31,6 +31,7 @@ public:
 
     void updateSimulation(float deltaTime);
     void initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPool);
+
     [[nodiscard]] uint32_t getNumTilesX() const { return dim.x; }
     [[nodiscard]] uint32_t getNumTilesY() const { return dim.y; }
     [[nodiscard]] float getCellSize() const { return cellSize; }
@@ -38,7 +39,8 @@ public:
     [[nodiscard]] VkBuffer particleBuffer() const { return m_particlePosBuffer->getBuffer(); }
     [[nodiscard]] std::vector<VkSemaphore> computeSemaphore() { return m_computeHandler.currentSemaphore(0); }
 
-    float flipRatio = 0.9f;
+    uint32_t extensions = 0;
+    const uint32_t maxExtensions = 4;
 
 private:
     constexpr static uint32_t m_workGroupSize = workGroupSize;
@@ -49,7 +51,7 @@ private:
     float cellSize;
     glm::vec<3, uint32_t> dim;
     uint32_t numIterations = 500;
-    uint32_t extensions = 4;
+    float flipRatio = 0.9f;
 
     void createBuffers();
     void initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &globalPool);
@@ -76,7 +78,7 @@ private:
         dim
     };
     std::unique_ptr<vkb::Buffer> m_computeUniformBuffer;
-    std::vector<std::unique_ptr<vkb::Buffer>> m_extensionUniformBuffers{extensions};
+    std::vector<std::unique_ptr<vkb::Buffer>> m_extensionUniformBuffers{maxExtensions};
 
     vkb::ComputeShaderHandler m_computeHandler{m_deviceRef};
 
@@ -141,7 +143,7 @@ private:
 
     vkb::SimulationKernel m_extendVelocitiesKernel {
             .computeSystem{m_deviceRef, m_shaderPaths[4]},
-            .descSets = std::vector<VkDescriptorSet>(extensions),
+            .descSets = std::vector<VkDescriptorSet>(maxExtensions),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     // types, velX, velY, velZ, hasVel

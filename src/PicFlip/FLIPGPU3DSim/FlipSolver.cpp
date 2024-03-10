@@ -27,8 +27,8 @@ void FlipSolver::updateSimulation(float deltaTime) {
 
         for (uint32_t k = 0; k < extensions; k++) {
             m_extendVelocitiesKernel.bindAndDispatch(commandBuffer, k, nGrid, 1, 1);
+            vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velBarrier);
         }
-        vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velBarrier);
 
         uint32_t nBound = std::max(dim.x*dim.y, std::max(dim.x*dim.z, dim.y*dim.z))/m_workGroupSize + 1;
         m_applyBoundaryConditionsKernel.bindAndDispatch(commandBuffer, 0, nBound, 1, 1);
@@ -70,10 +70,10 @@ void FlipSolver::initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPo
 void FlipSolver::initializeParticles() {
     std::vector<glm::vec4> particles{numParticles};
     uint32_t p = 0, na = 2, nb = 2, nc = 2;
-    uint32_t sx = dim.x/4, ex = 3*dim.x/4;
-    uint32_t sz = dim.z/4, ez = 3*dim.z/4;
-//    uint32_t sx = 2, ex = dim.x/2+2;
-//    uint32_t sz = 2, ez = dim.z/2+2;
+//    uint32_t sx = dim.x/4, ex = 3*dim.x/4;
+//    uint32_t sz = dim.z/4, ez = 3*dim.z/4;
+    uint32_t sx = 2, ex = dim.x/2+2;
+    uint32_t sz = 2, ez = dim.z/2+2;
     for (uint32_t j = 2; j < dim.y-1; j++) {
         for (uint32_t k = sz; k < ez; k++) {
             for (uint32_t i = sx; i < ex; i++) {
@@ -157,7 +157,7 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
             {m_weightsBuffer->descriptorInfo()},
     });
 
-    for (uint32_t k = 0; k < extensions; k++) {
+    for (uint32_t k = 0; k < maxExtensions; k++) {
         m_extendVelocitiesKernel.descSets[k] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_extendVelocitiesKernel.layout, {
                 {m_extensionUniformBuffers[k]->descriptorInfo()},
                 {m_typesBuffer->descriptorInfo()},
@@ -225,7 +225,7 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
 }
 
 void FlipSolver::createBuffers() {
-    for (uint32_t k = 0; k < extensions; k++) {
+    for (uint32_t k = 0; k < maxExtensions; k++) {
         std::vector<ExtensionUBO> extUbo = {{m_cUbo.size, k + 1, m_cUbo.dim}};
         m_extensionUniformBuffers[k] = std::make_unique<vkb::Buffer>(m_deviceRef,
                                                                      sizeof(ExtensionUBO),
