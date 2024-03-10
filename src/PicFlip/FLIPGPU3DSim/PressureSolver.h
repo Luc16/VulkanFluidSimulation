@@ -29,6 +29,7 @@ public:
 
     int solve(double epsilon, uint32_t maxIters);
 
+    void createBuffers();
     void initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &globalPool,
                            const std::unique_ptr<vkb::Buffer>& uniformBuffer,
                            const std::unique_ptr<vkb::Buffer> &matrixBuffer,
@@ -42,7 +43,6 @@ private:
         uint32_t extra;
     };
 
-    void createBuffers();
     void applyDotProductKernel(VkCommandBuffer commandBuffer,uint32_t dotProductDescSetIdx, uint32_t resDescSetIdx);
 
     const vkb::Device& m_deviceRef;

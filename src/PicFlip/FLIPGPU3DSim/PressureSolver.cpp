@@ -9,7 +9,7 @@ PressureSolver::PressureSolver(const vkb::Device &device, const std::vector<std:
     m_pUbos[0] = {size, 0};
     m_pUbos[1] = {size, 1};
     m_pUbos[2] = {size, 2};
-    createBuffers();
+//    createBuffers();
 }
 
 int PressureSolver::solve(double epsilon, uint32_t maxIters) {
@@ -74,7 +74,7 @@ int PressureSolver::solve(double epsilon, uint32_t maxIters) {
 
         vkb::Buffer::writeBufferToVector(m_deviceRef, m_gammaBuffer, gamma);
 
-//        std::cout << "Iteration " << i+gpuIters << " gamma error: " << std::scientific << gamma[0]/gamma[2] << "\n";
+        std::cout << "Iteration " << i+gpuIters << " gamma error: " << std::scientific << gamma[0]/gamma[2] << "\n";
         if (gamma[0] < epsilon*gamma[2]) {
             std::cout << "Converged in " << i+gpuIters << " iterations\n";
             return 0;
@@ -147,6 +147,7 @@ void PressureSolver::createBuffers() {
                                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     if (m_size <= m_workGroupSize) throw std::runtime_error("Size of the matrix is too small for the work group size");
+    m_dotProductAuxBuffers.clear();
     for (uint32_t n = m_size/m_workGroupSize + (m_size%m_workGroupSize != 0); n > 1; n = n/m_workGroupSize + (n%m_workGroupSize != 0)) {
         m_dotProductAuxBuffers.emplace_back(std::make_unique<vkb::Buffer>(m_deviceRef,
                                                                           n*sizeof(double),
