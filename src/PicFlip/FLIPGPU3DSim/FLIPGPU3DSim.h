@@ -28,6 +28,7 @@
 #include "structs.h"
 #include "PressureSolver.h"
 #include "FlipSolver.h"
+#include "FlipRenderer.h"
 
 class FLIPGPU3DSim: public vkb::VulkanApp {
 public:
@@ -84,11 +85,6 @@ private:
             COMPILED_SHADER_DIR + shaders[3] + ".spv"
     };
 
-    const vkb::RenderSystem::ShaderPaths particleShaderPaths = vkb::RenderSystem::ShaderPaths {
-            COMPILED_SHADER_DIR + shaders[4] + ".spv",
-            COMPILED_SHADER_DIR + shaders[5] + ".spv"
-    };
-
     std::vector<std::unique_ptr<vkb::Buffer>> uniformBuffers;
     UniformBufferObject ubo{
         .radius = 0.05f,
@@ -100,15 +96,23 @@ private:
 
 
     vkb::RenderSystem defaultSystem{device};
-    vkb::RenderSystem particleSystem{device};
-    vkb::RenderSystem lineSystem{device};
     std::vector<VkDescriptorSet> planeDescriptorSets;
-    std::vector<VkDescriptorSet> defaultDescriptorSets;
 
     vkb::CameraMovementController cameraController;
     vkb::Camera camera{};
 
     std::function<std::string(const std::string&)> transformFunc = [this](const std::string& shader){return COMPILED_SHADER_DIR + shader + ".spv";};
+
+    std::ranges::transform_view<std::ranges::take_view<std::ranges::drop_view<std::ranges::ref_view<const std::vector<std::string>>>>, std::function<std::string(const std::string&)>>
+            flipRendererShaderPaths = shaders |
+                                        std::ranges::views::drop(4) |
+                                        std::ranges::views::take(2) |
+                                        std::ranges::views::transform(transformFunc);
+
+    FlipRenderer flipRenderer {
+        device,
+        {flipRendererShaderPaths.begin(), flipRendererShaderPaths.end()}
+    };
 
     std::ranges::transform_view<std::ranges::drop_view<std::ranges::ref_view<const std::vector<std::string>>>, std::function<std::string(const std::string&)>>
             simulationShaderPaths = shaders |

@@ -95,4 +95,28 @@ namespace vkb {
 
         return descriptorSets;
     }
+
+    std::vector<VkDescriptorSet> VulkanApp::createDescriptorSets(DescriptorPool& pool,
+                                                                 vkb::DescriptorSetLayout& layout,
+                                                                 std::vector<VkDescriptorBufferInfo> bufferInfos,
+                                                                 std::vector<VkDescriptorImageInfo> imageInfos) {
+        std::vector<VkDescriptorSet> descriptorSets(vkb::SwapChain::MAX_FRAMES_IN_FLIGHT);
+
+        for (auto & descriptorSet : descriptorSets) {
+
+            auto writer = vkb::DescriptorWriter(layout,  pool);
+
+            uint32_t curBinding;
+            for (curBinding = 0; curBinding < bufferInfos.size(); curBinding++){
+                writer.writeBuffer(curBinding, &bufferInfos[curBinding]);
+            }
+            for (uint32_t i = 0; i < imageInfos.size(); i++){
+                writer.writeImage(curBinding + i, &imageInfos[i]);
+            }
+
+            writer.build(descriptorSet);
+        }
+
+        return descriptorSets;
+    }
 }

@@ -34,6 +34,11 @@ namespace vkb{
 
         void run();
 
+        static std::vector<VkDescriptorSet>
+        createDescriptorSets(DescriptorPool &pool, DescriptorSetLayout &layout,
+                             std::vector<VkDescriptorBufferInfo> bufferInfos,
+                             std::vector<VkDescriptorImageInfo> imageInfos= {});
+
     private:
         std::string m_appName;
         bool m_running = true;

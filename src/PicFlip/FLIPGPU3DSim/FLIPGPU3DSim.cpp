@@ -24,30 +24,7 @@ void FLIPGPU3DSim::onCreate() {
         defaultSystem.createPipeline(renderer.renderPass(), defaultShaderPaths);
     }
 
-    auto defaultDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
-            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
-            .build();
-    defaultDescriptorSets = createDescriptorSets(defaultDescriptorLayout,{uniformBuffers[0]->descriptorInfo()});
-
-    particleSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
-    particleSystem.createPipeline(renderer.renderPass(), particleShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& configInfo){
-        configInfo.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
-
-        configInfo.attributeDescription.clear();
-        configInfo.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0});
-        configInfo.bindingDescription.clear();
-        configInfo.bindingDescription.push_back({0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX});
-
-    });
-    lineSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
-    lineSystem.createPipeline(renderer.renderPass(), lineShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& configInfo){
-        configInfo.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-
-        configInfo.attributeDescription = Point::getAttributeDescriptions();
-        configInfo.bindingDescription = {Point::getBindingDescription()};
-        configInfo.enableAlphaBlending();
-    });
-
+    flipRenderer.createRenderSystems(*globalDescriptorPool, renderer, uniformBuffers[0]);
 }
 
 void FLIPGPU3DSim::initializeObjects(bool start) {
@@ -95,11 +72,7 @@ void FLIPGPU3DSim::renderObjects() {
         renderer.runRenderPass([this](VkCommandBuffer &commandBuffer) {
 
             if (showParticles) {
-                particleSystem.bind(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
-                VkBuffer vb = flipSolver.particleBuffer();
-                VkDeviceSize offsets[] = {0};
-                vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
-                vkCmdDraw(commandBuffer, flipSolver.getParticleCount(), 1, 0, 0);
+                flipRenderer.render(commandBuffer, flipSolver, renderer.currentFrame());
             }
 
             defaultSystem.bind(commandBuffer, &planeDescriptorSets[renderer.currentFrame()]);
@@ -211,16 +184,6 @@ void FLIPGPU3DSim::showImGui(){
         }
 
         initializeObjects(false);
-
-//        glm::vec3 newBoundSize = cUbo.BOUNDARY_SIZE;
-//        auto maxBound = glm::vec3(MAX_BOUND);
-//
-//        ImGui::CDragFloatRanged3("Boundary Size", &newBoundSize[0], 0.5f*cUbo.H, &particleShapeSize[0], &maxBound[0]);
-//        for (int i = 0; i < 3; i++){
-//            if (newBoundSize[i] != cUbo.BOUNDARY_SIZE[i] && newBoundSize[i] >= particleShapeSize[i] + 2*cUbo.EPS) {
-//                cUbo.BOUNDARY_SIZE[i] = newBoundSize[i];
-//            }
-//        }
 
         ImGui::NewLine();
 

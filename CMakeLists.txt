@@ -93,7 +93,9 @@ foreach( testsourcefolder ${FLIP_APPS} )
             src/PicFlip/${testsourcefolder}/PressureSolver.h
             src/PicFlip/${testsourcefolder}/PressureSolver.cpp
             src/PicFlip/${testsourcefolder}/FlipSolver.cpp
-            src/PicFlip/${testsourcefolder}/FlipSolver.h)
+            src/PicFlip/${testsourcefolder}/FlipSolver.h
+            src/PicFlip/FLIPGPU3DSim/FlipRenderer.cpp
+            src/PicFlip/FLIPGPU3DSim/FlipRenderer.h)
     target_link_libraries( ${testsourcefolder} VkFluidSim GL glfw Vulkan::Vulkan)
 endforeach( testsourcefolder ${FLIP_APPS} )
 
