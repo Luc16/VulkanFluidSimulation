@@ -259,3 +259,21 @@ void PressureSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool
             {m_betaBuffer->descriptorInfo()},
     });
 }
+
+std::vector<VkDescriptorSet> PressureSolver::activeDescriptorSets() const {
+    std::vector<VkDescriptorSet> descSets;
+    descSets.reserve(3);
+    descSets.push_back(m_matrixMultiplyKernel.descSets[0]);
+    descSets.push_back(m_addScaledKernel.descSets[0]);
+    descSets.push_back(m_addScaledKernel.descSets[1]);
+    descSets.push_back(m_addScaledKernel.descSets[2]);
+    descSets.push_back(m_dotProductKernel.descSets[0]);
+    descSets.push_back(m_dotProductKernel.descSets[1]);
+    descSets.push_back(m_finishDotKernel.descSets[0]);
+    descSets.push_back(m_finishDotKernel.descSets[1]);
+    descSets.push_back(m_finishDotKernel.descSets[2]);
+    for (const auto& descSet : m_reduceKernel.descSets) {
+        descSets.push_back(descSet);
+    }
+    return descSets;
+}

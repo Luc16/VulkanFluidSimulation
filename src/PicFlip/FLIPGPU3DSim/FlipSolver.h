@@ -26,36 +26,44 @@ public:
                m_deviceRef(device),
                m_shaderPaths(shaders),
                m_pressureSolverShaderPaths(pressureSolverShaders),
-               cellSize(_cellSize),
-               dim({boxSize.x/_cellSize, boxSize.y/_cellSize, boxSize.z/_cellSize}){}
+               m_cUbo({ uint32_t (boxSize.x * boxSize.y * boxSize.z / (_cellSize * _cellSize * _cellSize)),
+                        200000,
+                        1.0f / _cellSize,
+                        _cellSize,
+                        1 / 60.0f,
+                        0.95f,
+                        {boxSize.x / _cellSize, boxSize.y / _cellSize, boxSize.z / _cellSize}}
+                       ) {
+        particleSpan = {m_cUbo.dim.x/2, m_cUbo.dim.y - 4, m_cUbo.dim.z/2};
+    }
 
     void updateSimulation(float deltaTime);
-    void initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPool);
+    void initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPool, bool dislocatePos = true);
+    void updateUniformBuffers(uint32_t numParticles, glm::vec3 boxSize, float cellSize = -1, float flipRatio = -1);
 
-    [[nodiscard]] uint32_t getNumTilesX() const { return dim.x; }
-    [[nodiscard]] uint32_t getNumTilesY() const { return dim.y; }
-    [[nodiscard]] float getCellSize() const { return cellSize; }
-    [[nodiscard]] uint32_t getParticleCount() const { return numParticles; }
+    [[nodiscard]] uint32_t getNumTilesX() const { return m_cUbo.dim.x; }
+    [[nodiscard]] uint32_t getNumTilesY() const { return m_cUbo.dim.y; }
+    [[nodiscard]] float getCellSize() const { return m_cUbo.cellSize; }
+    [[nodiscard]] glm::ivec3 getDimension() const { return m_cUbo.dim; }
+    [[nodiscard]] uint32_t getParticleCount() const { return m_cUbo.numParticles; }
     [[nodiscard]] VkBuffer particleBuffer() const { return m_particlePosBuffer->getBuffer(); }
     [[nodiscard]] std::vector<VkSemaphore> computeSemaphore() { return m_computeHandler.currentSemaphore(0); }
 
     uint32_t extensions = 0;
     const uint32_t maxExtensions = 4;
+    glm::ivec3 particleStart{2, 2, 2}, particleSpan{}, particlePerCell{3, 3, 3};
 
 private:
     constexpr static uint32_t m_workGroupSize = workGroupSize;
 
     // simulation params
-    uint32_t numParticles = 40000;
     float dt = 1/60.0f;
-    float cellSize;
-    glm::vec<3, uint32_t> dim;
     uint32_t numIterations = 500;
-    float flipRatio = 0.9f;
+    bool kernelsInitialized = false;
 
     void createBuffers();
     void initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &globalPool);
-    void initializeParticles();
+    void initializeParticles(bool dislocatePos);
 
     const vkb::Device& m_deviceRef;
     const std::vector<std::string>& m_shaderPaths;
@@ -68,15 +76,7 @@ private:
 
     };
 
-    ComputeUniformBufferObject m_cUbo{
-        dim.x*dim.y*dim.z,
-        numParticles,
-        1.0f/cellSize,
-        cellSize,
-        dt,
-        flipRatio,
-        dim
-    };
+    ComputeUniformBufferObject m_cUbo;
     std::unique_ptr<vkb::Buffer> m_computeUniformBuffer;
     std::vector<std::unique_ptr<vkb::Buffer>> m_extensionUniformBuffers{maxExtensions};
 

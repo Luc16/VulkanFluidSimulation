@@ -121,7 +121,7 @@ private:
                                     std::ranges::views::take(computeShaderStartIdx - pressureSolverStartIdx) |
                                     std::ranges::views::transform(transformFunc);
 
-    glm::vec3 dimensions = glm::vec3(6.4f);
+    glm::vec3 dimensions = glm::vec3(7.0f);
     FlipSolver flipSolver {
         device,
         {simulationShaderPaths.begin(), simulationShaderPaths.end()},
@@ -132,10 +132,10 @@ private:
     bool showParticles = true;
 
     float gpuTime = 0, cpuTime = 0;
-    bool activateTimer = false, paused = false, singleStep = false;
+    bool activateTimer = false, paused = false, singleStep = false, controlMode = false;
 
     void onCreate() override;
-    void initializeObjects();
+    void initializeObjects(bool start = true);
     void createBuffers();
     void mainLoop(float deltaTime) override;
     void renderObjects();

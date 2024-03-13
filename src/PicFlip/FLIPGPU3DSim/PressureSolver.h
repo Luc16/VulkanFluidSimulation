@@ -29,6 +29,7 @@ public:
 
     int solve(double epsilon, uint32_t maxIters);
 
+    std::vector<VkDescriptorSet> activeDescriptorSets() const;
     void createBuffers();
     void initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &globalPool,
                            const std::unique_ptr<vkb::Buffer>& uniformBuffer,

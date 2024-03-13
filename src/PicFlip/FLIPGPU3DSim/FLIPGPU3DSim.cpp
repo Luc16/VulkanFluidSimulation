@@ -50,12 +50,12 @@ void FLIPGPU3DSim::onCreate() {
 
 }
 
-void FLIPGPU3DSim::initializeObjects() {
+void FLIPGPU3DSim::initializeObjects(bool start) {
     vkDeviceWaitIdle(device.device());
 
     plane.setScale(dimensions);
 
-    flipSolver.initialize(globalDescriptorPool);
+    flipSolver.initialize(globalDescriptorPool, start);
 }
 
 void FLIPGPU3DSim::createBuffers() {
@@ -146,8 +146,17 @@ void FLIPGPU3DSim::showImGui(){
     flipSolver.extensions = ext;
 
     if (ImGui::Button("Reset") || glfwIsKeyJustPressed<GLFW_KEY_R>()) initializeObjects();
-    if (ImGui::Button("Pause") || glfwIsKeyJustPressed<GLFW_KEY_SPACE>()) paused = !paused;
-
+    if (ImGui::Button("Pause") || glfwIsKeyJustPressed<GLFW_KEY_SPACE>()) {
+        if (paused && controlMode) {
+            initializeObjects();
+            controlMode = false;
+        }
+        paused = !paused;
+    }
+    if (ImGui::Button("Reset and enter control mode")) {
+        paused = true;
+        controlMode = true;
+    }
     if (singleStep) {
         paused = true;
         singleStep = false;
@@ -161,6 +170,67 @@ void FLIPGPU3DSim::showImGui(){
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                 ImGui::GetIO().Framerate);
     ImGui::End();
+
+
+    if (controlMode) {
+        ImGui::Begin("Control Mode");
+
+        bool changedUniform = false;
+        int numParticles = (int) flipSolver.getParticleCount();
+        ImGui::SliderInt("Num Particles", &numParticles, 16, 1000000);
+
+        float cellSize = flipSolver.getCellSize();
+        ImGui::DragFloat("Cell Size", &cellSize, 0.01f, 0.01f, 1.0f);
+
+        auto maxBound = glm::vec3(20.0f);
+        auto minBound = glm::vec3(2.0f);
+        auto prev = dimensions;
+        ImGui::CDragFloatRanged3("Box Size", &dimensions[0], 0.01f, &minBound[0], &maxBound[0]);
+
+        auto numParticleMin = glm::ivec3(2);
+        auto numParticleMax = glm::ivec3(5);
+        ImGui::CSliderIntRanged3("Particles per cell", &flipSolver.particlePerCell[0], &numParticleMin[0], &numParticleMax[0]);
+
+        auto startMin = glm::ivec3(2);
+        auto startMax = glm::ivec3(flipSolver.getDimension()) - flipSolver.particleSpan - glm::ivec3(1);
+        ImGui::CSliderIntRanged3("Particles start", &flipSolver.particleStart[0], &startMin[0], &startMax[0]);
+
+        auto spanMin = glm::ivec3(4);
+        auto spanMax = glm::ivec3(flipSolver.getDimension());
+        ImGui::CSliderIntRanged3("Particles size", &flipSolver.particleSpan[0], &spanMin[0], &spanMax[0]);
+
+        // boundary
+
+        if (prev != dimensions || cellSize != flipSolver.getCellSize() || numParticles != (int) flipSolver.getParticleCount()) {
+            flipSolver.updateUniformBuffers(
+                    numParticles,
+                    dimensions,
+                    cellSize,
+                    -1
+            );
+        }
+
+        initializeObjects(false);
+
+//        glm::vec3 newBoundSize = cUbo.BOUNDARY_SIZE;
+//        auto maxBound = glm::vec3(MAX_BOUND);
+//
+//        ImGui::CDragFloatRanged3("Boundary Size", &newBoundSize[0], 0.5f*cUbo.H, &particleShapeSize[0], &maxBound[0]);
+//        for (int i = 0; i < 3; i++){
+//            if (newBoundSize[i] != cUbo.BOUNDARY_SIZE[i] && newBoundSize[i] >= particleShapeSize[i] + 2*cUbo.EPS) {
+//                cUbo.BOUNDARY_SIZE[i] = newBoundSize[i];
+//            }
+//        }
+
+        ImGui::NewLine();
+
+        if (ImGui::Button("Launch and close")) {
+            initializeObjects();
+            controlMode = false;
+            paused = false;
+        }
+        ImGui::End();
+    }
 }
 
 void FLIPGPU3DSim::compileShaders() {

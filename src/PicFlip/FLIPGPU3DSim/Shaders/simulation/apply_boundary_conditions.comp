@@ -40,6 +40,16 @@ void main() {
         if (velY[i + dim.x * dim.z] < 0) velY[i + dim.x * dim.z] = 0.0f;
         if (velY[i + dim.x * dim.z * (dim.y - 1)] > 0) velY[i + dim.x * dim.z * (dim.y - 1)] = 0.0f;
         if (velY[i + dim.x * dim.z * (dim.y - 2)] > 0) velY[i + dim.x * dim.z * (dim.y - 2)] = 0.0f;
+
+        velX[i] = 0.0f;
+        velX[i + dim.x * dim.z] = 0.0f;
+        velX[i + dim.x * dim.z * (dim.y - 1)] = 0.0f;
+        velX[i + dim.x * dim.z * (dim.y - 2)] = 0.0f;
+
+        velZ[i] = 0.0f;
+        velZ[i + dim.x * dim.z] = 0.0f;
+        velZ[i + dim.x * dim.z * (dim.y - 1)] = 0.0f;
+        velZ[i + dim.x * dim.z * (dim.y - 2)] = 0.0f;
     }
 
     // x boundary
@@ -51,6 +61,16 @@ void main() {
         if (velX[i*dim.x + 1] < 0) velX[i*dim.x + 1] = 0.0f;
         if (velX[i*dim.x + dim.x - 1] > 0) velX[i*dim.x + dim.x - 1] = 0.0f;
         if (velX[i*dim.x + dim.x - 2] > 0) velX[i*dim.x + dim.x - 2] = 0.0f;
+
+        velY[i*dim.x] = 0.0f;
+        velY[i*dim.x + 1] = 0.0f;
+        velY[i*dim.x + dim.x - 1] = 0.0f;
+        velY[i*dim.x + dim.x - 2] = 0.0f;
+
+        velZ[i*dim.x] = 0.0f;
+        velZ[i*dim.x + 1] = 0.0f;
+        velZ[i*dim.x + dim.x - 1] = 0.0f;
+        velZ[i*dim.x + dim.x - 2] = 0.0f;
     }
 
     // z boundary
@@ -64,6 +84,16 @@ void main() {
         if (velZ[lower + dim.x] < 0) velZ[lower + dim.x] = 0.0f;
         if (velZ[upper] > 0) velZ[upper] = 0.0f;
         if (velZ[upper - dim.x] > 0) velZ[upper - dim.x] = 0.0f;
+
+        velX[lower] = 0.0f;
+        velX[lower + dim.x] = 0.0f;
+        velX[upper] = 0.0f;
+        velX[upper - dim.x] = 0.0f;
+
+        velY[lower] = 0.0f;
+        velY[lower + dim.x] = 0.0f;
+        velY[upper] = 0.0f;
+        velY[upper - dim.x] = 0.0f;
     }
 
 }

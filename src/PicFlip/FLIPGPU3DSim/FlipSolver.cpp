@@ -30,7 +30,7 @@ void FlipSolver::updateSimulation(float deltaTime) {
             vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velBarrier);
         }
 
-        uint32_t nBound = std::max(dim.x*dim.y, std::max(dim.x*dim.z, dim.y*dim.z))/m_workGroupSize + 1;
+        uint32_t nBound = std::max(m_cUbo.dim.x*m_cUbo.dim.y, std::max(m_cUbo.dim.x*m_cUbo.dim.z, m_cUbo.dim.y*m_cUbo.dim.z))/m_workGroupSize + 1;
         m_applyBoundaryConditionsKernel.bindAndDispatch(commandBuffer, 0, nBound, 1, 1);
 
         vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velBarrier);
@@ -61,33 +61,50 @@ void FlipSolver::updateSimulation(float deltaTime) {
     });
 }
 
-void FlipSolver::initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPool)  {
-    createBuffers();
-    initializeKernels(globalPool);
-    initializeParticles();
+void FlipSolver::updateUniformBuffers(uint32_t numParticles, glm::vec3 boxSize, float cellSize, float flipRatio) {
+
+    m_cUbo.numParticles = numParticles;
+    if (cellSize > 0) {
+        m_cUbo.cellSize = cellSize;
+        m_cUbo.overCellSize = 1/cellSize;
+    }
+    m_cUbo.dim = glm::vec<3, uint32_t>(boxSize/m_cUbo.cellSize);
+    if (flipRatio > 0) m_cUbo.flipRatio = flipRatio;
+    m_cUbo.size = m_cUbo.dim.x*m_cUbo.dim.y*m_cUbo.dim.z;
+
+    std::vector<ComputeUniformBufferObject> uboVec = {m_cUbo};
+    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_computeUniformBuffer, uboVec);
+
 }
 
-void FlipSolver::initializeParticles() {
-    std::vector<glm::vec4> particles{numParticles};
-    uint32_t p = 0, na = 2, nb = 2, nc = 2;
-//    uint32_t sx = dim.x/4, ex = 3*dim.x/4;
-//    uint32_t sz = dim.z/4, ez = 3*dim.z/4;
-    uint32_t sx = 2, ex = dim.x/2+2;
-    uint32_t sz = 2, ez = dim.z/2+2;
-    for (uint32_t j = 2; j < dim.y-1; j++) {
-        for (uint32_t k = sz; k < ez; k++) {
-            for (uint32_t i = sx; i < ex; i++) {
-                for (uint32_t a = 0; a < na; a++) {
-                    for (uint32_t b = 0; b < nb; b++) {
-                        for (uint32_t c = 0; c < nc; c++) {
+void FlipSolver::initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPool, bool dislocatePos)  {
+    createBuffers();
+    initializeKernels(globalPool);
+    initializeParticles(dislocatePos);
+}
+
+void FlipSolver::initializeParticles(bool dislocatePos) {
+    std::vector<glm::vec4> particles{m_cUbo.numParticles};
+    uint32_t p = 0;
+    for (uint32_t j = particleStart.y; j < particleStart.y + particleSpan.y; j++) {
+        for (uint32_t k = particleStart.z; k < particleStart.z + particleSpan.z; k++) {
+            for (uint32_t i = particleStart.x; i < particleStart.x + particleSpan.x; i++) {
+                for (uint32_t a = 0; a < particlePerCell.x; a++) {
+                    for (uint32_t b = 0; b < particlePerCell.y; b++) {
+                        for (uint32_t c = 0; c < particlePerCell.z; c++) {
                             if (p < particles.size()) {
                                 particles[p++] = glm::vec4(
-                                        float(i) * cellSize + float(a) * cellSize / float(na) +
-                                        cellSize / float(na * na) + randomFloat(0.0f, 0.3f * cellSize),
-                                        float(j) * cellSize + float(b) * cellSize / float(nb) +
-                                        cellSize / float(nb * nb) + randomFloat(0.0f, 0.3f * cellSize),
-                                        float(k) * cellSize + float(c) * cellSize / float(nc) +
-                                        cellSize / float(nc * nc) + randomFloat(0.0f, 0.3f * cellSize),
+                                        float(i) * m_cUbo.cellSize + float(a) * m_cUbo.cellSize / float(particlePerCell.x) +
+                                        m_cUbo.cellSize / float(particlePerCell.x * particlePerCell.x),
+                                        float(j) * m_cUbo.cellSize + float(b) * m_cUbo.cellSize / float(particlePerCell.y) +
+                                        m_cUbo.cellSize / float(particlePerCell.y * particlePerCell.y),
+                                        float(k) * m_cUbo.cellSize + float(c) * m_cUbo.cellSize / float(particlePerCell.z) +
+                                        m_cUbo.cellSize / float(particlePerCell.z * particlePerCell.z),
+                                        0.0f);
+                                if (dislocatePos) particles[p-1] += glm::vec4(
+                                        randomFloat(0.0f, 0.3f * m_cUbo.cellSize),
+                                        randomFloat(0.0f, 0.3f * m_cUbo.cellSize),
+                                        randomFloat(0.0f, 0.3f * m_cUbo.cellSize),
                                         0.0f);
                             }
                         }
@@ -97,6 +114,9 @@ void FlipSolver::initializeParticles() {
         }
     }
 
+//    if (p < numParticles) {
+//        throw std::runtime_error("Too many particles to fit in grid");
+//    }
 
 
     vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_particlePosBuffer, particles);
@@ -113,6 +133,26 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
     m_createMatrixAndRhsKernel.createPipeline();
     m_applyPressureKernel.createPipeline();
     m_gridToParticleKernel.createPipeline();
+
+    if (kernelsInitialized) {
+        std::vector<VkDescriptorSet> setsToFree = {
+                m_advectParticlesKernel.descSets[0], m_resetGridKernel.descSets[0], m_particleToGridKernel.descSets[0],
+                m_applyWeightsAndGravityKernel.descSets[0], m_applyBoundaryConditionsKernel.descSets[0],
+                m_setPrevVelocitiesKernel.descSets[0], m_createMatrixAndRhsKernel.descSets[0],
+                m_applyPressureKernel.descSets[0], m_gridToParticleKernel.descSets[0]
+        };
+        for (uint32_t k = 0; k < maxExtensions; k++) {
+            setsToFree.push_back(m_extendVelocitiesKernel.descSets[k]);
+        }
+
+        auto pressureSets = m_pressureSolver.activeDescriptorSets();
+
+        setsToFree.insert(setsToFree.end(), pressureSets.begin(), pressureSets.end());
+
+        globalPool->freeDescriptors(setsToFree);
+    }
+
+    kernelsInitialized = true;
 
     m_advectParticlesKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_advectParticlesKernel.layout, {
             {m_computeUniformBuffer->descriptorInfo()},
@@ -330,7 +370,7 @@ void FlipSolver::createBuffers() {
                                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     m_particlePosBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
-                                                        numParticles * sizeof(glm::vec4),
+                                                        m_cUbo.numParticles * sizeof(glm::vec4),
                                                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
                                                     VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                                                     VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
@@ -338,7 +378,7 @@ void FlipSolver::createBuffers() {
                                                         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     m_particleVelBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
-                                                        numParticles * sizeof(glm::vec4),
+                                                        m_cUbo.numParticles * sizeof(glm::vec4),
                                                         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
                                                         VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                                                         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
