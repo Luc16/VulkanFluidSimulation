@@ -24,6 +24,21 @@ void FLIPGPU3DSim::onCreate() {
         defaultSystem.createPipeline(renderer.renderPass(), defaultShaderPaths);
     }
 
+    skyboxDescriptorSets = createDescriptorSets(descriptorLayout,
+                                                {uniformBuffers[0]->descriptorInfo()}, {skybox.descriptorInfo()});
+    skyboxSystem.createPipelineLayout(descriptorLayout.descriptorSetLayout(), 0);
+    skyboxSystem.createPipeline(renderer.renderPass(), skyboxShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
+        info.depthStencilInfo.depthTestEnable = VK_FALSE;
+        info.depthStencilInfo.depthWriteEnable = VK_FALSE;
+        info.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+        info.colorBlendAttachment.blendEnable = VK_FALSE;
+
+        info.bindingDescription.clear();
+        info.bindingDescription.push_back({0, sizeof(glm::vec3), VK_VERTEX_INPUT_RATE_VERTEX});
+        info.attributeDescription.clear();
+        info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
+    });
+
     flipRenderer.createRenderSystems(*globalDescriptorPool, renderer, uniformBuffers[0]);
 }
 
@@ -70,7 +85,10 @@ void FLIPGPU3DSim::renderObjects() {
         showImGui();
 
         renderer.runRenderPass([this](VkCommandBuffer &commandBuffer) {
-
+            if (renderSkybox) {
+                skyboxSystem.bind(commandBuffer, &skyboxDescriptorSets[renderer.currentFrame()]);
+                skybox.bindAndDraw(commandBuffer);
+            }
             if (showParticles) {
                 flipRenderer.render(commandBuffer, flipSolver, renderer.currentFrame());
             }
@@ -113,6 +131,7 @@ void FLIPGPU3DSim::showImGui(){
     }
 
     ImGui::Checkbox("Show Particles", &showParticles);
+    ImGui::Checkbox("Show sky box", &renderSkybox);
 
     int ext = int(flipSolver.extensions);
     ImGui::SliderInt("Velocity extensions", &ext, 0, int(flipSolver.maxExtensions));

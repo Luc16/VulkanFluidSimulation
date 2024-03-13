@@ -29,6 +29,7 @@
 #include "PressureSolver.h"
 #include "FlipSolver.h"
 #include "FlipRenderer.h"
+#include "../../lib/CubeMapModel.h"
 
 class FLIPGPU3DSim: public vkb::VulkanApp {
 public:
@@ -48,14 +49,17 @@ private:
     const std::string PRESSURE_SOLVER_SHADER_DIR = SHADER_DIR + "pressure_solver/";
     const std::string COMPILED_SHADER_DIR = SHADER_DIR + "bin/";
 
-    static constexpr uint32_t pressureSolverStartIdx = 6;
-    static constexpr uint32_t computeShaderStartIdx = 11;
+    static constexpr uint32_t ssfStartIdx = 6;
+    static constexpr uint32_t pressureSolverStartIdx = ssfStartIdx+2;
+    static constexpr uint32_t computeShaderStartIdx = pressureSolverStartIdx+5;
 
     const std::vector<std::string> shaders = {
             "default.vert",
             "default.frag",
             "line.vert",
             "line.frag",
+            "skybox.vert",
+            "skybox.frag",
             "point_particle.vert",
             "point_particle.frag",
             "add_scaled.comp",
@@ -85,6 +89,11 @@ private:
             COMPILED_SHADER_DIR + shaders[3] + ".spv"
     };
 
+    const vkb::RenderSystem::ShaderPaths skyboxShaderPaths = vkb::RenderSystem::ShaderPaths {
+            COMPILED_SHADER_DIR + shaders[4] + ".spv",
+            COMPILED_SHADER_DIR + shaders[5] + ".spv"
+    };
+
     std::vector<std::unique_ptr<vkb::Buffer>> uniformBuffers;
     UniformBufferObject ubo{
         .radius = 0.05f,
@@ -95,8 +104,19 @@ private:
                               std::make_shared<vkb::Texture>(device, "../textures/coral_reef_texture.jpg")};
 
 
+    vkb::CubeMapModel skybox{device, {
+            "../textures/skybox/right.jpg",
+            "../textures/skybox/left.jpg",
+            "../textures/skybox/bottom.jpg",
+            "../textures/skybox/top.jpg",
+            "../textures/skybox/front.jpg",
+            "../textures/skybox/back.jpg",
+    }, true};
+    vkb::RenderSystem skyboxSystem{device};
+    vkb::RenderSystem skyboxTexSystem{device};
     vkb::RenderSystem defaultSystem{device};
     std::vector<VkDescriptorSet> planeDescriptorSets;
+    std::vector<VkDescriptorSet> skyboxDescriptorSets;
 
     vkb::CameraMovementController cameraController;
     vkb::Camera camera{};
@@ -105,8 +125,8 @@ private:
 
     std::ranges::transform_view<std::ranges::take_view<std::ranges::drop_view<std::ranges::ref_view<const std::vector<std::string>>>>, std::function<std::string(const std::string&)>>
             flipRendererShaderPaths = shaders |
-                                        std::ranges::views::drop(4) |
-                                        std::ranges::views::take(2) |
+                                        std::ranges::views::drop(ssfStartIdx) |
+                                        std::ranges::views::take(pressureSolverStartIdx - ssfStartIdx) |
                                         std::ranges::views::transform(transformFunc);
 
     FlipRenderer flipRenderer {
@@ -134,6 +154,7 @@ private:
         0.2f
     };
     bool showParticles = true;
+    bool renderSkybox = true;
 
     float gpuTime = 0, cpuTime = 0;
     bool activateTimer = false, paused = false, singleStep = false, controlMode = false;
