@@ -39,7 +39,13 @@ void FLIPGPU3DSim::onCreate() {
         info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
     });
 
-    flipRenderer.createRenderSystems(*globalDescriptorPool, renderer, uniformBuffers[0]);
+    flipRenderer.initialize(
+            *globalDescriptorPool,
+            renderer,
+            uniformBuffers[0],
+            skybox,
+            plane
+    );
 }
 
 void FLIPGPU3DSim::initializeObjects(bool start) {

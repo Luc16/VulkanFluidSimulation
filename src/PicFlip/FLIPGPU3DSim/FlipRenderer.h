@@ -28,24 +28,49 @@
 #include "structs.h"
 #include "PressureSolver.h"
 #include "FlipSolver.h"
+#include "../../lib/simulations/OffscreenPass.h"
+#include "../../lib/CubeMapModel.h"
+
 
 class FlipRenderer {
 public:
-    FlipRenderer(const vkb::Device& device, const std::vector<std::string>& shaders):
+    FlipRenderer(const vkb::Device& device, const std::vector<std::string>& shaders, VkExtent2D extent):
         m_deviceRef(device),
         m_particleSystem(device),
+        m_shadingRenderSystem(device),
+        m_depthPass(device, extent, true),
+        m_thicknessPass(device, extent),
+        m_scenePass(device, extent),
+        m_smoothPass(device, extent, true, true),
         m_shaderPaths(shaders)
         {}
 
-    void createRenderSystems(vkb::DescriptorPool& pool, const vkb::Renderer& renderer, const std::unique_ptr<vkb::Buffer>& uniformBuffer);
+    void initialize(vkb::DescriptorPool& pool, const vkb::Renderer& renderer, const std::unique_ptr<vkb::Buffer>& uniformBuffer,
+                    const vkb::CubeMapModel& skybox, const vkb::DrawableObject& plane);
     void render(VkCommandBuffer& commandBuffer, const FlipSolver& solver, uint32_t frame);
 
 private:
+    void createOffscreenPasses(const vkb::DescriptorSetLayout& defaultDescriptorLayout);
+
     const vkb::Device& m_deviceRef;
     const std::vector<std::string> m_shaderPaths;
 
     vkb::RenderSystem m_particleSystem;
     std::vector<VkDescriptorSet> m_particleDescriptorSets;
+
+    vkb::RenderSystem m_shadingRenderSystem;
+
+    // rendering with screen space fluids
+    vkb::OffscreenPass m_depthPass;
+    vkb::OffscreenPass m_thicknessPass;
+    vkb::OffscreenPass m_scenePass;
+    vkb::OffscreenPass m_smoothPass;
+
+    std::vector<VkDescriptorSet> simulationDescriptorSets;
+    std::vector<VkDescriptorSet> smooth1DescriptorSets;
+    std::vector<VkDescriptorSet> smooth2DescriptorSets;
+    std::array<std::vector<VkDescriptorSet>, 3> shadingDescriptorSets;
+
 
 };
 

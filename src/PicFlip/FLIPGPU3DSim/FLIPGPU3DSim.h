@@ -49,8 +49,7 @@ private:
     const std::string PRESSURE_SOLVER_SHADER_DIR = SHADER_DIR + "pressure_solver/";
     const std::string COMPILED_SHADER_DIR = SHADER_DIR + "bin/";
 
-    static constexpr uint32_t ssfStartIdx = 6;
-    static constexpr uint32_t pressureSolverStartIdx = ssfStartIdx+2;
+    static constexpr uint32_t pressureSolverStartIdx = 16;
     static constexpr uint32_t computeShaderStartIdx = pressureSolverStartIdx+5;
 
     const std::vector<std::string> shaders = {
@@ -62,6 +61,14 @@ private:
             "skybox.frag",
             "point_particle.vert",
             "point_particle.frag",
+            "ssf_depth.vert",
+            "ssf_depth.frag",
+            "ssf_thickness.vert",
+            "ssf_thickness.frag",
+            "ssf_smooth.vert",
+            "ssf_smooth.frag",
+            "ssf_shading.vert",
+            "ssf_shading.frag",
             "add_scaled.comp",
             "dot_product.comp",
             "reduce.comp",
@@ -123,15 +130,15 @@ private:
 
     std::function<std::string(const std::string&)> transformFunc = [this](const std::string& shader){return COMPILED_SHADER_DIR + shader + ".spv";};
 
-    std::ranges::transform_view<std::ranges::take_view<std::ranges::drop_view<std::ranges::ref_view<const std::vector<std::string>>>>, std::function<std::string(const std::string&)>>
+    std::ranges::transform_view<std::ranges::take_view<std::ranges::ref_view<const std::vector<std::string>>>, std::function<std::string(const std::string&)>>
             flipRendererShaderPaths = shaders |
-                                        std::ranges::views::drop(ssfStartIdx) |
-                                        std::ranges::views::take(pressureSolverStartIdx - ssfStartIdx) |
+                                        std::ranges::views::take(pressureSolverStartIdx) |
                                         std::ranges::views::transform(transformFunc);
 
     FlipRenderer flipRenderer {
         device,
-        {flipRendererShaderPaths.begin(), flipRendererShaderPaths.end()}
+        {flipRendererShaderPaths.begin(), flipRendererShaderPaths.end()},
+        renderer.getSwapChainExtent()
     };
 
     std::ranges::transform_view<std::ranges::drop_view<std::ranges::ref_view<const std::vector<std::string>>>, std::function<std::string(const std::string&)>>
