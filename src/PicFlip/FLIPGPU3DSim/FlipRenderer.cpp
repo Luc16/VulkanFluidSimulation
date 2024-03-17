@@ -4,12 +4,68 @@
 
 #include "FlipRenderer.h"
 
-void FlipRenderer::render(VkCommandBuffer& commandBuffer, const FlipSolver& solver, uint32_t frame) {
-    m_particleSystem.bind(commandBuffer, &m_particleDescriptorSets[frame]);
+void FlipRenderer::runOffscreenPasses(VkCommandBuffer commandBuffer, const FlipSolver &solver, uint32_t currentFrame,
+                                      const vkb::CubeMapModel& skybox, const vkb::DrawableObject& plane, vkb::RenderSystem& defaultRenderSystem,
+                                      std::vector<VkDescriptorSet>& defaultDescriptorSets, std::vector<VkDescriptorSet>& skyboxDescriptorSets, bool renderSkybox) {
     VkBuffer vb = solver.particleBuffer();
     VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
-    vkCmdDraw(commandBuffer, solver.getParticleCount(), 1, 0, 0);
+
+    m_depthPass.run(commandBuffer, &simulationDescriptorSets[currentFrame],
+                  [&vb, &offsets, &solver](VkCommandBuffer &commandBuffer) {
+                      vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
+                      vkCmdDraw(commandBuffer, solver.getParticleCount(), 1, 0, 0);
+                  });
+
+    if (blurIterations > 0) {
+        m_smoothPass.run(commandBuffer, &simulationDescriptorSets[currentFrame],
+                       [](VkCommandBuffer commandBuffer) {
+                           vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+                       });
+    }
+
+    for (uint32_t _ = 1; _ < blurIterations; _++){
+        m_smoothPass.runAlternating(commandBuffer, {&smooth1DescriptorSets[currentFrame], &smooth2DescriptorSets[currentFrame]},
+                                  [](VkCommandBuffer commandBuffer) {
+                                      vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+
+                                  });
+    }
+
+    m_thicknessPass.run(commandBuffer,
+                      (blurIterations % 2 == 0) ? &smooth1DescriptorSets[currentFrame] : &smooth2DescriptorSets[currentFrame],
+                      [&vb, &offsets, &solver](VkCommandBuffer &commandBuffer) {
+                          vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
+                          vkCmdDraw(commandBuffer, solver.getParticleCount(), 1, 0, 0);
+                      });
+
+    m_scenePass.run(commandBuffer,
+                  &defaultDescriptorSets[currentFrame],
+                  [&](VkCommandBuffer &commandBuffer) {
+                      if (renderSkybox) {
+                          m_skyboxTexSystem.bind(commandBuffer, &skyboxDescriptorSets[currentFrame]);
+                          skybox.bindAndDraw(commandBuffer);
+                      }
+                      m_scenePass.bindRenderSystem(commandBuffer, &defaultDescriptorSets[currentFrame]);
+                      plane.render(defaultRenderSystem, commandBuffer);
+                  });
+}
+
+void FlipRenderer::render(VkCommandBuffer& commandBuffer, const FlipSolver& solver, uint32_t frame, uint32_t renderType) {
+    if (renderType == 0) {
+        m_particleSystem.bind(commandBuffer, &m_particleDescriptorSets[frame]);
+        VkBuffer vb = solver.particleBuffer();
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
+        vkCmdDraw(commandBuffer, solver.getParticleCount(), 1, 0, 0);
+    } else {
+        VkDescriptorSet* finalSceneDescriptorSet;
+        if (blurIterations == 0) finalSceneDescriptorSet = &shadingDescriptorSets[0][frame];
+        else finalSceneDescriptorSet = &shadingDescriptorSets[(blurIterations % 2 == 0) + 1][frame];
+        m_shadingRenderSystem.bind(commandBuffer, finalSceneDescriptorSet);
+        vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+    }
+
+
 }
 
 void FlipRenderer::initialize(vkb::DescriptorPool& pool, const vkb::Renderer& renderer, const std::unique_ptr<vkb::Buffer>& uniformBuffer,
@@ -79,7 +135,20 @@ void FlipRenderer::initialize(vkb::DescriptorPool& pool, const vkb::Renderer& re
     smooth2DescriptorSets = vkb::VulkanApp::createDescriptorSets(pool, defaultDescriptorLayout,
                                                  {uniformBuffer->descriptorInfo()}, {m_smoothPass.additionalImageDescriptorInfo()});
 
+    vkb::RenderSystem::ShaderPaths skyboxShaderPaths = {m_shaderPaths[4], m_shaderPaths[5]};
+    m_skyboxTexSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
+    m_skyboxTexSystem.createPipeline(m_scenePass.renderPass(), skyboxShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
+        info.depthStencilInfo.depthTestEnable = VK_FALSE;
+        info.depthStencilInfo.depthWriteEnable = VK_FALSE;
+        info.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+        info.colorBlendAttachment.blendEnable = VK_FALSE;
+        info.multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
+        info.bindingDescription.clear();
+        info.bindingDescription.push_back({0, sizeof(glm::vec3), VK_VERTEX_INPUT_RATE_VERTEX});
+        info.attributeDescription.clear();
+        info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
+    });
 
 }
 
@@ -89,10 +158,8 @@ void FlipRenderer::createOffscreenPasses(const vkb::DescriptorSetLayout& default
         info.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
         info.bindingDescription.clear();
         info.bindingDescription.push_back({0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX});
-        info.bindingDescription.push_back({1, sizeof(uint32_t), VK_VERTEX_INPUT_RATE_VERTEX});
         info.attributeDescription.clear();
         info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
-        info.attributeDescription.push_back({1, 1, VK_FORMAT_R32_UINT, 0});
         info.multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
         info.colorBlending.attachmentCount = 0;
         info.rasterizer.cullMode = VK_CULL_MODE_NONE;
@@ -111,10 +178,8 @@ void FlipRenderer::createOffscreenPasses(const vkb::DescriptorSetLayout& default
         info.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
         info.bindingDescription.clear();
         info.bindingDescription.push_back({0, sizeof(glm::vec4), VK_VERTEX_INPUT_RATE_VERTEX});
-        info.bindingDescription.push_back({1, sizeof(uint32_t), VK_VERTEX_INPUT_RATE_VERTEX});
         info.attributeDescription.clear();
         info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
-        info.attributeDescription.push_back({1, 1, VK_FORMAT_R32_UINT, 0});
         info.multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
         info.rasterizer.cullMode = VK_CULL_MODE_NONE;
 //            info.enableAlphaBlending();

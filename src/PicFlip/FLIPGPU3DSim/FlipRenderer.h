@@ -31,7 +31,7 @@
 #include "../../lib/simulations/OffscreenPass.h"
 #include "../../lib/CubeMapModel.h"
 
-
+// todo: Resize!!!
 class FlipRenderer {
 public:
     FlipRenderer(const vkb::Device& device, const std::vector<std::string>& shaders, VkExtent2D extent):
@@ -42,18 +42,23 @@ public:
         m_thicknessPass(device, extent),
         m_scenePass(device, extent),
         m_smoothPass(device, extent, true, true),
+        m_skyboxTexSystem(device),
         m_shaderPaths(shaders)
         {}
 
     void initialize(vkb::DescriptorPool& pool, const vkb::Renderer& renderer, const std::unique_ptr<vkb::Buffer>& uniformBuffer,
                     const vkb::CubeMapModel& skybox, const vkb::DrawableObject& plane);
-    void render(VkCommandBuffer& commandBuffer, const FlipSolver& solver, uint32_t frame);
+    void runOffscreenPasses(VkCommandBuffer commandBuffer, const FlipSolver &solver, uint32_t currentFrame,
+                            const vkb::CubeMapModel& skybox, const vkb::DrawableObject& plane, vkb::RenderSystem& defaultRenderSystem,
+                            std::vector<VkDescriptorSet>& defaultDescriptorSets, std::vector<VkDescriptorSet>& skyboxDescriptorSets, bool renderSkybox);
+    void render(VkCommandBuffer& commandBuffer, const FlipSolver& solver, uint32_t frame, uint32_t renderType);
 
 private:
     void createOffscreenPasses(const vkb::DescriptorSetLayout& defaultDescriptorLayout);
 
     const vkb::Device& m_deviceRef;
     const std::vector<std::string> m_shaderPaths;
+    int blurIterations = 2;
 
     vkb::RenderSystem m_particleSystem;
     std::vector<VkDescriptorSet> m_particleDescriptorSets;
@@ -65,6 +70,8 @@ private:
     vkb::OffscreenPass m_thicknessPass;
     vkb::OffscreenPass m_scenePass;
     vkb::OffscreenPass m_smoothPass;
+    vkb::RenderSystem m_skyboxTexSystem;
+
 
     std::vector<VkDescriptorSet> simulationDescriptorSets;
     std::vector<VkDescriptorSet> smooth1DescriptorSets;

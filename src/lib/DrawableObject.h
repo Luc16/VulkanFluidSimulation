@@ -30,7 +30,7 @@ namespace vkb {
         void translate(glm::vec3 move) { translation += move; }
         void rotateAxis(int axis, float angle) { rotation[axis] += angle;}
         void resetRotation(int axis) { rotation[axis] = 0; }
-        virtual void render(vkb::RenderSystem& renderSystem, VkCommandBuffer commandBuffer);
+        virtual void render(vkb::RenderSystem& renderSystem, VkCommandBuffer commandBuffer) const;
 
         [[nodiscard]] glm::mat4 modelMatrix() const;
         [[nodiscard]] VkDescriptorImageInfo textureInfo() const { return m_texture->descriptorInfo();}

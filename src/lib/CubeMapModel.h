@@ -28,7 +28,7 @@ namespace vkb {
                     sampler(), m_cubeMapImage->view(), m_cubeMapImage->layout()
             };
         }
-        void bindAndDraw(VkCommandBuffer commandBuffer);
+        void bindAndDraw(VkCommandBuffer commandBuffer) const;
 
     private:
         static constexpr uint32_t NUM_CUBEMAP_IMAGES = 6;

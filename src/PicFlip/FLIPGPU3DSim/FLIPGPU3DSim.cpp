@@ -87,17 +87,19 @@ void FLIPGPU3DSim::mainLoop(float deltaTime) {
 }
 
 void FLIPGPU3DSim::renderObjects() {
-    auto render = [this](){
+    auto render = [this](VkCommandBuffer commandBuffer){
         showImGui();
 
+        flipRenderer.runOffscreenPasses(commandBuffer, flipSolver,
+                                        renderer.currentFrame(), skybox, plane, defaultSystem,
+                                        planeDescriptorSets, skyboxDescriptorSets, renderSkybox);
         renderer.runRenderPass([this](VkCommandBuffer &commandBuffer) {
             if (renderSkybox) {
                 skyboxSystem.bind(commandBuffer, &skyboxDescriptorSets[renderer.currentFrame()]);
                 skybox.bindAndDraw(commandBuffer);
             }
-            if (showParticles) {
-                flipRenderer.render(commandBuffer, flipSolver, renderer.currentFrame());
-            }
+
+            flipRenderer.render(commandBuffer, flipSolver, renderer.currentFrame(), 8);
 
             defaultSystem.bind(commandBuffer, &planeDescriptorSets[renderer.currentFrame()]);
             plane.render(defaultSystem, commandBuffer);
@@ -107,12 +109,12 @@ void FLIPGPU3DSim::renderObjects() {
 
     if (paused) {
         renderer.runFrame([&](VkCommandBuffer commandBuffer) {
-            render();
+            render(commandBuffer);
         });
         return;
     }
     renderer.runFrame([&](VkCommandBuffer commandBuffer) {
-        render();
+        render(commandBuffer);
     }, flipSolver.computeSemaphore(), vkb::ComputeShaderHandler::waitStages());
 
 }
@@ -125,7 +127,7 @@ void FLIPGPU3DSim::updateBuffers(uint32_t frameIndex) {
     uniformBuffers[frameIndex]->write(&ubo);
 }
 
-
+// TODO: change render modes and tune params
 void FLIPGPU3DSim::showImGui(){
     ImGui::Begin("Control Panel");
 

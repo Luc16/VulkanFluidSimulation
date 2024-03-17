@@ -116,7 +116,7 @@ namespace vkb {
         vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_vertexBuffer, vertices);
     }
 
-    void CubeMapModel::bindAndDraw(VkCommandBuffer commandBuffer) {
+    void CubeMapModel::bindAndDraw(VkCommandBuffer commandBuffer) const {
         VkBuffer vertexBuffers[] = {m_vertexBuffer->getBuffer()};
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);

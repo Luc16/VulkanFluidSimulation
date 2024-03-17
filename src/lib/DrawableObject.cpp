@@ -6,7 +6,7 @@
 
 namespace vkb {
 
-    void DrawableObject::render(vkb::RenderSystem& renderSystem, VkCommandBuffer commandBuffer) {
+    void DrawableObject::render(vkb::RenderSystem& renderSystem, VkCommandBuffer commandBuffer) const {
         if (renderSystem.pushConstantSize() > 0){
             PushConstantData push{};
             push.modelMatrix = modelMatrix();
