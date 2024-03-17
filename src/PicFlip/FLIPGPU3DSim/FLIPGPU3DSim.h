@@ -170,6 +170,7 @@ private:
     void initializeObjects(bool start = true);
     void createBuffers();
     void mainLoop(float deltaTime) override;
+    void onResize(int width, int height) override;
     void renderObjects();
     void updateBuffers(uint32_t frameIndex);
     void showImGui();

@@ -68,13 +68,20 @@ void FlipRenderer::render(VkCommandBuffer& commandBuffer, const FlipSolver& solv
 
 }
 
+void FlipRenderer::resize(VkExtent2D newExtent, vkb::DescriptorPool& pool, const std::unique_ptr<vkb::Buffer>& uniformBuffer,
+                          const vkb::CubeMapModel& skybox, const vkb::DrawableObject& plane) {
+    m_depthPass.changeImageSize(newExtent);
+    m_thicknessPass.changeImageSize(newExtent);
+    m_scenePass.changeImageSize(newExtent);
+    m_smoothPass.changeImageSize(newExtent);
+
+    initializeDescriptorSets(pool, uniformBuffer, skybox, plane);
+
+}
+
 void FlipRenderer::initialize(vkb::DescriptorPool& pool, const vkb::Renderer& renderer, const std::unique_ptr<vkb::Buffer>& uniformBuffer,
                               const vkb::CubeMapModel& skybox, const vkb::DrawableObject& plane){
-    auto defaultDescriptorLayout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
-            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
-            .addBinding({1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
-            .build();
-    createOffscreenPasses(defaultDescriptorLayout);
+    createOffscreenPasses();
 
     auto particleDescriptorLayout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
@@ -91,17 +98,12 @@ void FlipRenderer::initialize(vkb::DescriptorPool& pool, const vkb::Renderer& re
 
     });
 
-    vkb::RenderSystem::ShaderPaths shadingShaderPaths = {m_shaderPaths[14], m_shaderPaths[15]};
     auto ssfDescriptorLayout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
-            .addBinding({1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
-            .addBinding({2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
-            .addBinding({3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
-            .addBinding({4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
-            .addBinding({5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
-            .addBinding({6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
+            .addSameTypeBindings(1, 6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
             .build();
 
+    vkb::RenderSystem::ShaderPaths shadingShaderPaths = {m_shaderPaths[14], m_shaderPaths[15]};
     m_shadingRenderSystem.createPipelineLayout(ssfDescriptorLayout.descriptorSetLayout(), 0);
     m_shadingRenderSystem.createPipeline(renderer.renderPass(), shadingShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
         info.bindingDescription.clear();
@@ -109,32 +111,12 @@ void FlipRenderer::initialize(vkb::DescriptorPool& pool, const vkb::Renderer& re
         info.rasterizer.cullMode = VK_CULL_MODE_NONE;
     });
 
-    shadingDescriptorSets[0] = vkb::VulkanApp::createDescriptorSets(pool,
-            ssfDescriptorLayout,
-            {uniformBuffer->descriptorInfo()},
-            {m_depthPass.descriptorInfo(), m_thicknessPass.descriptorInfo(), m_scenePass.descriptorInfo(), m_depthPass.descriptorInfo(),
-             plane.textureInfo(), skybox.descriptorInfo()}
-    );
-    shadingDescriptorSets[1] = vkb::VulkanApp::createDescriptorSets(pool,
-            ssfDescriptorLayout,
-            {uniformBuffer->descriptorInfo()},
-            {m_depthPass.descriptorInfo(), m_thicknessPass.descriptorInfo(), m_scenePass.descriptorInfo(), m_smoothPass.descriptorInfo(),
-             plane.textureInfo(), skybox.descriptorInfo()}
-    );
-    shadingDescriptorSets[2] = vkb::VulkanApp::createDescriptorSets(pool,
-            ssfDescriptorLayout,
-            {uniformBuffer->descriptorInfo()},
-            {m_depthPass.descriptorInfo(), m_thicknessPass.descriptorInfo(), m_scenePass.descriptorInfo(), m_smoothPass.additionalImageDescriptorInfo(),
-             plane.textureInfo(), skybox.descriptorInfo()}
-    );
+    initializeDescriptorSets(pool, uniformBuffer, skybox, plane);
 
-    simulationDescriptorSets = vkb::VulkanApp::createDescriptorSets(pool, defaultDescriptorLayout,
-                                                    {uniformBuffer->descriptorInfo()}, {m_depthPass.descriptorInfo()});
-    smooth1DescriptorSets = vkb::VulkanApp::createDescriptorSets(pool, defaultDescriptorLayout,
-                                                 {uniformBuffer->descriptorInfo()}, {m_smoothPass.descriptorInfo()});
-    smooth2DescriptorSets = vkb::VulkanApp::createDescriptorSets(pool, defaultDescriptorLayout,
-                                                 {uniformBuffer->descriptorInfo()}, {m_smoothPass.additionalImageDescriptorInfo()});
-
+    auto defaultDescriptorLayout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
+            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
+            .addBinding({1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
+            .build();
     vkb::RenderSystem::ShaderPaths skyboxShaderPaths = {m_shaderPaths[4], m_shaderPaths[5]};
     m_skyboxTexSystem.createPipelineLayout(defaultDescriptorLayout.descriptorSetLayout(), 0);
     m_skyboxTexSystem.createPipeline(m_scenePass.renderPass(), skyboxShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
@@ -150,9 +132,71 @@ void FlipRenderer::initialize(vkb::DescriptorPool& pool, const vkb::Renderer& re
         info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
     });
 
+    initialized = true;
 }
 
-void FlipRenderer::createOffscreenPasses(const vkb::DescriptorSetLayout& defaultDescriptorLayout) {
+void FlipRenderer::initializeDescriptorSets(vkb::DescriptorPool& pool, const std::unique_ptr<vkb::Buffer>& uniformBuffer,
+                                            const vkb::CubeMapModel& skybox, const vkb::DrawableObject& plane) {
+    auto ssfDescriptorLayout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
+            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
+            .addSameTypeBindings(1, 6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .build();
+
+    if (initialized) {
+        pool.freeDescriptors({
+           shadingDescriptorSets[0][0],
+           shadingDescriptorSets[0][1],
+           shadingDescriptorSets[1][0],
+           shadingDescriptorSets[1][1],
+           shadingDescriptorSets[2][0],
+           shadingDescriptorSets[2][1],
+           simulationDescriptorSets[0],
+           simulationDescriptorSets[1],
+           smooth1DescriptorSets[0],
+           smooth1DescriptorSets[1],
+           smooth2DescriptorSets[0],
+           smooth2DescriptorSets[1],
+        });
+    }
+
+    shadingDescriptorSets[0] = vkb::VulkanApp::createDescriptorSets(pool,
+                                                                    ssfDescriptorLayout,
+                                                                    {uniformBuffer->descriptorInfo()},
+                                                                    {m_depthPass.descriptorInfo(), m_thicknessPass.descriptorInfo(), m_scenePass.descriptorInfo(), m_depthPass.descriptorInfo(),
+                                                                     plane.textureInfo(), skybox.descriptorInfo()}
+    );
+    shadingDescriptorSets[1] = vkb::VulkanApp::createDescriptorSets(pool,
+                                                                    ssfDescriptorLayout,
+                                                                    {uniformBuffer->descriptorInfo()},
+                                                                    {m_depthPass.descriptorInfo(), m_thicknessPass.descriptorInfo(), m_scenePass.descriptorInfo(), m_smoothPass.descriptorInfo(),
+                                                                     plane.textureInfo(), skybox.descriptorInfo()}
+    );
+    shadingDescriptorSets[2] = vkb::VulkanApp::createDescriptorSets(pool,
+                                                                    ssfDescriptorLayout,
+                                                                    {uniformBuffer->descriptorInfo()},
+                                                                    {m_depthPass.descriptorInfo(), m_thicknessPass.descriptorInfo(), m_scenePass.descriptorInfo(), m_smoothPass.additionalImageDescriptorInfo(),
+                                                                     plane.textureInfo(), skybox.descriptorInfo()}
+    );
+
+    auto defaultDescriptorLayout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
+            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
+            .addBinding({1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
+            .build();
+
+    simulationDescriptorSets = vkb::VulkanApp::createDescriptorSets(pool, defaultDescriptorLayout,
+                                                                    {uniformBuffer->descriptorInfo()}, {m_depthPass.descriptorInfo()});
+    smooth1DescriptorSets = vkb::VulkanApp::createDescriptorSets(pool, defaultDescriptorLayout,
+                                                                 {uniformBuffer->descriptorInfo()}, {m_smoothPass.descriptorInfo()});
+    smooth2DescriptorSets = vkb::VulkanApp::createDescriptorSets(pool, defaultDescriptorLayout,
+                                                                 {uniformBuffer->descriptorInfo()}, {m_smoothPass.additionalImageDescriptorInfo()});
+}
+
+void FlipRenderer::createOffscreenPasses() {
+    auto defaultDescriptorLayout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
+            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
+            .addBinding({1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
+            .build();
+
     vkb::RenderSystem::ShaderPaths depthShaderPaths = {m_shaderPaths[8], m_shaderPaths[9]};
     m_depthPass.createPass(defaultDescriptorLayout.descriptorSetLayout(), depthShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
         info.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;

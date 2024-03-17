@@ -223,6 +223,13 @@ void FLIPGPU3DSim::showImGui(){
     }
 }
 
+void FLIPGPU3DSim::onResize(int width, int height) {
+    ubo.screenHeight = (float) height;
+    ubo.screenWidth = (float) width;
+
+    flipRenderer.resize(renderer.getSwapChainExtent(), *globalDescriptorPool, uniformBuffers[0], skybox, plane);
+}
+
 void FLIPGPU3DSim::compileShaders() {
     for (uint32_t i = 0; i < shaders.size(); i++) {
         std::string command{"glslc "};

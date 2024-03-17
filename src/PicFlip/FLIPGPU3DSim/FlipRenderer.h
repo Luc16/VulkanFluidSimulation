@@ -31,7 +31,6 @@
 #include "../../lib/simulations/OffscreenPass.h"
 #include "../../lib/CubeMapModel.h"
 
-// todo: Resize!!!
 class FlipRenderer {
 public:
     FlipRenderer(const vkb::Device& device, const std::vector<std::string>& shaders, VkExtent2D extent):
@@ -53,12 +52,18 @@ public:
                             std::vector<VkDescriptorSet>& defaultDescriptorSets, std::vector<VkDescriptorSet>& skyboxDescriptorSets, bool renderSkybox);
     void render(VkCommandBuffer& commandBuffer, const FlipSolver& solver, uint32_t frame, uint32_t renderType);
 
+    void resize(VkExtent2D newExtent, vkb::DescriptorPool& pool, const std::unique_ptr<vkb::Buffer>& uniformBuffer,
+                const vkb::CubeMapModel& skybox, const vkb::DrawableObject& plane);
+
 private:
-    void createOffscreenPasses(const vkb::DescriptorSetLayout& defaultDescriptorLayout);
+    void createOffscreenPasses();
+    void initializeDescriptorSets(vkb::DescriptorPool& pool, const std::unique_ptr<vkb::Buffer>& uniformBuffer,
+                                  const vkb::CubeMapModel& skybox, const vkb::DrawableObject& plane);
 
     const vkb::Device& m_deviceRef;
     const std::vector<std::string> m_shaderPaths;
     int blurIterations = 2;
+    bool initialized = false;
 
     vkb::RenderSystem m_particleSystem;
     std::vector<VkDescriptorSet> m_particleDescriptorSets;
