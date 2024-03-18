@@ -99,7 +99,7 @@ void FLIPGPU3DSim::renderObjects() {
                 skybox.bindAndDraw(commandBuffer);
             }
 
-            flipRenderer.render(commandBuffer, flipSolver, renderer.currentFrame(), 8);
+            flipRenderer.render(commandBuffer, flipSolver, renderer.currentFrame(), ubo.renderType);
 
             defaultSystem.bind(commandBuffer, &planeDescriptorSets[renderer.currentFrame()]);
             plane.render(defaultSystem, commandBuffer);
@@ -164,6 +164,56 @@ void FLIPGPU3DSim::showImGui(){
     if (ImGui::Button("Step") || (paused && glfwIsKeyJustPressed<GLFW_KEY_S>())) {
         singleStep = true;
         paused = false;
+    }
+
+    if (ImGui::CollapsingHeader("Rendering")) {
+        ImGui::DragFloat("Particle Radius", &ubo.radius, 0.0001f, 0.0001f, 0.2f);
+        ImGui::DragFloat("Transparency", &ubo.transparency, 0.001f, 0.001f, 4.0f);
+        ImGui::Checkbox("Render SkyBox", &renderSkybox);
+
+        ImGui::Text("View mode");
+        static std::array<std::string, 9> renderTypes = {"Particles", "Depth", "Thickness", "Normals", "Smooth",
+                                                         "Reflection", "Refraction", "Fresnel Scale", "Fresnel"};
+        std::string curItem = renderTypes[ubo.renderType];
+        if (ImGui::BeginCombo("##combo", curItem.c_str())) {
+            for (uint32_t i = 0; i < renderTypes.size(); i++){
+                bool isSelected = (curItem == renderTypes[i]);
+                if (ImGui::Selectable(renderTypes[i].c_str(), isSelected)) {
+                    ubo.renderType = i;
+                }
+                if (isSelected)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+
+        ImGui::SetCursorPosX(10.0f);
+        if (ImGui::CollapsingHeader("Blur Options")) {
+            ImGui::SetCursorPosX(15.0f);
+            ImGui::Text("Blur mode");
+            static std::array<std::string, 3> blurTypes = {"Bilateral", "Gaussian", "Bilateral 2"};
+            curItem = blurTypes[ubo.blurMode];
+            ImGui::SetCursorPosX(15.0f);
+            if (ImGui::BeginCombo("##combo2", curItem.c_str())) {
+                for (uint32_t i = 0; i < blurTypes.size(); i++){
+                    bool isSelected = (curItem == blurTypes[i]);
+                    if (ImGui::Selectable(blurTypes[i].c_str(), isSelected)) {
+                        ubo.blurMode = i;
+                    }
+                    if (isSelected)
+                        ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::SetCursorPosX(15.0f);
+            ImGui::DragInt("Blur Iterations", &flipRenderer.blurIterations, 1, 0, 20);
+            ImGui::SetCursorPosX(15.0f);
+            ImGui::DragInt("Smoothing Radius", &ubo.filterRadius, 1, 0, 20);
+            ImGui::SetCursorPosX(15.0f);
+            ImGui::DragFloat("Blur Scale", &ubo.blurScale, 0.01f, 0.01f, 5.0f, "%.3f");
+            ImGui::SetCursorPosX(15.0f);
+            ImGui::DragFloat("Blur Fall Off", &ubo.blurDepthFalloff, 10.0f, 100.0f, 10000.0f);
+        }
     }
 
     ImGui::Text("Using %s", device.getPhysicalDeviceName().c_str());

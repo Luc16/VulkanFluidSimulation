@@ -55,6 +55,8 @@ public:
     void resize(VkExtent2D newExtent, vkb::DescriptorPool& pool, const std::unique_ptr<vkb::Buffer>& uniformBuffer,
                 const vkb::CubeMapModel& skybox, const vkb::DrawableObject& plane);
 
+    int blurIterations = 2;
+
 private:
     void createOffscreenPasses();
     void initializeDescriptorSets(vkb::DescriptorPool& pool, const std::unique_ptr<vkb::Buffer>& uniformBuffer,
@@ -62,7 +64,6 @@ private:
 
     const vkb::Device& m_deviceRef;
     const std::vector<std::string> m_shaderPaths;
-    int blurIterations = 2;
     bool initialized = false;
 
     vkb::RenderSystem m_particleSystem;

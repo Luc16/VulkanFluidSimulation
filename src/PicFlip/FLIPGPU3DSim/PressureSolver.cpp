@@ -79,8 +79,9 @@ int PressureSolver::solve(double epsilon, uint32_t maxIters) {
 //            std::cout << "Converged in " << i+gpuIters << " iterations\n";
             return 0;
         }  else if (gamma[0] != gamma[0]) {
-            vkDeviceWaitIdle(m_deviceRef.device());
-            throw std::runtime_error("Nan divergent");
+            std::cerr << "Nan divergent\n";
+//            vkDeviceWaitIdle(m_deviceRef.device());
+//            throw std::runtime_error("Nan divergent");
         }
     }
 
