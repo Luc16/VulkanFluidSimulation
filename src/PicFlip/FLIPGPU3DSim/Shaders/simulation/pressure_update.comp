@@ -42,18 +42,19 @@ void main() {
         i >= ubo.size) return;
 
     double p = pressure[i];
+    uint type = types[i];
     uint x = i%ubo.dim.x;
-    if (x > 1 && x < ubo.dim.x-1 && (types[i-1] == FLUID || types[i] == FLUID)) {
+    if (x > 1 && x < ubo.dim.x-1 && (types[i-1] == FLUID || type == FLUID)) {
         velX[i] += float(p - pressure[i-1]);
     }
 
     uint y = i/(ubo.dim.x*ubo.dim.z);
-    if (y > 1 && y < ubo.dim.y-1 && (types[i-ubo.dim.x*ubo.dim.z] == FLUID || types[i] == FLUID)){
+    if (y > 1 && y < ubo.dim.y-1 && (types[i-ubo.dim.x*ubo.dim.z] == FLUID || type == FLUID)){
         velY[i] += float(p - pressure[i-ubo.dim.x*ubo.dim.z]);
     }
 
     uint z = (i%(ubo.dim.x*ubo.dim.z))/ubo.dim.x;
-    if (z > 1 && z < ubo.dim.z-1 && (types[i-ubo.dim.x] == FLUID || types[i] == FLUID)){
+    if (z > 1 && z < ubo.dim.z-1 && (types[i-ubo.dim.x] == FLUID || type == FLUID)){
         velZ[i] += float(p - pressure[i-ubo.dim.x]);
     }
 }

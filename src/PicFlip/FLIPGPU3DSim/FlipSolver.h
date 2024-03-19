@@ -27,7 +27,7 @@ public:
                m_shaderPaths(shaders),
                m_pressureSolverShaderPaths(pressureSolverShaders),
                m_cUbo({ uint32_t (boxSize.x * boxSize.y * boxSize.z / (_cellSize * _cellSize * _cellSize)),
-                        200000,
+                        300000,
                         1.0f / _cellSize,
                         _cellSize,
                         1 / 60.0f,
@@ -51,13 +51,12 @@ public:
 
     uint32_t extensions = 0;
     const uint32_t maxExtensions = 4;
-    glm::ivec3 particleStart{2, 2, 2}, particleSpan{}, particlePerCell{3, 3, 3};
+    glm::ivec3 particleStart{2, 2, 2}, particleSpan{}, particlePerCell{4};
 
 private:
     constexpr static uint32_t m_workGroupSize = workGroupSize;
 
     // simulation params
-    float dt = 1/60.0f;
     uint32_t numIterations = 500;
     bool kernelsInitialized = false;
 

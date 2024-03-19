@@ -86,14 +86,13 @@ void main() {
     uint i = gl_GlobalInvocationID.x;
     if (i >= ubo.numParticles) return;
 
-    vec3 minV = vec3(ubo.cellSize*1.01);
+    vec3 minV = vec3(ubo.cellSize*1.5);
     vec3 maxV = ubo.cellSize*vec3(ubo.dim) - minV;
-    vec3 padding = vec3(ubo.cellSize*1e-4);
 
     vec3 pos = pPos[i];
     vec3 midWay = clamp(pos + 0.5*ubo.dt*getVelAt(pos), minV, maxV);
 
-    pos = clamp(pos + ubo.dt*getVelAt(midWay), minV + padding, maxV - padding);
+    pos = clamp(pos + ubo.dt*getVelAt(midWay), minV, maxV);
 
     pPos[i] = pos;
 

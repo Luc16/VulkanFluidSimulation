@@ -225,7 +225,6 @@ void FLIPGPU3DSim::showImGui(){
     if (controlMode) {
         ImGui::Begin("Control Mode");
 
-        bool changedUniform = false;
         int numParticles = (int) flipSolver.getParticleCount();
         ImGui::SliderInt("Num Particles", &numParticles, 16, 1000000);
 

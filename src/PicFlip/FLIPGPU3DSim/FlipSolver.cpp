@@ -57,6 +57,11 @@ void FlipSolver::updateSimulation(float deltaTime) {
 
         vkb::ComputeShaderHandler::computeBarriers(commandBuffer, m_velBarrier);
 
+        for (uint32_t k = 0; k < extensions; k++) {
+            m_extendVelocitiesKernel.bindAndDispatch(commandBuffer, k, nGrid, 1, 1);
+            vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velBarrier);
+        }
+
         m_gridToParticleKernel.bindAndDispatch(commandBuffer, 0, nParticles, 1, 1);
     });
 }
