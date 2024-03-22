@@ -50,7 +50,7 @@ private:
     const std::string COMPILED_SHADER_DIR = SHADER_DIR + "bin/";
 
     static constexpr uint32_t pressureSolverStartIdx = 16;
-    static constexpr uint32_t computeShaderStartIdx = pressureSolverStartIdx+5;
+    static constexpr uint32_t computeShaderStartIdx = pressureSolverStartIdx+6;
 
     const std::vector<std::string> shaders = {
             "default.vert",
@@ -74,6 +74,7 @@ private:
             "reduce.comp",
             "finish_dot.comp",
             "matrix_multiply.comp",
+            "form_preconditioner.comp",
             "advect_particles.comp",
             "reset_grid.comp",
             "particles_to_grid.comp",

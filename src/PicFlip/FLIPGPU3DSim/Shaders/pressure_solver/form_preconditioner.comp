@@ -1,0 +1,55 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+
+#include "../simulation/common.glsl"
+
+layout (binding = 0) uniform ParameterUBO {
+    ComputeUBO ubo;
+};
+
+layout(std430, binding = 1) readonly buffer MatrixSSBO {
+    double matrix[ ];
+};
+
+layout(std430, binding = 2) readonly buffer TypesSSBO {
+    uint types[ ];
+};
+
+layout(std430, binding = 3) buffer PreconditionerSSBO {
+    double preconditioner[ ];
+};
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= ubo.size) return;
+    if (i < ubo.dim.x * ubo.dim.z ||
+    i % ubo.dim.x == 0 ||
+    i % ubo.dim.x == ubo.dim.x - 1 ||
+    i % (ubo.dim.x * ubo.dim.z) < ubo.dim.x ||
+    i % (ubo.dim.x * ubo.dim.z) >= (ubo.dim.x)*(ubo.dim.z - 1) ||
+    i >= ubo.size - ubo.dim.x * ubo.dim.z ||
+    i >= ubo.size ||
+    types[i] != FLUID) return;
+
+
+    double fx = (abs(matrix[7*(i + 1)]) > 1e-50) ? 1.0/matrix[7*(i + 1)] : 0;
+    preconditioner[7*i + 1] = fx;
+    double px = (abs(matrix[7*(i - 1)]) > 1e-50) ? 1.0/matrix[7*(i - 1)] : 0;
+    preconditioner[7*i + 2] = px;
+
+    double fz = (abs(matrix[7*(i + ubo.dim.x)]) > 1e-50) ? 1.0/matrix[7*(i + ubo.dim.x)] : 0;
+    preconditioner[7*i + 3] = fz;
+    double pz = (abs(matrix[7*(i - ubo.dim.x)]) > 1e-50) ? 1.0/matrix[7*(i - ubo.dim.x)] : 0;
+    preconditioner[7*i + 4] = pz;
+
+    double fy = (abs(matrix[7*(i + ubo.dim.x*ubo.dim.z)]) > 1e-50) ? 1.0/matrix[7*(i + ubo.dim.x*ubo.dim.z)] : 0;
+    preconditioner[7*i + 5] = fy;
+    double py = (abs(matrix[7*(i - ubo.dim.x*ubo.dim.z)]) > 1e-50) ? 1.0/matrix[7*(i - ubo.dim.x*ubo.dim.z)] : 0;
+    preconditioner[7*i + 6] = py;
+
+
+    preconditioner[7*i] = 1.0 + px*px + py*py + pz*pz;
+
+}

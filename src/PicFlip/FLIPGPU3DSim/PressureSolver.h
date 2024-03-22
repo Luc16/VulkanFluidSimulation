@@ -59,12 +59,13 @@ private:
     std::unique_ptr<vkb::Buffer> m_alphaBuffer;
     std::unique_ptr<vkb::Buffer> m_gammaBuffer;
     std::unique_ptr<vkb::Buffer> m_betaBuffer;
+    std::unique_ptr<vkb::Buffer> m_preconditionerBuffer;
     std::vector<std::unique_ptr<vkb::Buffer>> m_dotProductAuxBuffers;
     std::vector<std::pair<VkBuffer, VkDeviceSize>> m_externalBarriers;
 
     vkb::SimulationKernel m_addScaledKernel {
             .computeSystem{m_deviceRef, m_shaderPaths[0]},
-            .descSets = std::vector<VkDescriptorSet>(3),
+            .descSets = std::vector<VkDescriptorSet>(4),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                             // result buffer, unscaled buffer, constant, buffer to be scaled
@@ -104,10 +105,20 @@ private:
 
     vkb::SimulationKernel m_matrixMultiplyKernel {
             .computeSystem{m_deviceRef, m_shaderPaths[4]},
-            .descSets = std::vector<VkDescriptorSet>(1),
+            .descSets = std::vector<VkDescriptorSet>(2),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     // matrix, types, x, res
+                    .addSameTypeBindings(1, 4,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    .build()
+    };
+
+    vkb::SimulationKernel m_formPreconditionerKernel {
+            .computeSystem{m_deviceRef, m_shaderPaths[5]},
+            .descSets = std::vector<VkDescriptorSet>(1),
+            .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
+                    .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+                            // matrix, types, preconditioner
                     .addSameTypeBindings(1, 4,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
