@@ -90,7 +90,8 @@ void FLIPGPU3DSim::renderObjects() {
     auto render = [this](VkCommandBuffer commandBuffer){
         showImGui();
 
-        flipRenderer.runOffscreenPasses(commandBuffer, flipSolver,
+        if (ubo.renderType > 0)
+            flipRenderer.runOffscreenPasses(commandBuffer, flipSolver,
                                         renderer.currentFrame(), skybox, plane, defaultSystem,
                                         planeDescriptorSets, skyboxDescriptorSets, renderSkybox);
         renderer.runRenderPass([this](VkCommandBuffer &commandBuffer) {
