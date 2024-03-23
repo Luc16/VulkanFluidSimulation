@@ -10,6 +10,7 @@ struct ComputeUBO {
     float dt;
     float flipRatio;
     ivec3 dim;
+    double w;
 };
 
 struct IdxWeight {

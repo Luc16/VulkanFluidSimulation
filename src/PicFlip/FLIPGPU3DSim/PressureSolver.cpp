@@ -46,8 +46,9 @@ int PressureSolver::solve(double epsilon, uint32_t maxIters) {
         return 0;
     }
 
-    uint32_t gpuIters = 5;
+    uint32_t gpuIters = 10;
     for (uint32_t i = 0; i < maxIters; i+=gpuIters) {
+        if (i > 0) gpuIters = 5;
         m_computeHandler.runComputeIsolated(0, [this, &gpuIters](VkCommandBuffer commandBuffer) {
             uint32_t n = m_size/m_workGroupSize + 1;
 
@@ -91,7 +92,8 @@ int PressureSolver::solve(double epsilon, uint32_t maxIters) {
 
 //        std::cout << "Iteration " << i+gpuIters << " gamma error: " << std::scientific << gamma[0]/gamma[2] << "\n";
         if (gamma[0] < epsilon*gamma[2]) {
-//            std::cout << "Converged in " << i+gpuIters << " iterations\n";
+            std::cout << "Converged in " << i+gpuIters << " iterations\n";
+
             avgIters += i+gpuIters;
             numSolves++;
             return 0;
@@ -121,7 +123,7 @@ void PressureSolver::applyDotProductKernel(VkCommandBuffer commandBuffer,
 }
 
 void PressureSolver::createBuffers() {
-    if (numSolves > 0) std::cout << "Average iterations: " << avgIters/numSolves << "\n";
+    if (numSolves > 0) std::cout << "Average iterations: " << double(avgIters)/double(numSolves) << "\n";
     for (uint32_t i = 0; i < m_pUbos.size(); i++) {
         m_pressureSolverUniformBuffer[i] = std::make_unique<vkb::Buffer>(m_deviceRef,
                                                                sizeof(PressureSolverUniformBufferObject),

@@ -32,14 +32,15 @@ public:
                         _cellSize,
                         1 / 60.0f,
                         0.95f,
-                        {boxSize.x / _cellSize, boxSize.y / _cellSize, boxSize.z / _cellSize}}
+                        {boxSize.x / _cellSize, boxSize.y / _cellSize, boxSize.z / _cellSize},
+                        0.85}
                        ) {
         particleSpan = {m_cUbo.dim.x/2, m_cUbo.dim.y - 4, m_cUbo.dim.z/2};
     }
 
     void updateSimulation(float deltaTime);
     void initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPool, bool dislocatePos = true);
-    void updateUniformBuffers(uint32_t numParticles, glm::vec3 boxSize, float cellSize = -1, float flipRatio = -1);
+    void updateUniformBuffers(uint32_t numParticles, glm::vec3 boxSize, float cellSize = -1, float flipRatio = -1, double w = -1.0);
 
     [[nodiscard]] uint32_t getNumTilesX() const { return m_cUbo.dim.x; }
     [[nodiscard]] uint32_t getNumTilesY() const { return m_cUbo.dim.y; }

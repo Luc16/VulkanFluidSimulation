@@ -128,7 +128,6 @@ void FLIPGPU3DSim::updateBuffers(uint32_t frameIndex) {
     uniformBuffers[frameIndex]->write(&ubo);
 }
 
-// TODO: change render modes and tune params
 void FLIPGPU3DSim::showImGui(){
     ImGui::Begin("Control Panel");
 

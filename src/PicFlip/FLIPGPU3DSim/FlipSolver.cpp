@@ -66,7 +66,7 @@ void FlipSolver::updateSimulation(float deltaTime) {
     });
 }
 
-void FlipSolver::updateUniformBuffers(uint32_t numParticles, glm::vec3 boxSize, float cellSize, float flipRatio) {
+void FlipSolver::updateUniformBuffers(uint32_t numParticles, glm::vec3 boxSize, float cellSize, float flipRatio, double w) {
 
     m_cUbo.numParticles = numParticles;
     if (cellSize > 0) {
@@ -76,6 +76,7 @@ void FlipSolver::updateUniformBuffers(uint32_t numParticles, glm::vec3 boxSize, 
     m_cUbo.dim = glm::vec<3, uint32_t>(boxSize/m_cUbo.cellSize);
     if (flipRatio > 0) m_cUbo.flipRatio = flipRatio;
     m_cUbo.size = m_cUbo.dim.x*m_cUbo.dim.y*m_cUbo.dim.z;
+    if (w > 0) m_cUbo.w = w;
 
     std::vector<ComputeUniformBufferObject> uboVec = {m_cUbo};
     vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_computeUniformBuffer, uboVec);

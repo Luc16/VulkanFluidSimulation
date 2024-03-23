@@ -34,22 +34,30 @@ void main() {
     types[i] != FLUID) return;
 
 
-    double fx = (abs(matrix[7*(i + 1)]) > 1e-50) ? 1.0/matrix[7*(i + 1)] : 0;
+    double c = ubo.w;
+
+    double mxf = matrix[7*(i + 1)];
+    double fx = (abs(mxf) > 1e-50) ? c/(mxf) : 0;
     preconditioner[7*i + 1] = fx;
-    double px = (abs(matrix[7*(i - 1)]) > 1e-50) ? 1.0/matrix[7*(i - 1)] : 0;
-    preconditioner[7*i + 2] = px;
+    double mxb = matrix[7*(i - 1)];
+    double bx = (abs(mxb) > 1e-50) ? c/(mxb) : 0;
+    preconditioner[7*i + 2] = bx;
 
-    double fz = (abs(matrix[7*(i + ubo.dim.x)]) > 1e-50) ? 1.0/matrix[7*(i + ubo.dim.x)] : 0;
+    double mzf = matrix[7*(i + ubo.dim.x)];
+    double fz = (abs(mzf) > 1e-50) ? c/(mzf) : 0;
     preconditioner[7*i + 3] = fz;
-    double pz = (abs(matrix[7*(i - ubo.dim.x)]) > 1e-50) ? 1.0/matrix[7*(i - ubo.dim.x)] : 0;
-    preconditioner[7*i + 4] = pz;
+    double mzb = matrix[7*(i - ubo.dim.x)];
+    double bz = (abs(mzb) > 1e-50) ? c/(mzb) : 0;
+    preconditioner[7*i + 4] = bz;
 
-    double fy = (abs(matrix[7*(i + ubo.dim.x*ubo.dim.z)]) > 1e-50) ? 1.0/matrix[7*(i + ubo.dim.x*ubo.dim.z)] : 0;
+    double myf = matrix[7*(i + ubo.dim.x*ubo.dim.z)];
+    double fy = (abs(myf) > 1e-50) ? c/(myf) : 0;
     preconditioner[7*i + 5] = fy;
-    double py = (abs(matrix[7*(i - ubo.dim.x*ubo.dim.z)]) > 1e-50) ? 1.0/matrix[7*(i - ubo.dim.x*ubo.dim.z)] : 0;
-    preconditioner[7*i + 6] = py;
+    double myb = matrix[7*(i - ubo.dim.x*ubo.dim.z)];
+    double by = (abs(myb) > 1e-50) ? c/(myb) : 0;
+    preconditioner[7*i + 6] = by;
 
 
-    preconditioner[7*i] = 1.0 + px*px + py*py + pz*pz;
+    preconditioner[7*i] = c + bx*bx + by*by + bz*bz;
 
 }

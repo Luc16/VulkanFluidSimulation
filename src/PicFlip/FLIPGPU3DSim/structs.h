@@ -18,6 +18,7 @@ struct ComputeUniformBufferObject {
     float dt;
     float flipRatio;
     alignas(16) glm::ivec3 dim;
+    alignas(8) double w;
 };
 
 struct UniformBufferObject {
