@@ -132,6 +132,7 @@ void FLIPGPU3DSim::showImGui(){
     ImGui::Begin("Control Panel");
 
     ImGui::Text("Rendering %d particles", flipSolver.getParticleCount());
+    ImGui::Text("Grid size: %d", flipSolver.getCellCount());
     ImGui::Checkbox("Display time", &activateTimer);
     if(activateTimer){
         ImGui::Text("Gpu time: %f ms", gpuTime);

@@ -47,6 +47,7 @@ public:
     [[nodiscard]] float getCellSize() const { return m_cUbo.cellSize; }
     [[nodiscard]] glm::ivec3 getDimension() const { return m_cUbo.dim; }
     [[nodiscard]] uint32_t getParticleCount() const { return m_cUbo.numParticles; }
+    [[nodiscard]] uint32_t getCellCount() const { return m_cUbo.size; }
     [[nodiscard]] VkBuffer particleBuffer() const { return m_particlePosBuffer->getBuffer(); }
     [[nodiscard]] std::vector<VkSemaphore> computeSemaphore() { return m_computeHandler.currentSemaphore(0); }
 
