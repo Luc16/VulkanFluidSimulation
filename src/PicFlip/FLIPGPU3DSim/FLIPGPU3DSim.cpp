@@ -8,15 +8,16 @@ void FLIPGPU3DSim::onCreate() {
     camera.m_translation = {-3.85021f, 6.08832f, 4.48576f};
     camera.m_rotation = {0.72675f, 2.22789f, 3.14159f};
     camera.updateView();
-    initializeObjects();
     createBuffers();
+    initializeObjects();
 
     // Default render system
     auto descriptorLayout = vkb::DescriptorSetLayout::Builder(device)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
             .addBinding({1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr})
             .build();
-    planeDescriptorSets = createDescriptorSets(descriptorLayout,{uniformBuffers[0]->descriptorInfo()}, {plane.textureInfo()});
+    planeDescriptorSets = createDescriptorSets(descriptorLayout, {uniformBuffers[0]->descriptorInfo()},
+                                               {plane.textureInfo()});
 
     {
         defaultSystem.createPipelineLayout(descriptorLayout.descriptorSetLayout(),
@@ -27,17 +28,33 @@ void FLIPGPU3DSim::onCreate() {
     skyboxDescriptorSets = createDescriptorSets(descriptorLayout,
                                                 {uniformBuffers[0]->descriptorInfo()}, {skybox.descriptorInfo()});
     skyboxSystem.createPipelineLayout(descriptorLayout.descriptorSetLayout(), 0);
-    skyboxSystem.createPipeline(renderer.renderPass(), skyboxShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo& info) {
-        info.depthStencilInfo.depthTestEnable = VK_FALSE;
-        info.depthStencilInfo.depthWriteEnable = VK_FALSE;
-        info.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-        info.colorBlendAttachment.blendEnable = VK_FALSE;
+    skyboxSystem.createPipeline(renderer.renderPass(), skyboxShaderPaths,
+                                [](vkb::GraphicsPipeline::PipelineConfigInfo &info) {
+                                    info.depthStencilInfo.depthTestEnable = VK_FALSE;
+                                    info.depthStencilInfo.depthWriteEnable = VK_FALSE;
+                                    info.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+                                    info.colorBlendAttachment.blendEnable = VK_FALSE;
 
-        info.bindingDescription.clear();
-        info.bindingDescription.push_back({0, sizeof(glm::vec3), VK_VERTEX_INPUT_RATE_VERTEX});
-        info.attributeDescription.clear();
-        info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
-    });
+                                    info.bindingDescription.clear();
+                                    info.bindingDescription.push_back(
+                                            {0, sizeof(glm::vec3), VK_VERTEX_INPUT_RATE_VERTEX});
+                                    info.attributeDescription.clear();
+                                    info.attributeDescription.push_back({0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0});
+                                });
+
+    auto lineDescriptorLayout = vkb::DescriptorSetLayout::Builder(device)
+            .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
+            .build();
+    lineDescriptorSets = createDescriptorSets(lineDescriptorLayout, {uniformBuffers[0]->descriptorInfo()});
+    lineSystem.createPipelineLayout(lineDescriptorLayout.descriptorSetLayout(), 0);
+    lineSystem.createPipeline(renderer.renderPass(), lineShaderPaths,
+                              [](vkb::GraphicsPipeline::PipelineConfigInfo &configInfo) {
+                                  configInfo.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+
+                                  configInfo.attributeDescription = Point::getAttributeDescriptions();
+                                  configInfo.bindingDescription = {Point::getBindingDescription()};
+                                  configInfo.enableAlphaBlending();
+                              });
 
     flipRenderer.initialize(
             *globalDescriptorPool,
@@ -51,9 +68,62 @@ void FLIPGPU3DSim::onCreate() {
 void FLIPGPU3DSim::initializeObjects(bool start) {
     vkDeviceWaitIdle(device.device());
 
+    initializeGridLines();
+
+
     plane.setScale(dimensions);
 
     flipSolver.initialize(globalDescriptorPool, start);
+}
+
+void FLIPGPU3DSim::initializeGridLines() {
+    gridLines.clear();
+    gridLines.reserve(
+             (flipSolver.getNumTilesX() + 1)*(flipSolver.getNumTilesY() + 1) +
+                (flipSolver.getNumTilesX() + 1)*(flipSolver.getNumTilesZ() + 1) +
+                (flipSolver.getNumTilesY() + 1)*(flipSolver.getNumTilesZ() + 1)
+    );
+
+    for (uint32_t i = 0; i < flipSolver.getNumTilesX() + 1; i++) {
+        for (uint32_t j = 0; j < flipSolver.getNumTilesY() + 1; j++) {
+            auto x = float(i) * flipSolver.getCellSize();
+            auto y = float(j) * flipSolver.getCellSize();
+
+            gridLines.push_back(Line{
+                    {{x, y, 0.0f}, gridColor},
+                    {{x, y, dimensions.z}, gridColor}
+            });
+        }
+    }
+
+    for (uint32_t i = 0; i < flipSolver.getNumTilesX() + 1; i++) {
+        for (uint32_t j = 0; j < flipSolver.getNumTilesZ() + 1; j++) {
+            auto x = float(i) * flipSolver.getCellSize();
+            auto z = float(j) * flipSolver.getCellSize();
+
+            gridLines.push_back(Line{
+                    {{x, 0.0f, z}, gridColor},
+                    {{x, dimensions.y, z}, gridColor}
+            });
+        }
+    }
+
+    for (uint32_t i = 0; i < flipSolver.getNumTilesY() + 1; i++) {
+        for (uint32_t j = 0; j < flipSolver.getNumTilesZ() + 1; j++) {
+            auto y = float(i) * flipSolver.getCellSize();
+            auto z = float(j) * flipSolver.getCellSize();
+
+            gridLines.push_back(Line{
+                    {{0.0f, y, z}, gridColor},
+                    {{dimensions.x, y, z}, gridColor}
+            });
+        }
+    }
+    gridLinesBuffer = std::make_unique<vkb::Buffer>(device, gridLines.size() * sizeof(Line), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                                                                                          VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    vkb::Buffer::writeVectorToBuffer(device, gridLinesBuffer, gridLines);
+
 }
 
 void FLIPGPU3DSim::createBuffers() {
@@ -90,7 +160,7 @@ void FLIPGPU3DSim::renderObjects() {
     auto render = [this](VkCommandBuffer commandBuffer){
         showImGui();
 
-        if (ubo.renderType > 0)
+        if (showParticles && ubo.renderType > 0)
             flipRenderer.runOffscreenPasses(commandBuffer, flipSolver,
                                         renderer.currentFrame(), skybox, plane, defaultSystem,
                                         planeDescriptorSets, skyboxDescriptorSets, renderSkybox);
@@ -100,10 +170,12 @@ void FLIPGPU3DSim::renderObjects() {
                 skybox.bindAndDraw(commandBuffer);
             }
 
-            flipRenderer.render(commandBuffer, flipSolver, renderer.currentFrame(), ubo.renderType);
+            if (showParticles) flipRenderer.render(commandBuffer, flipSolver, renderer.currentFrame(), ubo.renderType);
 
             defaultSystem.bind(commandBuffer, &planeDescriptorSets[renderer.currentFrame()]);
             plane.render(defaultSystem, commandBuffer);
+
+            if (showGrid) drawGrid(commandBuffer);
 
         });
     };
@@ -120,6 +192,23 @@ void FLIPGPU3DSim::renderObjects() {
 
 }
 
+void FLIPGPU3DSim::drawGrid(VkCommandBuffer commandBuffer) {
+    lineSystem.bind(commandBuffer, &lineDescriptorSets[renderer.currentFrame()]);
+
+    VkBuffer vb = gridLinesBuffer->getBuffer();
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
+    vkCmdDraw(commandBuffer, 2*gridLines.size(), 1, 0, 0);
+}
+
+void FLIPGPU3DSim::applyGridLineColor() {
+    for (auto& line : gridLines) {
+        line.setColor(gridColor);
+    }
+    vkb::Buffer::writeVectorToBuffer(device, gridLinesBuffer, gridLines);
+
+}
+
 void FLIPGPU3DSim::updateBuffers(uint32_t frameIndex) {
     camera.setPerspectiveProjection(glm::radians(50.f), renderer.getSwapChainAspectRatio(), 0.1f, 500.f);
     ubo.view = camera.getView();
@@ -129,6 +218,7 @@ void FLIPGPU3DSim::updateBuffers(uint32_t frameIndex) {
 }
 
 void FLIPGPU3DSim::showImGui(){
+    static bool changeGridColorWindowOpen = false;
     ImGui::Begin("Control Panel");
 
     ImGui::Text("Rendering %d particles", flipSolver.getParticleCount());
@@ -141,6 +231,13 @@ void FLIPGPU3DSim::showImGui(){
 
     ImGui::Checkbox("Show Particles", &showParticles);
     ImGui::Checkbox("Show sky box", &renderSkybox);
+    ImGui::Checkbox("Show Grid", &showGrid);
+
+    if (showGrid) {
+        if (ImGui::Button("Change Grid Color")) {
+            changeGridColorWindowOpen = true;
+        }
+    }
 
     int ext = int(flipSolver.extensions);
     ImGui::SliderInt("Velocity extensions", &ext, 0, int(flipSolver.maxExtensions));
@@ -268,6 +365,16 @@ void FLIPGPU3DSim::showImGui(){
             initializeObjects();
             controlMode = false;
             paused = false;
+        }
+        ImGui::End();
+    }
+
+    if (changeGridColorWindowOpen) {
+        ImGui::Begin("Change Grid Color", &changeGridColorWindowOpen);
+        ImGui::ColorPicker3("Grid Color", &gridColor[0]);
+        applyGridLineColor();
+        if (ImGui::Button("Close")) {
+            changeGridColorWindowOpen = false;
         }
         ImGui::End();
     }

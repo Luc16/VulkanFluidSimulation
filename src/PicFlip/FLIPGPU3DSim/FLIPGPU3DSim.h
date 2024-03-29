@@ -123,7 +123,9 @@ private:
     vkb::RenderSystem skyboxSystem{device};
     vkb::RenderSystem skyboxTexSystem{device};
     vkb::RenderSystem defaultSystem{device};
+    vkb::RenderSystem lineSystem{device};
     std::vector<VkDescriptorSet> planeDescriptorSets;
+    std::vector<VkDescriptorSet> lineDescriptorSets;
     std::vector<VkDescriptorSet> skyboxDescriptorSets;
 
     vkb::CameraMovementController cameraController;
@@ -164,15 +166,24 @@ private:
     bool showParticles = true;
     bool renderSkybox = true;
 
+    // render grid
+    std::vector<Line> gridLines{};
+    glm::vec3 gridColor{0.02f};
+    bool showGrid = false;
+    std::unique_ptr<vkb::Buffer> gridLinesBuffer;
+
     float gpuTime = 0, cpuTime = 0;
     bool activateTimer = false, paused = false, singleStep = false, controlMode = false;
 
     void onCreate() override;
     void initializeObjects(bool start = true);
+    void initializeGridLines();
     void createBuffers();
     void mainLoop(float deltaTime) override;
     void onResize(int width, int height) override;
     void renderObjects();
+    void drawGrid(VkCommandBuffer commandBuffer);
+    void applyGridLineColor();
     void updateBuffers(uint32_t frameIndex);
     void showImGui();
 

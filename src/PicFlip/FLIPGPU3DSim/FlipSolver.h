@@ -44,6 +44,7 @@ public:
 
     [[nodiscard]] uint32_t getNumTilesX() const { return m_cUbo.dim.x; }
     [[nodiscard]] uint32_t getNumTilesY() const { return m_cUbo.dim.y; }
+    [[nodiscard]] uint32_t getNumTilesZ() const { return m_cUbo.dim.z; }
     [[nodiscard]] float getCellSize() const { return m_cUbo.cellSize; }
     [[nodiscard]] glm::ivec3 getDimension() const { return m_cUbo.dim; }
     [[nodiscard]] uint32_t getParticleCount() const { return m_cUbo.numParticles; }
