@@ -58,14 +58,6 @@ RigidObject::RigidObject(const vkb::Device& device, const std::string& modelFile
         }
     }
 
-    std::array<glm::ivec2, 3> trig = {
-            glm::ivec2(0, 1),
-            glm::ivec2(1, 2),
-            glm::ivec2(2, 0)
-    };
-
-    std::vector<bool> pairsDone(vertices.size()*vertices.size(), false);
-
     for (uint32_t i = 0; i < indices.size()/3; i++) {
 
         auto vec = vertices[indices[3*i + 1]].pos - vertices[indices[3*i]].pos;
