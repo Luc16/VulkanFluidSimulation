@@ -85,4 +85,31 @@ namespace vkb {
         return set;
 
     }
+
+    VkDescriptorSet DescriptorWriter::createSingleDescriptorSet(DescriptorPool& pool,
+                                                                DescriptorSetLayout &layout,
+                                                                std::vector<VkDescriptorBufferInfo> bufferInfos) {
+        VkDescriptorSetLayout setLayout = layout.descriptorSetLayout();
+        VkDescriptorSetAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocInfo.descriptorPool = pool.m_descriptorPool;
+        allocInfo.descriptorSetCount = 1;
+        allocInfo.pSetLayouts = &setLayout;
+
+        VkDescriptorSet set;
+        if (vkAllocateDescriptorSets(pool.m_deviceRef.device(), &allocInfo, &set) != VK_SUCCESS) {
+            throw std::runtime_error("failed to allocate descriptor sets!");
+        }
+
+
+        auto writer = DescriptorWriter(layout, pool);
+        for (uint32_t i = 0; i < bufferInfos.size(); i++){
+            writer.writeBuffer(i, &bufferInfos[i]);
+        }
+
+        writer.build(set, false);
+
+        return set;
+
+    }
 }

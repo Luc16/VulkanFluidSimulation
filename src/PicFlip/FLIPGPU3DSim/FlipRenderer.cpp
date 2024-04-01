@@ -80,13 +80,22 @@ void FlipRenderer::resize(VkExtent2D newExtent, vkb::DescriptorPool& pool, const
 }
 
 void FlipRenderer::initialize(vkb::DescriptorPool& pool, const vkb::Renderer& renderer, const std::unique_ptr<vkb::Buffer>& uniformBuffer,
-                              const vkb::CubeMapModel& skybox, const vkb::DrawableObject& plane){
+                              const vkb::CubeMapModel& skybox, const vkb::DrawableObject& plane, const std::unique_ptr<vkb::Buffer>& sdf){
     createOffscreenPasses();
 
     auto particleDescriptorLayout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
             .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL_GRAPHICS, nullptr})
+            .addBinding({1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr})
             .build();
-    m_particleDescriptorSets = vkb::VulkanApp::createDescriptorSets(pool, particleDescriptorLayout,{uniformBuffer->descriptorInfo()});
+    m_particleDescriptorSets.push_back(vkb::DescriptorWriter::createSingleDescriptorSet(pool, particleDescriptorLayout, {
+            {uniformBuffer->descriptorInfo()},
+            {sdf->descriptorInfo()},
+    }));
+    m_particleDescriptorSets.push_back(vkb::DescriptorWriter::createSingleDescriptorSet(pool, particleDescriptorLayout, {
+            {uniformBuffer->descriptorInfo()},
+            {sdf->descriptorInfo()},
+    }));
+
     m_particleSystem.createPipelineLayout(particleDescriptorLayout.descriptorSetLayout(), 0);
     m_particleSystem.createPipeline(renderer.renderPass(), {m_shaderPaths[6], m_shaderPaths[7]}, [](vkb::GraphicsPipeline::PipelineConfigInfo& configInfo){
         configInfo.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
