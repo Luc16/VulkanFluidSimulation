@@ -60,7 +60,7 @@ private:
     constexpr static uint32_t m_workGroupSize = workGroupSize;
 
     // simulation params
-    uint32_t numIterations = 500;
+    uint32_t numIterations = 200;
     bool kernelsInitialized = false;
 
     void createBuffers();

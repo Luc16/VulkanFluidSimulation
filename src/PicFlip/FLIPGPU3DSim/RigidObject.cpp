@@ -6,10 +6,12 @@
 #include <unordered_set>
 #include "RigidObject.h"
 #include "../../../external/objloader/tiny_obj_loader.h"
+#include <algorithm>
+#include <functional>
 
-RigidObject::RigidObject(const vkb::Device& device, const std::string& modelFile, const std::shared_ptr<vkb::Texture>& tex,float scale, float particleRadius) {
+RigidObject::RigidObject(const vkb::Device& device, const std::string& modelFile, const std::shared_ptr<vkb::Texture>& tex,
+                         float scale): m_deviceRef(device) {
     std::vector<vkb::Model::Vertex> vertices{};
-    std::vector<uint32_t> indices{};
 
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
@@ -21,7 +23,6 @@ RigidObject::RigidObject(const vkb::Device& device, const std::string& modelFile
     }
 
     std::unordered_map<vkb::Model::Vertex, uint32_t> uniqueVertices{};
-    std::unordered_set<glm::vec3> particlePositionSet;
 
     for (const auto& shape: shapes) {
         for (const auto& index : shape.mesh.indices) {
@@ -51,58 +52,13 @@ RigidObject::RigidObject(const vkb::Device& device, const std::string& modelFile
             if (uniqueVertices.count(vertex) == 0){
                 uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
                 vertices.push_back(vertex);
-                particlePositionSet.insert(vertex.pos);
+                m_vertices.push_back(vertex.pos);
             }
 
-            indices.push_back(uniqueVertices[vertex]);
+            m_indices.push_back(uniqueVertices[vertex]);
         }
     }
-
-    std::array<glm::ivec2, 3> trig = {
-            glm::ivec2(0, 1),
-            glm::ivec2(1, 2),
-            glm::ivec2(2, 0)
-    };
-
-    std::vector<bool> pairsDone(vertices.size()*vertices.size(), false);
-
-    for (uint32_t i = 0; i < indices.size()/3; i++) {
-
-        auto vec = vertices[indices[3*i + 1]].pos - vertices[indices[3*i]].pos;
-        auto len = glm::length(vec);
-        auto line = (len - 2*particleRadius)/(2*particleRadius);
-        if (line < 0.0) continue;
-        vec = vec/len;
-
-        auto vec2 = vertices[indices[3*i + 2]].pos - vertices[indices[3*i + 1]].pos;
-        auto len2 = glm::length(vec2);
-        auto line2 = (len2 - 2*particleRadius)/(2*particleRadius);
-        if (line2 < 0.0) continue;
-        vec2 = vec2/len2;
-
-        for (uint32_t j = 0; j < uint32_t(line + 3); j++){
-            auto s = vertices[indices[3*i+1]].pos - vec*(float(j)*(len - 2*particleRadius)/std::floor(line + 1));
-            for (uint32_t k = 0; k < uint32_t(line2 + 2); k++){
-
-                if (j == k && j == 0 || k == 0 && j == uint32_t(line + 2)) continue;
-
-                auto t = s + vec2*(float(k)*(len2 - 2*particleRadius)/std::floor(line2 + 1));
-
-                auto normal = glm::cross(vec, vec2);
-                auto vec3 = vertices[indices[3*i + 2]].pos - vertices[indices[3*i]].pos;
-                auto otherPoint = t - vertices[indices[3*i]].pos;
-                auto crossLinePoint = glm::cross(vec3, otherPoint);
-
-                if (glm::dot(glm::cross(vec3, vec), normal)*glm::dot(crossLinePoint, normal) > 0 ||
-                glm::length(crossLinePoint)/glm::length(vec3) < 0.8f*particleRadius) {
-                    particlePositionSet.insert(t);
-                }
-
-            }
-        }
-    }
-
-    m_object = std::make_unique<vkb::DrawableObject>(std::make_unique<vkb::Model>(device, vertices, indices), tex);
+    m_object = std::make_unique<vkb::DrawableObject>(std::make_unique<vkb::Model>(device, vertices, m_indices), tex);
 
 }
 
@@ -111,5 +67,184 @@ void RigidObject::translate(const glm::vec3 &move) {
     if (glm::dot(move, move) == 0) return;
 
     m_object->translate(move);
+
+}
+
+void RigidObject::createSdf(float cellSize, const glm::vec3& gridDimensions) {
+    for (auto& v: m_vertices) {
+        v += m_object->translation;
+    }
+    auto min = [](float x, float y, float z) { return std::min(std::min(x, y), z); };
+    auto max = [](float x, float y, float z) { return std::max(std::max(x, y), z); };
+    auto distancePointTriangle = [](const glm::vec3& p, const glm::vec3& a, const glm::vec3& b, const glm::vec3& c) {
+        const glm::vec3 ab = b - a;
+        const glm::vec3 ac = c - a;
+        const glm::vec3 ap = p - a;
+
+        const float d1 = dot(ab, ap);
+        const float d2 = dot(ac, ap);
+        if (d1 <= 0.f && d2 <= 0.f) return glm::distance(p, a);
+
+        const glm::vec3 bp = p - b;
+        const float d3 = dot(ab, bp);
+        const float d4 = dot(ac, bp);
+        if (d3 >= 0.f && d4 <= d3) return glm::distance(p, b);
+
+        const glm::vec3 cp = p - c;
+        const float d5 = dot(ab, cp);
+        const float d6 = dot(ac, cp);
+        if (d6 >= 0.f && d5 <= d6) return glm::distance(p, c);
+
+        const float vc = d1 * d4 - d3 * d2;
+        if (vc <= 0.f && d1 >= 0.f && d3 <= 0.f)
+        {
+            const float v = d1 / (d1 - d3);
+            return glm::distance(a + v * ab, p);
+        }
+
+        const float vb = d5 * d2 - d1 * d6;
+        if (vb <= 0.f && d2 >= 0.f && d6 <= 0.f)
+        {
+            const float v = d2 / (d2 - d6);
+            return glm::distance(a + v * ac, p);
+        }
+
+        const float va = d3 * d6 - d5 * d4;
+        if (va <= 0.f && (d4 - d3) >= 0.f && (d5 - d6) >= 0.f)
+        {
+            const float v = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+            return glm::distance(b + v * (c - b), p);
+        }
+
+        const float denom = 1.f / (va + vb + vc);
+        const float v = vb * denom;
+        const float w = vc * denom;
+        return glm::distance(a + v * ab + w * ac, p);
+    };
+    auto signedVolume = [](const glm::vec3& a, const glm::vec3& b, const glm::vec3& c, const glm::vec3& d) {
+        return dot((d - a), cross(b - a, c - a));
+    };
+
+
+    auto gridDim = glm::ivec3(gridDimensions/cellSize);
+    auto getIdx = [&gridDim](glm::ivec3 idx) {
+        return idx.x + idx.z*gridDim.x + idx.y*gridDim.x*gridDim.z;
+    };
+
+    auto size = uint32_t(gridDim.x*gridDim.y*gridDim.z);
+    auto maxFloat = std::numeric_limits<float>::max();
+    std::vector<float> sdf(size, maxFloat);
+    std::vector<uint32_t> border(size, 0);
+    std::vector<int> triangleIdx(size, -1);
+
+    // for each triangle
+    for (int l = 0; l < m_indices.size()/3; l++) {
+        auto p1 = m_vertices[m_indices[3*l]];
+        auto p2 = m_vertices[m_indices[3*l+1]];
+        auto p3 = m_vertices[m_indices[3*l+2]];
+
+        std::array<glm::ivec3, 2> bounds = {
+                glm::ivec3(int(min(p1.x, p2.x, p3.x)/cellSize), int(min(p1.y, p2.y, p3.y)/cellSize), int(min(p1.z, p2.z, p3.z)/cellSize)),
+                glm::ivec3(int(max(p1.x, p2.x, p3.x)/cellSize), int(max(p1.y, p2.y, p3.y)/cellSize), int(max(p1.z, p2.z, p3.z)/cellSize))
+        };
+
+        for (int i = bounds[0].x; i <= bounds[1].x; i++) {
+            for (int j = bounds[0].y; j <= bounds[1].y; j++) {
+                for (int k = bounds[0].z; k <= bounds[1].z; k++) {
+                    if (i > gridDim.x - 1 || j > gridDim.y - 1 || k > gridDim.z - 1 || i < 1 || j < 1 || k < 1) continue;
+
+                    auto pa = glm::vec3(i, j, k)*cellSize;
+                    auto pb = glm::vec3(i + 1, j, k)*cellSize;
+
+                    // check if line pa pb intersects triangle p1 p2 p3
+                    auto sv1 = signedVolume(pa,pb,p1,p2);
+                    auto sv2 = signedVolume(pa,pb,p2,p3);
+                    auto sv3 = signedVolume(pa,pb,p3,p1);
+                    if (signedVolume(pa, p1, p2, p3)*signedVolume(pb, p1, p2, p3) > 0 || sv1*sv2 < 0 || sv2*sv3 < 0) continue;
+
+                    auto d = distancePointTriangle(pa, p1, p2, p3);
+
+                    auto idx = getIdx(glm::ivec3(i, j, k));
+                    border[idx]++;
+                    if (d < sdf[idx]) {
+                        sdf[idx] = d;
+                        triangleIdx[idx] = l;
+                    }
+                }
+            }
+        }
+    }
+
+    // propagate closest triangle and distance to all cells
+    for (int _ = 0; _ < 3; _++){
+        for (int n = 0; n < 8; n++) {
+            auto iadd = 2 * (n % 2) - 1;
+            auto jadd = 2 * ((n / 2) % 2) - 1;
+            auto kadd = 2 * (n < 3) - 1;
+
+            int iStart = iadd > 0 ? 1 : gridDim.x - 2;
+            int jStart = jadd > 0 ? 1 : gridDim.y - 2;
+            int kStart = kadd > 0 ? 1 : gridDim.z - 2;
+
+            std::function<bool(int)> icomp;
+            if (iadd > 0) icomp = [&gridDim](int i){ return i < gridDim.x - 1; };
+            else icomp = [](int i){return i > 0; };
+
+            std::function<bool(int)> jcomp;
+            if (jadd > 0) jcomp = [&gridDim](int j){ return j < gridDim.y - 1; };
+            else jcomp = [](int j){return j > 0; };
+
+            std::function<bool(int)> kcomp;
+            if (kadd > 0) kcomp = [&gridDim](int k){ return k < gridDim.z - 1; };
+            else kcomp = [](int k){return k > 0; };
+
+            for (int j = jStart; jcomp(j); j += jadd) {
+                for (int k = kStart; kcomp(k); k += kadd) {
+                    for (int i = iStart; icomp(i); i += iadd) {
+                        auto idx = getIdx(glm::ivec3(i, j, k));
+                        auto minDist = sdf[idx];
+                        auto minIdx = triangleIdx[idx];
+
+                        for (int l = 0; l < 6; l++) {
+                            auto idx2 = getIdx(glm::ivec3(i + int(l == 0) - int(l == 1), j + int(l == 2) - int(l == 3),
+                                                          k + int(l == 4) - int(l == 5)));
+                            auto tIdx = triangleIdx[idx2];
+                            if (tIdx != -1) {
+                                auto p1 = m_vertices[m_indices[3 * minIdx]];
+                                auto p2 = m_vertices[m_indices[3 * minIdx + 1]];
+                                auto p3 = m_vertices[m_indices[3 * minIdx + 2]];
+                                auto p = glm::vec3(i, j, k) * cellSize;
+                                auto dist = distancePointTriangle(p, p1, p2, p3);
+                                if (triangleIdx[idx2] != -1 && dist < minDist) {
+                                    minIdx = tIdx;
+                                    minDist = dist;
+                                }
+                            }
+                        }
+                        sdf[idx] = minDist;
+                        triangleIdx[idx] = minIdx;
+                    }
+                }
+            }
+        }
+    }
+
+    // set negative distances
+    for (int j = 1; j < gridDim.y - 1; j++) {
+        for (int k = 1; k < gridDim.z - 1; k++) {
+            uint32_t c = 0;
+            for (int i = 1; i < gridDim.x - 1; i++) {
+                auto idx = getIdx(glm::ivec3(i, j, k));
+                if (c % 2 == 1) sdf[idx] = -sdf[idx];
+                c += border[idx];
+            }
+        }
+    }
+
+    m_sdf = std::make_unique<vkb::Buffer>(m_deviceRef,
+                                          sizeof(float)*size,
+                                          VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+                                          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_sdf, sdf);
 
 }

@@ -30,6 +30,7 @@
 #include "FlipSolver.h"
 #include "FlipRenderer.h"
 #include "../../lib/CubeMapModel.h"
+#include "RigidObject.h"
 
 class FLIPGPU3DSim: public vkb::VulkanApp {
 public:
@@ -110,6 +111,8 @@ private:
     };
     vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, "../Models/quadXZ1.obj"),
                               std::make_shared<vkb::Texture>(device, "../textures/coral_reef_texture.jpg")};
+    std::shared_ptr<vkb::Texture> rockTex = std::make_shared<vkb::Texture>(device, "../textures/rock_tex.png");
+    RigidObject rock{device, "../Models/rockA.obj", rockTex, 0.1f};
 
 
     vkb::CubeMapModel skybox{device, {
@@ -125,6 +128,7 @@ private:
     vkb::RenderSystem defaultSystem{device};
     vkb::RenderSystem lineSystem{device};
     std::vector<VkDescriptorSet> planeDescriptorSets;
+    std::vector<VkDescriptorSet> rockDescriptorSets;
     std::vector<VkDescriptorSet> lineDescriptorSets;
     std::vector<VkDescriptorSet> skyboxDescriptorSets;
 

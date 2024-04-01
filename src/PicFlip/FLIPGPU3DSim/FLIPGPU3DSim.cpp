@@ -18,11 +18,15 @@ void FLIPGPU3DSim::onCreate() {
             .build();
     planeDescriptorSets = createDescriptorSets(descriptorLayout, {uniformBuffers[0]->descriptorInfo()},
                                                {plane.textureInfo()});
-
+    rockDescriptorSets = createDescriptorSets(descriptorLayout, {uniformBuffers[0]->descriptorInfo()},
+                                               {rockTex->descriptorInfo()});
     {
         defaultSystem.createPipelineLayout(descriptorLayout.descriptorSetLayout(),
                                            sizeof(vkb::DrawableObject::PushConstantData));
-        defaultSystem.createPipeline(renderer.renderPass(), defaultShaderPaths);
+        defaultSystem.createPipeline(renderer.renderPass(), defaultShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo &info) {
+            info.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+
+        });
     }
 
     skyboxDescriptorSets = createDescriptorSets(descriptorLayout,
@@ -56,12 +60,16 @@ void FLIPGPU3DSim::onCreate() {
                                   configInfo.enableAlphaBlending();
                               });
 
+    rock.translate(glm::vec3(3.5f, 2.0f, 3.5f));
+    rock.createSdf(flipSolver.getCellSize(), dimensions);
+
     flipRenderer.initialize(
             *globalDescriptorPool,
             renderer,
             uniformBuffers[0],
             skybox,
-            plane
+            plane,
+            rock.getSDF()
     );
 }
 
@@ -174,6 +182,8 @@ void FLIPGPU3DSim::renderObjects() {
 
             defaultSystem.bind(commandBuffer, &planeDescriptorSets[renderer.currentFrame()]);
             plane.render(defaultSystem, commandBuffer);
+            defaultSystem.bind(commandBuffer, &rockDescriptorSets[renderer.currentFrame()]);
+            rock.render(defaultSystem, commandBuffer);
 
             if (showGrid) drawGrid(commandBuffer);
 
