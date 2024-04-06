@@ -23,7 +23,8 @@ public:
 
     void createSdf(float cellSize, const glm::vec3& gridDimensions);
     void render(vkb::RenderSystem& renderSystem, VkCommandBuffer commandBuffer) const {m_object->render(renderSystem, commandBuffer);};
-    const std::unique_ptr<vkb::Buffer>& getSDF() { return m_sdf; }
+    const std::unique_ptr<vkb::Buffer>& getSdf() { return m_sdf; }
+    VkDescriptorBufferInfo getSdfInfo() { return m_sdf->descriptorInfo(); }
 
     [[nodiscard]] glm::vec3 getTranslation() const { return m_object->translation; }
 

@@ -9,6 +9,8 @@ void FLIPGPU3DSim::onCreate() {
     camera.m_rotation = {0.72675f, 2.22789f, 3.14159f};
     camera.updateView();
     createBuffers();
+    rock.translate(glm::vec3(5.0f, 0.8f, 5.0f));
+    rock.createSdf(flipSolver.getCellSize(), dimensions);
     initializeObjects();
 
     // Default render system
@@ -59,17 +61,13 @@ void FLIPGPU3DSim::onCreate() {
                                   configInfo.bindingDescription = {Point::getBindingDescription()};
                                   configInfo.enableAlphaBlending();
                               });
-
-    rock.translate(glm::vec3(3.5f, 2.0f, 3.5f));
-    rock.createSdf(flipSolver.getCellSize(), dimensions);
-
     flipRenderer.initialize(
             *globalDescriptorPool,
             renderer,
             uniformBuffers[0],
             skybox,
             plane,
-            rock.getSDF()
+            rock.getSdf()
     );
 }
 
@@ -81,7 +79,7 @@ void FLIPGPU3DSim::initializeObjects(bool start) {
 
     plane.setScale(dimensions);
 
-    flipSolver.initialize(globalDescriptorPool, start);
+    flipSolver.initialize(globalDescriptorPool, {rock.getSdfInfo()}, start);
 }
 
 void FLIPGPU3DSim::initializeGridLines() {

@@ -50,4 +50,5 @@ void main() {
     else {
         fragColor = vec4(0.0f, 1.0f, 0.0f, 1.0f);
     }
+//    fragColor = vec4(0.2f, 0.6f, 1.0f, 1);
 }

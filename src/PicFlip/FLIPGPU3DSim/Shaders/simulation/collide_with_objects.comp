@@ -1,0 +1,86 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_debug_printf : enable
+
+#include "common.glsl"
+
+layout (binding = 0) uniform ParameterUBO {
+    ComputeUBO ubo;
+};
+
+layout(std430, binding = 1) buffer ParticlePosSSBO {
+    vec3 pPos[ ];
+};
+
+layout(std430, binding = 2) readonly buffer SdfSSBO {
+    float sdf[ ];
+};
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+
+vec4 sdfGradVal(vec3 pos){
+    IdxWeight iw = particleIdxWeight(pos, vec3(0), ubo.overCellSize);
+    float w0 = (1.0 - iw.weight.x)*(1.0 - iw.weight.y)*(1.0 - iw.weight.z);
+    float w1 = (iw.weight.x)*(1.0 - iw.weight.y)*(1.0 - iw.weight.z);
+    float w2 = (1.0 - iw.weight.x)*(iw.weight.y)*(1.0 - iw.weight.z);
+    float w3 = (iw.weight.x)*(iw.weight.y)*(1.0 - iw.weight.z);
+    float w4 = (1.0 - iw.weight.x)*(1.0 - iw.weight.y)*(iw.weight.z);
+    float w5 = (iw.weight.x)*(1.0 - iw.weight.y)*(iw.weight.z);
+    float w6 = (1.0 - iw.weight.x)*(iw.weight.y)*(iw.weight.z);
+    float w7 = (iw.weight.x)*(iw.weight.y)*(iw.weight.z);
+
+    vec3 grad0 = vec3(sdf[gPosToIdx(iw.gIdx, ubo.dim)]);
+    vec3 grad1 = vec3(
+        sdf[gPosToIdx(iw.gIdx + ivec3(1, 0, 0), ubo.dim)],
+        sdf[gPosToIdx(iw.gIdx + ivec3(0, 1, 0), ubo.dim)],
+        sdf[gPosToIdx(iw.gIdx + ivec3(0, 0, 1), ubo.dim)]
+    );
+    vec4 sdfGradValue = vec4((grad1 - grad0)*ubo.overCellSize,
+                                w0*grad0.x+
+                                w1*grad1.x +
+                                w2*grad1.y +
+                                w3*sdf[gPosToIdx(iw.gIdx + ivec3(1, 1, 0), ubo.dim)] +
+                                w4*grad1.z +
+                                w5*sdf[gPosToIdx(iw.gIdx + ivec3(1, 0, 1), ubo.dim)] +
+                                w6*sdf[gPosToIdx(iw.gIdx + ivec3(0, 1, 1), ubo.dim)] +
+                                w7*sdf[gPosToIdx(iw.gIdx + ivec3(1, 1, 1), ubo.dim)]
+                    );
+
+    return sdfGradValue;
+}
+
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= ubo.numParticles) return;
+    vec3 minV = vec3(ubo.cellSize*1.5);
+    vec3 maxV = ubo.cellSize*vec3(ubo.dim) - minV;
+
+    vec3 pos = pPos[i];
+    vec4 gradAndVal = sdfGradVal(pos);
+
+    if (gradAndVal.w > 0) {
+        return;
+    }
+
+    float alpha = 1;
+    for (int j = 0; j < 12; j++) {
+        vec3 q = pos - alpha*gradAndVal.xyz*gradAndVal.w;
+        vec4 gradAndValQ = sdfGradVal(q);
+        if (abs(gradAndValQ.w) < abs(gradAndVal.w)) {
+            pos = q;
+            gradAndVal = gradAndValQ;
+            if (abs(gradAndVal.w) < 0.0001) break;
+        } else {
+            alpha *= 0.7;
+        }
+
+        if (i % 3 == 0) alpha = 1;
+    }
+
+    pos = clamp(pos, minV, maxV);
+
+    pPos[i] = pos;
+
+}

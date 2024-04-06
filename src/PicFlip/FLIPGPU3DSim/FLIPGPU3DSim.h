@@ -77,6 +77,7 @@ private:
             "matrix_multiply.comp",
             "form_preconditioner.comp",
             "advect_particles.comp",
+            "collide_with_objects.comp",
             "reset_grid.comp",
             "particles_to_grid.comp",
             "apply_weights_and_gravity.comp",
@@ -112,7 +113,7 @@ private:
     vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, "../Models/quadXZ1.obj"),
                               std::make_shared<vkb::Texture>(device, "../textures/coral_reef_texture.jpg")};
     std::shared_ptr<vkb::Texture> rockTex = std::make_shared<vkb::Texture>(device, "../textures/rock_tex.png");
-    RigidObject rock{device, "../Models/rockA.obj", rockTex, 0.1f};
+    RigidObject rock{device, "../Models/rockA.obj", rockTex, 0.05f};
 
 
     vkb::CubeMapModel skybox{device, {

@@ -13,6 +13,11 @@ void FlipSolver::updateSimulation(float deltaTime) {
 
         vkb::ComputeShaderHandler::computeBarrier(commandBuffer, m_particlePosBuffer);
 
+        for (uint32_t i = 0; i < m_collideObjKernel.descSets.size(); i++) {
+            m_collideObjKernel.bindAndDispatch(commandBuffer, i, nParticles, 1, 1);
+            vkb::ComputeShaderHandler::computeBarrier(commandBuffer, m_particlePosBuffer);
+        }
+
         m_resetGridKernel.bindAndDispatch(commandBuffer, 0, nGrid, 1, 1);
 
         vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velWeightBarrier);
@@ -31,7 +36,7 @@ void FlipSolver::updateSimulation(float deltaTime) {
         }
 
         uint32_t nBound = std::max(m_cUbo.dim.x*m_cUbo.dim.y, std::max(m_cUbo.dim.x*m_cUbo.dim.z, m_cUbo.dim.y*m_cUbo.dim.z))/m_workGroupSize + 1;
-        m_applyBoundaryConditionsKernel.bindAndDispatch(commandBuffer, 0, nBound, 1, 1);
+        m_applyBoundaryConditionsKernel.bindAndDispatch(commandBuffer, 0, nGrid, 1, 1);
 
         vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velBarrier);
 
@@ -83,9 +88,9 @@ void FlipSolver::updateUniformBuffers(uint32_t numParticles, glm::vec3 boxSize, 
 
 }
 
-void FlipSolver::initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPool, bool dislocatePos)  {
+void FlipSolver::initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPool, const std::vector<VkDescriptorBufferInfo>& sceneObjectBuffers, bool dislocatePos)  {
     createBuffers();
-    initializeKernels(globalPool);
+    initializeKernels(globalPool, sceneObjectBuffers);
     initializeParticles(dislocatePos);
 }
 
@@ -128,8 +133,9 @@ void FlipSolver::initializeParticles(bool dislocatePos) {
     vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_particlePosBuffer, particles);
 }
 
-void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &globalPool) {
+void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &globalPool, const std::vector<VkDescriptorBufferInfo>& sceneObjectBuffers) {
     m_advectParticlesKernel.createPipeline();
+    m_collideObjKernel.createPipeline();
     m_resetGridKernel.createPipeline();
     m_particleToGridKernel.createPipeline();
     m_applyWeightsAndGravityKernel.createPipeline();
@@ -168,6 +174,15 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
             {m_particlePosBuffer->descriptorInfo()},
             {m_particleVelBuffer->descriptorInfo()},
     });
+
+    m_collideObjKernel.descSets.clear();
+    for (auto& obj : sceneObjectBuffers) {
+        m_collideObjKernel.descSets.push_back(vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_collideObjKernel.layout, {
+                {m_computeUniformBuffer->descriptorInfo()},
+                {m_particlePosBuffer->descriptorInfo()},
+                {obj},
+        }));
+    }
 
     m_resetGridKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_resetGridKernel.layout, {
             {m_computeUniformBuffer->descriptorInfo()},
