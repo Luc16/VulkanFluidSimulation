@@ -157,11 +157,12 @@ void main() {
     float flipZ = vel.z + picZ - getFlipPrev(iw.gIdx, w, 2);
 
 
-    pVel[i] = vec3(
+    float maxVel = ubo.cellSize/ubo.dt;
+    pVel[i] = clamp(vec3(
         (1 - ubo.flipRatio)*picX + ubo.flipRatio*flipX,
         (1 - ubo.flipRatio)*picY + ubo.flipRatio*flipY,
         (1 - ubo.flipRatio)*picZ + ubo.flipRatio*flipZ
-    );
+    ), vec3(-maxVel), vec3(maxVel));
 
 
 }

@@ -47,6 +47,7 @@ public:
 
     void initialize(vkb::DescriptorPool& pool, const vkb::Renderer& renderer, const std::unique_ptr<vkb::Buffer>& uniformBuffer,
                     const vkb::CubeMapModel& skybox, const vkb::DrawableObject& plane, const std::unique_ptr<vkb::Buffer>& sdf);
+    void updateSdf(vkb::DescriptorPool& pool, const std::unique_ptr<vkb::Buffer>& uniformBuffer, const std::unique_ptr<vkb::Buffer>& sdf);
     void runOffscreenPasses(VkCommandBuffer commandBuffer, const FlipSolver &solver, uint32_t currentFrame,
                             const vkb::CubeMapModel& skybox, const vkb::DrawableObject& plane, vkb::RenderSystem& defaultRenderSystem,
                             std::vector<VkDescriptorSet>& defaultDescriptorSets, std::vector<VkDescriptorSet>& skyboxDescriptorSets, bool renderSkybox);

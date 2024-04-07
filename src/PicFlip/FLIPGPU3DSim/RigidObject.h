@@ -34,6 +34,7 @@ private:
     const vkb::Device& m_deviceRef;
     std::unique_ptr<vkb::DrawableObject> m_object;
     std::unique_ptr<vkb::Buffer> m_sdf;
+    glm::vec3 m_sdfPos{};
     std::vector<glm::vec3> m_vertices;
     std::vector<uint32_t> m_indices;
 

@@ -12,7 +12,11 @@ layout(std430, binding = 1) buffer ParticlePosSSBO {
     vec3 pPos[ ];
 };
 
-layout(std430, binding = 2) readonly buffer SdfSSBO {
+layout(std430, binding = 2) buffer ParticleVelSSBO {
+    vec3 pVel[ ];
+};
+
+layout(std430, binding = 3) readonly buffer SdfSSBO {
     float sdf[ ];
 };
 
@@ -36,7 +40,7 @@ vec4 sdfGradVal(vec3 pos){
         sdf[gPosToIdx(iw.gIdx + ivec3(0, 1, 0), ubo.dim)],
         sdf[gPosToIdx(iw.gIdx + ivec3(0, 0, 1), ubo.dim)]
     );
-    vec4 sdfGradValue = vec4((grad1 - grad0)*ubo.overCellSize,
+    vec4 sdfGradValue = vec4(normalize(grad1 - grad0),
                                 w0*grad0.x+
                                 w1*grad1.x +
                                 w2*grad1.y +
@@ -58,6 +62,22 @@ void main() {
     vec3 maxV = ubo.cellSize*vec3(ubo.dim) - minV;
 
     vec3 pos = pPos[i];
+//    float offset = 1.5*ubo.cellSize;
+//    if (pos.x > 4 && pos.z > 4 && pos.x < 5.2 && pos.z < 5.2) {
+//        float deltaX = min (pos.x - 4, 5.2 - pos.x);
+//        float deltaZ = min (pos.z - 4, 5.2 - pos.z);
+//        if (deltaX < deltaZ) {
+//            if (deltaX == pos.x - 4)
+//                pos.x = 4 - offset;
+//            else
+//                pos.x = 5.2 + offset;
+//        } else {
+//            if (deltaZ == pos.z - 4)
+//                pos.z = 4 - offset;
+//            else
+//                pos.z = 5.2 + offset;
+//        }
+//    }
     vec4 gradAndVal = sdfGradVal(pos);
 
     if (gradAndVal.w > 0) {
@@ -65,19 +85,30 @@ void main() {
     }
 
     float alpha = 1;
-    for (int j = 0; j < 12; j++) {
-        vec3 q = pos - alpha*gradAndVal.xyz*gradAndVal.w;
-        vec4 gradAndValQ = sdfGradVal(q);
-        if (abs(gradAndValQ.w) < abs(gradAndVal.w)) {
-            pos = q;
-            gradAndVal = gradAndValQ;
-            if (abs(gradAndVal.w) < 0.0001) break;
-        } else {
-            alpha *= 0.7;
-        }
+    vec3 fluidSpace = ubo.dim*ubo.cellSize - vec3(ubo.cellSize);
+    vec3 vel = pVel[i];
+    vec3 grad = normalize(gradAndVal.xyz);
+    pos = pos - alpha*grad*gradAndVal.w;
+    pVel[i] = vel - 2*dot(vel, grad)*grad;
 
-        if (i % 3 == 0) alpha = 1;
-    }
+
+//    for (int j = 0; j < 100; j++) {
+//        vec3 q = pos - alpha*gradAndVal.xyz*gradAndVal.w;
+//        if (q.x < ubo.cellSize || q.y < ubo.cellSize || q.z < ubo.cellSize || q.x > fluidSpace.x || q.y > fluidSpace.y || q.z > fluidSpace.z) {
+//            alpha *= 0.2;
+//            continue;
+//        }
+//        vec4 gradAndValQ = sdfGradVal(q);
+//        if (abs(gradAndValQ.w) < abs(gradAndVal.w)) {
+//            pos = q;
+//            gradAndVal = gradAndValQ;
+//            if (abs(gradAndVal.w) < 0.0001) break;
+//        } else {
+//            alpha *= 0.7;
+//        }
+//
+//        if (i % 10 == 0) alpha = 1;
+//    }
 
     pos = clamp(pos, minV, maxV);
 

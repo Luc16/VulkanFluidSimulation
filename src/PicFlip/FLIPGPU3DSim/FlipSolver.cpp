@@ -22,6 +22,10 @@ void FlipSolver::updateSimulation(float deltaTime) {
 
         vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velWeightBarrier);
 
+        m_applyBoundaryConditionsKernel.bindAndDispatch(commandBuffer, 0, nGrid, 1, 1);
+
+        vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velWeightBarrier);
+
         m_particleToGridKernel.bindAndDispatch(commandBuffer, 0, nParticles, 1, 1);
 
         vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velWeightBarrier);
@@ -180,6 +184,7 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
         m_collideObjKernel.descSets.push_back(vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_collideObjKernel.layout, {
                 {m_computeUniformBuffer->descriptorInfo()},
                 {m_particlePosBuffer->descriptorInfo()},
+                {m_particleVelBuffer->descriptorInfo()},
                 {obj},
         }));
     }
@@ -235,6 +240,7 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
             {m_velXBuffer->descriptorInfo()},
             {m_velYBuffer->descriptorInfo()},
             {m_velZBuffer->descriptorInfo()},
+            {sceneObjectBuffers[0]},
     });
 
     m_setPrevVelocitiesKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_setPrevVelocitiesKernel.layout, {

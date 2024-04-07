@@ -8,9 +8,8 @@ void FLIPGPU3DSim::onCreate() {
     camera.m_translation = {-3.85021f, 6.08832f, 4.48576f};
     camera.m_rotation = {0.72675f, 2.22789f, 3.14159f};
     camera.updateView();
-    createBuffers();
     rock.translate(glm::vec3(5.0f, 0.8f, 5.0f));
-    rock.createSdf(flipSolver.getCellSize(), dimensions);
+    createBuffers();
     initializeObjects();
 
     // Default render system
@@ -79,7 +78,14 @@ void FLIPGPU3DSim::initializeObjects(bool start) {
 
     plane.setScale(dimensions);
 
+    if (start) {
+        disableEmergencyExit();
+        rock.createSdf(flipSolver.getCellSize(), dimensions);
+        flipRenderer.updateSdf(*globalDescriptorPool, uniformBuffers[0], rock.getSdf());
+    }
+
     flipSolver.initialize(globalDescriptorPool, {rock.getSdfInfo()}, start);
+//    flipSolver.initialize(globalDescriptorPool, {}, start);
 }
 
 void FLIPGPU3DSim::initializeGridLines() {
@@ -354,6 +360,12 @@ void FLIPGPU3DSim::showImGui(){
         auto spanMax = glm::ivec3(flipSolver.getDimension());
         ImGui::CSliderIntRanged3("Particles size", &flipSolver.particleSpan[0], &spanMin[0], &spanMax[0]);
 
+        auto rockPos = rock.getTranslation();
+        auto prevPos = rock.getTranslation();
+        auto minRockPos = glm::vec3(0.0f);
+        auto maxBoundRock = dimensions;
+        ImGui::CSliderFloatRanged3("Rock Position", &rockPos[0], &minRockPos[0], &maxBoundRock[0]);
+        rock.translate(rockPos - prevPos);
         // boundary
 
         if (prev != dimensions || cellSize != flipSolver.getCellSize() || numParticles != (int) flipSolver.getParticleCount()) {

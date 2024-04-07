@@ -71,8 +71,12 @@ void RigidObject::translate(const glm::vec3 &move) {
 }
 
 void RigidObject::createSdf(float cellSize, const glm::vec3& gridDimensions) {
-    for (auto& v: m_vertices) {
-        v += m_object->translation;
+    if (m_sdfPos == m_object->translation) return;
+    m_sdfPos = m_object->translation;
+
+    std::vector<glm::vec3> verts(m_vertices.size());
+    for (uint32_t i = 0; i < m_vertices.size(); i++) {
+        verts[i] += m_vertices[i] + m_object->translation;
     }
     auto min = [](float x, float y, float z) { return std::min(std::min(x, y), z); };
     auto max = [](float x, float y, float z) { return std::max(std::max(x, y), z); };
@@ -139,9 +143,9 @@ void RigidObject::createSdf(float cellSize, const glm::vec3& gridDimensions) {
 
     // for each triangle
     for (int l = 0; l < m_indices.size()/3; l++) {
-        auto p1 = m_vertices[m_indices[3*l]];
-        auto p2 = m_vertices[m_indices[3*l+1]];
-        auto p3 = m_vertices[m_indices[3*l+2]];
+        auto p1 = verts[m_indices[3*l]];
+        auto p2 = verts[m_indices[3*l+1]];
+        auto p3 = verts[m_indices[3*l+2]];
 
         std::array<glm::ivec3, 2> bounds = {
                 glm::ivec3(int(min(p1.x, p2.x, p3.x)/cellSize), int(min(p1.y, p2.y, p3.y)/cellSize), int(min(p1.z, p2.z, p3.z)/cellSize)),
@@ -176,7 +180,7 @@ void RigidObject::createSdf(float cellSize, const glm::vec3& gridDimensions) {
     }
 
     // propagate closest triangle and distance to all cells
-    for (int _ = 0; _ < 3; _++){
+    for (int _ = 0; _ < 10; _++){
         for (int n = 0; n < 8; n++) {
             auto iadd = 2 * (n % 2) - 1;
             auto jadd = 2 * ((n / 2) % 2) - 1;
@@ -210,9 +214,9 @@ void RigidObject::createSdf(float cellSize, const glm::vec3& gridDimensions) {
                                                           k + int(l == 4) - int(l == 5)));
                             auto tIdx = triangleIdx[idx2];
                             if (tIdx != -1) {
-                                auto p1 = m_vertices[m_indices[3 * minIdx]];
-                                auto p2 = m_vertices[m_indices[3 * minIdx + 1]];
-                                auto p3 = m_vertices[m_indices[3 * minIdx + 2]];
+                                auto p1 = verts[m_indices[3 * minIdx]];
+                                auto p2 = verts[m_indices[3 * minIdx + 1]];
+                                auto p3 = verts[m_indices[3 * minIdx + 2]];
                                 auto p = glm::vec3(i, j, k) * cellSize;
                                 auto dist = distancePointTriangle(p, p1, p2, p3);
                                 if (triangleIdx[idx2] != -1 && dist < minDist) {
