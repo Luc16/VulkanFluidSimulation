@@ -25,7 +25,7 @@ void FLIPGPU3DSim::onCreate() {
         defaultSystem.createPipelineLayout(descriptorLayout.descriptorSetLayout(),
                                            sizeof(vkb::DrawableObject::PushConstantData));
         defaultSystem.createPipeline(renderer.renderPass(), defaultShaderPaths, [](vkb::GraphicsPipeline::PipelineConfigInfo &info) {
-            info.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+//            info.inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
 
         });
     }
@@ -65,8 +65,7 @@ void FLIPGPU3DSim::onCreate() {
             renderer,
             uniformBuffers[0],
             skybox,
-            plane,
-            rock.getSdf()
+            plane
     );
 }
 
@@ -81,7 +80,6 @@ void FLIPGPU3DSim::initializeObjects(bool start) {
     if (start) {
         disableEmergencyExit();
         rock.createSdf(flipSolver.getCellSize(), dimensions);
-        flipRenderer.updateSdf(*globalDescriptorPool, uniformBuffers[0], rock.getSdf());
     }
 
     flipSolver.initialize(globalDescriptorPool, {rock.getSdfInfo()}, start);
