@@ -8,7 +8,8 @@ void FLIPGPU3DSim::onCreate() {
     camera.m_translation = {-3.85021f, 6.08832f, 4.48576f};
     camera.m_rotation = {0.72675f, 2.22789f, 3.14159f};
     camera.updateView();
-    rock.translate(glm::vec3(5.0f, 0.8f, 5.0f));
+    rocks.emplace_back(device, "../Models/rockA.obj", rockTex, 0.05f);
+    rocks[0].translate(glm::vec3(5.0f, 0.75f, 5.0f));
     createBuffers();
     initializeObjects();
 
@@ -79,10 +80,12 @@ void FLIPGPU3DSim::initializeObjects(bool start) {
 
     if (start) {
         disableEmergencyExit();
-        rock.createSdf(flipSolver.getCellSize(), dimensions);
+        for (auto& rock : rocks) {
+            rock.createSdf(device,flipSolver.getCellSize(), dimensions);
+        }
     }
 
-    flipSolver.initialize(globalDescriptorPool, {rock.getSdfInfo()}, start);
+    flipSolver.initialize(globalDescriptorPool, rocks, start);
 //    flipSolver.initialize(globalDescriptorPool, {}, start);
 }
 
@@ -172,8 +175,8 @@ void FLIPGPU3DSim::renderObjects() {
 
         if (showParticles && ubo.renderType > 0)
             flipRenderer.runOffscreenPasses(commandBuffer, flipSolver,
-                                        renderer.currentFrame(), skybox, plane, defaultSystem,
-                                        planeDescriptorSets, skyboxDescriptorSets, renderSkybox);
+                                        renderer.currentFrame(), skybox, plane, rocks, defaultSystem,
+                                        planeDescriptorSets, rockDescriptorSets, skyboxDescriptorSets, renderSkybox);
         renderer.runRenderPass([this](VkCommandBuffer &commandBuffer) {
             if (renderSkybox) {
                 skyboxSystem.bind(commandBuffer, &skyboxDescriptorSets[renderer.currentFrame()]);
@@ -185,7 +188,8 @@ void FLIPGPU3DSim::renderObjects() {
             defaultSystem.bind(commandBuffer, &planeDescriptorSets[renderer.currentFrame()]);
             plane.render(defaultSystem, commandBuffer);
             defaultSystem.bind(commandBuffer, &rockDescriptorSets[renderer.currentFrame()]);
-            rock.render(defaultSystem, commandBuffer);
+            for (auto& rock : rocks)
+                rock.render(defaultSystem, commandBuffer);
 
             if (showGrid) drawGrid(commandBuffer);
 
@@ -339,7 +343,7 @@ void FLIPGPU3DSim::showImGui(){
         ImGui::SliderInt("Num Particles", &numParticles, 16, 1000000);
 
         float cellSize = flipSolver.getCellSize();
-        ImGui::DragFloat("Cell Size", &cellSize, 0.01f, 0.01f, 1.0f);
+        ImGui::DragFloat("Cell Size", &cellSize, 0.05f, 0.001f, 1.0f);
 
         auto maxBound = glm::vec3(20.0f);
         auto minBound = glm::vec3(2.0f);
@@ -358,12 +362,12 @@ void FLIPGPU3DSim::showImGui(){
         auto spanMax = glm::ivec3(flipSolver.getDimension());
         ImGui::CSliderIntRanged3("Particles size", &flipSolver.particleSpan[0], &spanMin[0], &spanMax[0]);
 
-        auto rockPos = rock.getTranslation();
-        auto prevPos = rock.getTranslation();
+        auto rockPos = rocks[0].getTranslation();
+        auto prevPos = rocks[0].getTranslation();
         auto minRockPos = glm::vec3(0.0f);
         auto maxBoundRock = dimensions;
         ImGui::CSliderFloatRanged3("Rock Position", &rockPos[0], &minRockPos[0], &maxBoundRock[0]);
-        rock.translate(rockPos - prevPos);
+        rocks[0].translate(rockPos - prevPos);
         // boundary
 
         if (prev != dimensions || cellSize != flipSolver.getCellSize() || numParticles != (int) flipSolver.getParticleCount()) {

@@ -14,24 +14,33 @@ public:
 
     RigidObject(const vkb::Device& device, const std::string& modelFile, const std::shared_ptr<vkb::Texture>& tex,
                              float scale);
-    RigidObject(RigidObject&& other) noexcept: m_object(std::move(other.m_object)), m_deviceRef(other.m_deviceRef){};
+    RigidObject(RigidObject&& other) noexcept:
+        m_object(std::move(other.m_object)),
+        m_sdf(std::move(other.m_sdf)),
+        m_sdfPos(other.m_sdfPos),
+        m_vertices(other.m_vertices),
+        m_indices(other.m_indices){};
     RigidObject& operator=(RigidObject&& other) noexcept {
         m_object = std::move(other.m_object);
+        m_sdf = std::move(other.m_sdf);
+        m_sdfPos = other.m_sdfPos;
+        m_vertices = other.m_vertices;
+        m_indices = other.m_indices;
         return *this;
     }
 
 
-    void createSdf(float cellSize, const glm::vec3& gridDimensions);
+    void createSdf(const vkb::Device& device, float cellSize, const glm::vec3& gridDimensions);
     void render(vkb::RenderSystem& renderSystem, VkCommandBuffer commandBuffer) const {m_object->render(renderSystem, commandBuffer);};
     const std::unique_ptr<vkb::Buffer>& getSdf() { return m_sdf; }
-    VkDescriptorBufferInfo getSdfInfo() { return m_sdf->descriptorInfo(); }
+    [[nodiscard]] VkDescriptorBufferInfo getSdfInfo() const { return m_sdf->descriptorInfo(); }
 
     [[nodiscard]] glm::vec3 getTranslation() const { return m_object->translation; }
+    [[nodiscard]] bool sdfCreated() const { return m_sdfPos == m_object->translation; }
 
     void translate(const glm::vec3& move);
 
 private:
-    const vkb::Device& m_deviceRef;
     std::unique_ptr<vkb::DrawableObject> m_object;
     std::unique_ptr<vkb::Buffer> m_sdf;
     glm::vec3 m_sdfPos{};

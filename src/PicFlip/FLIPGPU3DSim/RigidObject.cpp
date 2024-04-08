@@ -10,7 +10,7 @@
 #include <functional>
 
 RigidObject::RigidObject(const vkb::Device& device, const std::string& modelFile, const std::shared_ptr<vkb::Texture>& tex,
-                         float scale): m_deviceRef(device) {
+                         float scale) {
     std::vector<vkb::Model::Vertex> vertices{};
 
     tinyobj::attrib_t attrib;
@@ -70,7 +70,7 @@ void RigidObject::translate(const glm::vec3 &move) {
 
 }
 
-void RigidObject::createSdf(float cellSize, const glm::vec3& gridDimensions) {
+void RigidObject::createSdf(const vkb::Device& device, float cellSize, const glm::vec3& gridDimensions) {
     if (m_sdfPos == m_object->translation) return;
     m_sdfPos = m_object->translation;
 
@@ -245,10 +245,10 @@ void RigidObject::createSdf(float cellSize, const glm::vec3& gridDimensions) {
         }
     }
 
-    m_sdf = std::make_unique<vkb::Buffer>(m_deviceRef,
+    m_sdf = std::make_unique<vkb::Buffer>(device,
                                           sizeof(float)*size,
                                           VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
                                           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_sdf, sdf);
+    vkb::Buffer::writeVectorToBuffer(device, m_sdf, sdf);
 
 }

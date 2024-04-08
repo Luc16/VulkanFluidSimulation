@@ -17,6 +17,7 @@
 #include "../../lib/descriptors/DescriptorPool.h"
 #include "../../lib/descriptors/DescriptorWriter.h"
 #include "../../lib/graphicsDataStructures/Matrices.h"
+#include "RigidObject.h"
 
 
 class FlipSolver {
@@ -27,7 +28,7 @@ public:
                m_shaderPaths(shaders),
                m_pressureSolverShaderPaths(pressureSolverShaders),
                m_cUbo({ uint32_t (boxSize.x * boxSize.y * boxSize.z / (_cellSize * _cellSize * _cellSize)),
-                        100000,
+                        300'000,
                         1.0f / _cellSize,
                         _cellSize,
                         1 / 60.0f,
@@ -39,7 +40,7 @@ public:
     }
 
     void updateSimulation(float deltaTime);
-    void initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPool, const std::vector<VkDescriptorBufferInfo>& sceneObjectBuffers, bool dislocatePos = true);
+    void initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPool, const std::vector<RigidObject>& sceneObjectBuffers, bool dislocatePos = true);
     void updateUniformBuffers(uint32_t numParticles, glm::vec3 boxSize, float cellSize = -1, float flipRatio = -1, double w = -1.0);
 
     [[nodiscard]] uint32_t getNumTilesX() const { return m_cUbo.dim.x; }
@@ -64,7 +65,7 @@ private:
     bool kernelsInitialized = false;
 
     void createBuffers();
-    void initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &globalPool, const std::vector<VkDescriptorBufferInfo>& sceneObjectBuffers);
+    void initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &globalPool, const std::vector<RigidObject>& sceneObjectBuffers);
     void initializeParticles(bool dislocatePos);
 
     const vkb::Device& m_deviceRef;
@@ -118,7 +119,7 @@ private:
             .descSets = std::vector<VkDescriptorSet>(0),
             .layout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                    //pPos, pVel, sdf
+                    //pPos, sdf
                     .addSameTypeBindings(1, 3,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };

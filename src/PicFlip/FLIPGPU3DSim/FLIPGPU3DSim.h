@@ -113,8 +113,8 @@ private:
     vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, "../Models/quadXZ1.obj"),
                               std::make_shared<vkb::Texture>(device, "../textures/coral_reef_texture.jpg")};
     std::shared_ptr<vkb::Texture> rockTex = std::make_shared<vkb::Texture>(device, "../textures/rock_tex.png");
-    RigidObject rock{device, "../Models/rockA.obj", rockTex, 0.05f};
 
+    std::vector<RigidObject> rocks{};
 
     vkb::CubeMapModel skybox{device, {
             "../textures/skybox/right.jpg",

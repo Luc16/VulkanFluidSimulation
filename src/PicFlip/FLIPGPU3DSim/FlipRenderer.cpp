@@ -5,8 +5,8 @@
 #include "FlipRenderer.h"
 
 void FlipRenderer::runOffscreenPasses(VkCommandBuffer commandBuffer, const FlipSolver &solver, uint32_t currentFrame,
-                                      const vkb::CubeMapModel& skybox, const vkb::DrawableObject& plane, vkb::RenderSystem& defaultRenderSystem,
-                                      std::vector<VkDescriptorSet>& defaultDescriptorSets, std::vector<VkDescriptorSet>& skyboxDescriptorSets, bool renderSkybox) {
+                                      const vkb::CubeMapModel& skybox, const vkb::DrawableObject& plane, const std::vector<RigidObject>& objects, vkb::RenderSystem& defaultRenderSystem,
+                                      std::vector<VkDescriptorSet>& defaultDescriptorSets, std::vector<VkDescriptorSet>& objDescriptorSets, std::vector<VkDescriptorSet>& skyboxDescriptorSets, bool renderSkybox) {
     VkBuffer vb = solver.particleBuffer();
     VkDeviceSize offsets[] = {0};
 
@@ -47,6 +47,12 @@ void FlipRenderer::runOffscreenPasses(VkCommandBuffer commandBuffer, const FlipS
                       }
                       m_scenePass.bindRenderSystem(commandBuffer, &defaultDescriptorSets[currentFrame]);
                       plane.render(defaultRenderSystem, commandBuffer);
+
+                      m_scenePass.bindRenderSystem(commandBuffer, &objDescriptorSets[currentFrame]);
+                      for (const auto& obj : objects) {
+                          obj.render(defaultRenderSystem, commandBuffer);
+                      }
+
                   });
 }
 

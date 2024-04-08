@@ -30,6 +30,7 @@
 #include "FlipSolver.h"
 #include "../../lib/simulations/OffscreenPass.h"
 #include "../../lib/CubeMapModel.h"
+#include "RigidObject.h"
 
 class FlipRenderer {
 public:
@@ -48,9 +49,9 @@ public:
     void initialize(vkb::DescriptorPool& pool, const vkb::Renderer& renderer, const std::unique_ptr<vkb::Buffer>& uniformBuffer,
                     const vkb::CubeMapModel& skybox, const vkb::DrawableObject& plane);
     void runOffscreenPasses(VkCommandBuffer commandBuffer, const FlipSolver &solver, uint32_t currentFrame,
-                            const vkb::CubeMapModel& skybox, const vkb::DrawableObject& plane, vkb::RenderSystem& defaultRenderSystem,
-                            std::vector<VkDescriptorSet>& defaultDescriptorSets, std::vector<VkDescriptorSet>& skyboxDescriptorSets, bool renderSkybox);
-    void render(VkCommandBuffer& commandBuffer, const FlipSolver& solver, uint32_t frame, uint32_t renderType);
+    const vkb::CubeMapModel& skybox, const vkb::DrawableObject& plane, const std::vector<RigidObject>& objects, vkb::RenderSystem& defaultRenderSystem,
+    std::vector<VkDescriptorSet>& defaultDescriptorSets, std::vector<VkDescriptorSet>& objDescriptorSets, std::vector<VkDescriptorSet>& skyboxDescriptorSets, bool renderSkybox);
+        void render(VkCommandBuffer& commandBuffer, const FlipSolver& solver, uint32_t frame, uint32_t renderType);
 
     void resize(VkExtent2D newExtent, vkb::DescriptorPool& pool, const std::unique_ptr<vkb::Buffer>& uniformBuffer,
                 const vkb::CubeMapModel& skybox, const vkb::DrawableObject& plane);
