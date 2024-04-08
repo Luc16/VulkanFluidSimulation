@@ -22,9 +22,10 @@ void FlipSolver::updateSimulation(float deltaTime) {
 
         vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velWeightBarrier);
 
-        m_applyBoundaryConditionsKernel.bindAndDispatch(commandBuffer, 0, nGrid, 1, 1);
-
-        vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velWeightBarrier);
+        for (uint32_t i = 0; i < m_applyObjBoundaryConditionsKernel.descSets.size(); i++) {
+            m_applyObjBoundaryConditionsKernel.bindAndDispatch(commandBuffer, i, nGrid, 1, 1);
+            vkb::ComputeShaderHandler::computeBarriers(commandBuffer, m_velBarrier);
+        }
 
         m_particleToGridKernel.bindAndDispatch(commandBuffer, 0, nParticles, 1, 1);
 
@@ -39,10 +40,15 @@ void FlipSolver::updateSimulation(float deltaTime) {
             vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velBarrier);
         }
 
-//        uint32_t nBound = std::max(m_cUbo.dim.x*m_cUbo.dim.y, std::max(m_cUbo.dim.x*m_cUbo.dim.z, m_cUbo.dim.y*m_cUbo.dim.z))/m_workGroupSize + 1;
-        m_applyBoundaryConditionsKernel.bindAndDispatch(commandBuffer, 0, nGrid, 1, 1);
+        uint32_t nBound = std::max(m_cUbo.dim.x*m_cUbo.dim.y, std::max(m_cUbo.dim.x*m_cUbo.dim.z, m_cUbo.dim.y*m_cUbo.dim.z))/m_workGroupSize + 1;
+        m_applyBoundaryConditionsKernel.bindAndDispatch(commandBuffer, 0, nBound, 1, 1);
 
         vkb::ComputeShaderHandler::computeBarriers(commandBuffer,m_velBarrier);
+
+        for (uint32_t i = 0; i < m_applyObjBoundaryConditionsKernel.descSets.size(); i++) {
+            m_applyObjBoundaryConditionsKernel.bindAndDispatch(commandBuffer, i, nGrid, 1, 1);
+            vkb::ComputeShaderHandler::computeBarriers(commandBuffer, m_velBarrier);
+        }
 
         m_setPrevVelocitiesKernel.bindAndDispatch(commandBuffer, 0, nGrid, 1, 1);
 
@@ -145,6 +151,7 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
     m_applyWeightsAndGravityKernel.createPipeline();
     m_extendVelocitiesKernel.createPipeline();
     m_applyBoundaryConditionsKernel.createPipeline();
+    m_applyObjBoundaryConditionsKernel.createPipeline();
     m_setPrevVelocitiesKernel.createPipeline();
     m_createMatrixAndRhsKernel.createPipeline();
     m_applyPressureKernel.createPipeline();
@@ -239,8 +246,19 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
             {m_velXBuffer->descriptorInfo()},
             {m_velYBuffer->descriptorInfo()},
             {m_velZBuffer->descriptorInfo()},
-            {sceneObjectBuffers[0].getSdfInfo()},
     });
+
+    m_applyObjBoundaryConditionsKernel.descSets.clear();
+    for (auto& obj : sceneObjectBuffers) {
+        m_applyObjBoundaryConditionsKernel.descSets.push_back(vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_applyObjBoundaryConditionsKernel.layout, {
+                {m_computeUniformBuffer->descriptorInfo()},
+                {m_typesBuffer->descriptorInfo()},
+                {m_velXBuffer->descriptorInfo()},
+                {m_velYBuffer->descriptorInfo()},
+                {m_velZBuffer->descriptorInfo()},
+                {obj.getSdfInfo()},
+        }));
+    }
 
     m_setPrevVelocitiesKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_setPrevVelocitiesKernel.layout, {
             {m_computeUniformBuffer->descriptorInfo()},

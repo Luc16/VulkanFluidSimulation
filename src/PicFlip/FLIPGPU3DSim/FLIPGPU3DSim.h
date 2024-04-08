@@ -83,6 +83,7 @@ private:
             "apply_weights_and_gravity.comp",
             "extend_velocities.comp",
             "apply_boundary_conditions.comp",
+            "apply_obj_boundary.comp",
             "set_prev_vel.comp",
             "create_matrix.comp",
             "pressure_update.comp",

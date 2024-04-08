@@ -123,6 +123,8 @@ void main() {
     vec3 pos = pPos[i];
     vec3 vel = pVel[i];
     uint pIdx = particleIdx(pos, vec3(0), ubo.overCellSize, ubo.dim);
+    if (types[pIdx] == SOLID) return;
+
     types[pIdx] = FLUID;
     hasVel[pIdx] = 1;
 
@@ -130,6 +132,7 @@ void main() {
     addVelComponent(pos, vec3(0, shift, shift), vel.x); // add x
     addVelComponent(pos, vec3(shift, 0, shift), vel.y); // add y
     addVelComponent(pos, vec3(shift, shift, 0), vel.z); // add z
+
 
 
 }
