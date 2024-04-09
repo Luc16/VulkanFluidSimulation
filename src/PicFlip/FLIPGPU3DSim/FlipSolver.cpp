@@ -9,9 +9,11 @@ void FlipSolver::updateSimulation(float deltaTime) {
     uint32_t nGrid = m_cUbo.size/m_workGroupSize + 1;
     uint32_t nParticles = m_cUbo.numParticles/m_workGroupSize + 1;
     m_computeHandler.runComputeIsolated(0, [&](VkCommandBuffer commandBuffer) {
-        m_advectParticlesKernel.bindAndDispatch(commandBuffer, 0, nParticles, 1, 1);
+        for (uint32_t i = 0; i < 5; i++) {
+            m_advectParticlesKernel.bindAndDispatch(commandBuffer, 0, nParticles, 1, 1);
 
-        vkb::ComputeShaderHandler::computeBarrier(commandBuffer, m_particlePosBuffer);
+            vkb::ComputeShaderHandler::computeBarrier(commandBuffer, m_particlePosBuffer);
+        }
 
         for (uint32_t i = 0; i < m_collideObjKernel.descSets.size(); i++) {
             m_collideObjKernel.bindAndDispatch(commandBuffer, i, nParticles, 1, 1);

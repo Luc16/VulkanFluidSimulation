@@ -9,7 +9,11 @@ void FLIPGPU3DSim::onCreate() {
     camera.m_rotation = {0.72675f, 2.22789f, 3.14159f};
     camera.updateView();
     rocks.emplace_back(device, "../Models/rockA.obj", rockTex, 0.05f);
-    rocks[0].translate(glm::vec3(5.0f, 0.75f, 5.0f));
+    rocks[0].translate(glm::vec3(5.0f, 1.5f, 5.0f));
+    rigidObjectsNames.emplace_back("Rock 0");
+    rocks.emplace_back(device, "../Models/rockA.obj", rockTex, 0.05f);
+    rocks[1].translate(glm::vec3(5.0f, 0.75f, 5.0f));
+    rigidObjectsNames.emplace_back("Rock 1");
     createBuffers();
     initializeObjects();
 
@@ -154,7 +158,9 @@ void FLIPGPU3DSim::mainLoop(float deltaTime) {
 
     cameraController.moveCamera(window.window(), deltaTime, camera);
 
-    if (!paused) flipSolver.updateSimulation(deltaTime);
+    if (!paused) {
+        flipSolver.updateSimulation(deltaTime);
+    }
 
     updateBuffers(renderer.currentFrame());
 
@@ -362,12 +368,31 @@ void FLIPGPU3DSim::showImGui(){
         auto spanMax = glm::ivec3(flipSolver.getDimension());
         ImGui::CSliderIntRanged3("Particles size", &flipSolver.particleSpan[0], &spanMin[0], &spanMax[0]);
 
-        auto rockPos = rocks[0].getTranslation();
-        auto prevPos = rocks[0].getTranslation();
-        auto minRockPos = glm::vec3(0.0f);
-        auto maxBoundRock = dimensions;
-        ImGui::CSliderFloatRanged3("Rock Position", &rockPos[0], &minRockPos[0], &maxBoundRock[0]);
-        rocks[0].translate(rockPos - prevPos);
+        ImGui::NewLine();
+        if (ImGui::CollapsingHeader("Rigid Objects", ImGuiTreeNodeFlags_DefaultOpen)) {
+            if (!rocks.empty()) {
+                auto rockPos = rocks[selectedObj].getTranslation();
+                auto prevPos = rocks[selectedObj].getTranslation();
+                auto minRockPos = glm::vec3(0.0f);
+                auto maxBoundRock = dimensions;
+                ImGui::CSliderFloatRanged3("Rock Position", &rockPos[0], &minRockPos[0], &maxBoundRock[0]);
+                rocks[selectedObj].translate(rockPos - prevPos);
+
+                std::string curItem = rigidObjectsNames[selectedObj];
+                if (ImGui::BeginCombo("##combo", curItem.c_str())) {
+                    for (uint32_t i = 0; i < rigidObjectsNames.size(); i++){
+                        bool isSelected = (curItem == rigidObjectsNames[i]);
+                        if (ImGui::Selectable(rigidObjectsNames[i].c_str(), isSelected)) {
+                            selectedObj = i;
+                        }
+                        if (isSelected)
+                            ImGui::SetItemDefaultFocus();
+                    }
+                    ImGui::EndCombo();
+                }
+
+            }
+        }
         // boundary
 
         if (prev != dimensions || cellSize != flipSolver.getCellSize() || numParticles != (int) flipSolver.getParticleCount()) {

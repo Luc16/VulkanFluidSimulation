@@ -113,6 +113,7 @@ void RigidObject::createSdf(const vkb::Device& device, float cellSize, const glm
             return glm::distance(a + v * ac, p);
         }
 
+
         const float va = d3 * d6 - d5 * d4;
         if (va <= 0.f && (d4 - d3) >= 0.f && (d5 - d6) >= 0.f)
         {
@@ -124,7 +125,9 @@ void RigidObject::createSdf(const vkb::Device& device, float cellSize, const glm
         const float v = vb * denom;
         const float w = vc * denom;
         return glm::distance(a + v * ab + w * ac, p);
+
     };
+
     auto signedVolume = [](const glm::vec3& a, const glm::vec3& b, const glm::vec3& c, const glm::vec3& d) {
         return dot((d - a), cross(b - a, c - a));
     };
@@ -180,6 +183,8 @@ void RigidObject::createSdf(const vkb::Device& device, float cellSize, const glm
     }
 
     // propagate closest triangle and distance to all cells
+    std::function<bool(int)> icomp, jcomp, kcomp;
+
     for (int _ = 0; _ < 10; _++){
         for (int n = 0; n < 8; n++) {
             auto iadd = 2 * (n % 2) - 1;
@@ -190,15 +195,10 @@ void RigidObject::createSdf(const vkb::Device& device, float cellSize, const glm
             int jStart = jadd > 0 ? 1 : gridDim.y - 2;
             int kStart = kadd > 0 ? 1 : gridDim.z - 2;
 
-            std::function<bool(int)> icomp;
             if (iadd > 0) icomp = [&gridDim](int i){ return i < gridDim.x - 1; };
             else icomp = [](int i){return i > 0; };
-
-            std::function<bool(int)> jcomp;
             if (jadd > 0) jcomp = [&gridDim](int j){ return j < gridDim.y - 1; };
             else jcomp = [](int j){return j > 0; };
-
-            std::function<bool(int)> kcomp;
             if (kadd > 0) kcomp = [&gridDim](int k){ return k < gridDim.z - 1; };
             else kcomp = [](int k){return k > 0; };
 
@@ -208,10 +208,13 @@ void RigidObject::createSdf(const vkb::Device& device, float cellSize, const glm
                         auto idx = getIdx(glm::ivec3(i, j, k));
                         auto minDist = sdf[idx];
                         auto minIdx = triangleIdx[idx];
+                        if (minIdx == -1) continue;
 
                         for (int l = 0; l < 6; l++) {
-                            auto idx2 = getIdx(glm::ivec3(i + int(l == 0) - int(l == 1), j + int(l == 2) - int(l == 3),
-                                                          k + int(l == 4) - int(l == 5)));
+                            auto gPos2 = glm::ivec3(i + int(l == 0) - int(l == 1),j + int(l == 2) - int(l == 3),k + int(l == 4) - int(l == 5));
+                            if (gPos2.x > gridDim.x - 1 || gPos2.y > gridDim.y - 1 || gPos2.z > gridDim.z - 1 || gPos2.x < 0 || gPos2.y < 0 || gPos2.z < 0) continue;
+
+                            auto idx2 = getIdx(gPos2);
                             auto tIdx = triangleIdx[idx2];
                             if (tIdx != -1) {
                                 auto p1 = verts[m_indices[3 * minIdx]];

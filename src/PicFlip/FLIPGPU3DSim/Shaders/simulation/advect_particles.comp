@@ -90,9 +90,10 @@ void main() {
     vec3 maxV = ubo.cellSize*vec3(ubo.dim) - minV;
 
     vec3 pos = pPos[i];
-    vec3 midWay = clamp(pos + 0.5*ubo.dt*getVelAt(pos), minV, maxV);
+    float dt = 0.2*ubo.dt;
+    vec3 midWay = clamp(pos + 0.5*dt*getVelAt(pos), minV, maxV);
 
-    pos = clamp(pos + ubo.dt*getVelAt(midWay), minV, maxV);
+    pos = clamp(pos + dt*getVelAt(midWay), minV, maxV);
 
     pPos[i] = pos;
 

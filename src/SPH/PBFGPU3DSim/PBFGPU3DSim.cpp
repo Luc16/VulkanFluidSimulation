@@ -504,50 +504,53 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
     VkBuffer vbType = particleTypeBuffers[computeFrameIdx]->getBuffer();
     VkDeviceSize offsets[] = {0};
 
-    depthPass.run(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()],
-                  [this, &vb, &vbType, &offsets](VkCommandBuffer &commandBuffer) {
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
-        vkCmdBindVertexBuffers(commandBuffer, 1, 1, &vbType, offsets);
-        vkCmdDraw(commandBuffer, NUM_PARTICLES, 1, 0, 0);
-    });
-
-    if (blurIterations > 0) {
-        smoothPass.run(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()],
-                       [](VkCommandBuffer commandBuffer) {
-            vkCmdDraw(commandBuffer, 3, 1, 0, 0);
-        });
-    }
-
-    for (uint32_t _ = 1; _ < blurIterations; _++){
-        smoothPass.runAlternating(commandBuffer, {&smooth1DescriptorSets[renderer.currentFrame()], &smooth2DescriptorSets[renderer.currentFrame()]},
-                                  [](VkCommandBuffer commandBuffer) {
-            vkCmdDraw(commandBuffer, 3, 1, 0, 0);
-
-        });
-    }
-
-    thicknessPass.run(commandBuffer,
-                      (blurIterations % 2 == 0) ? &smooth1DescriptorSets[renderer.currentFrame()] : &smooth2DescriptorSets[renderer.currentFrame()],
+    if (!showParticles) {
+        depthPass.run(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()],
                       [this, &vb, &vbType, &offsets](VkCommandBuffer &commandBuffer) {
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
-        vkCmdBindVertexBuffers(commandBuffer, 1, 1, &vbType, offsets);
-        vkCmdDraw(commandBuffer, NUM_PARTICLES, 1, 0, 0);
-    });
+                          vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
+                          vkCmdBindVertexBuffers(commandBuffer, 1, 1, &vbType, offsets);
+                          vkCmdDraw(commandBuffer, NUM_PARTICLES, 1, 0, 0);
+                      });
 
-    scenePass.run(commandBuffer,
-                  &defaultDescriptorSets[renderer.currentFrame()],
-                  [this](VkCommandBuffer &commandBuffer) {
-        if (renderSkybox) {
-            skyboxTexSystem.bind(commandBuffer, &skyboxDescriptorSets[renderer.currentFrame()]);
-            skybox.bindAndDraw(commandBuffer);
+        if (blurIterations > 0) {
+            smoothPass.run(commandBuffer, &simulationDescriptorSets[renderer.currentFrame()],
+                           [](VkCommandBuffer commandBuffer) {
+                               vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+                           });
         }
-        scenePass.bindRenderSystem(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
-        plane.render(defaultSystem, commandBuffer);
-        scenePass.bindRenderSystem(commandBuffer, &rockDescriptorSets[renderer.currentFrame()]);
-        for (const auto& rigidObject : rigidObjects) {
-            rigidObject.render(defaultSystem, commandBuffer);
+
+        for (uint32_t _ = 1; _ < blurIterations; _++){
+            smoothPass.runAlternating(commandBuffer, {&smooth1DescriptorSets[renderer.currentFrame()], &smooth2DescriptorSets[renderer.currentFrame()]},
+                                      [](VkCommandBuffer commandBuffer) {
+                                          vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+
+                                      });
         }
-    });
+
+        thicknessPass.run(commandBuffer,
+                          (blurIterations % 2 == 0) ? &smooth1DescriptorSets[renderer.currentFrame()] : &smooth2DescriptorSets[renderer.currentFrame()],
+                          [this, &vb, &vbType, &offsets](VkCommandBuffer &commandBuffer) {
+                              vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
+                              vkCmdBindVertexBuffers(commandBuffer, 1, 1, &vbType, offsets);
+                              vkCmdDraw(commandBuffer, NUM_PARTICLES, 1, 0, 0);
+                          });
+
+        scenePass.run(commandBuffer,
+                      &defaultDescriptorSets[renderer.currentFrame()],
+                      [this](VkCommandBuffer &commandBuffer) {
+                          if (renderSkybox) {
+                              skyboxTexSystem.bind(commandBuffer, &skyboxDescriptorSets[renderer.currentFrame()]);
+                              skybox.bindAndDraw(commandBuffer);
+                          }
+                          scenePass.bindRenderSystem(commandBuffer, &defaultDescriptorSets[renderer.currentFrame()]);
+                          plane.render(defaultSystem, commandBuffer);
+                          scenePass.bindRenderSystem(commandBuffer, &rockDescriptorSets[renderer.currentFrame()]);
+                          for (const auto& rigidObject : rigidObjects) {
+                              rigidObject.render(defaultSystem, commandBuffer);
+                          }
+                      });
+    }
+
 
     renderer.runRenderPass([this, &vb, &vbType, &offsets](VkCommandBuffer& commandBuffer){
         if (renderSkybox) {

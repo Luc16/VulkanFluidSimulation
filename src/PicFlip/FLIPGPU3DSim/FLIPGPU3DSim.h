@@ -116,6 +116,8 @@ private:
     std::shared_ptr<vkb::Texture> rockTex = std::make_shared<vkb::Texture>(device, "../textures/rock_tex.png");
 
     std::vector<RigidObject> rocks{};
+    std::vector<std::string> rigidObjectsNames{};
+    uint32_t selectedObj = 0;
 
     vkb::CubeMapModel skybox{device, {
             "../textures/skybox/right.jpg",
