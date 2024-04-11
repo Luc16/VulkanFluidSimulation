@@ -152,12 +152,12 @@ namespace vkb {
         std::vector<VkPhysicalDevice> devices(deviceCount);
         vkEnumeratePhysicalDevices(m_instance, &deviceCount, devices.data());
 
-        std::cout << "Physical device list:\n";
+//        std::cout << "Physical device list:\n";
         bool deviceChosen = false;
         for (const auto& pDevice : devices){
             VkPhysicalDeviceProperties properties;
             vkGetPhysicalDeviceProperties(pDevice, &properties);
-            std::cout << '\t' << properties.deviceName << " ID: " << properties.deviceID << '\n';
+//            std::cout << '\t' << properties.deviceName << " ID: " << properties.deviceID << '\n';
 
             if (isDeviceSuitable(pDevice) && !deviceChosen && properties.deviceID == m_deviceType) {
                 deviceChosen = true;
@@ -183,7 +183,7 @@ namespace vkb {
             throw std::runtime_error("failed to find a suitable GPU!");
         }
 
-        std::cout << "\nUsing physical device: " << m_physicalDeviceProperties.deviceName << '\n';
+//        std::cout << "\nUsing physical device: " << m_physicalDeviceProperties.deviceName << '\n';
     }
 
     void Device::createSurface(){

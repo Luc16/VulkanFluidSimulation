@@ -80,6 +80,8 @@ void main()
     deltaP /= ubo.REST_DENS;
 
     pPos += deltaP;
+    // pos += w*deltaP + (1-w)*deltaPs[i];
+    // deltaPs[i] = deltaP;
 
     // enforce boundary conditions
     float nearEPS = ubo.EPS*(1 + 0.02);

@@ -239,6 +239,7 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
                 {densityBuffer->descriptorInfo()},
                 {gridIdxBuffer->descriptorInfo()},
                 {particleTypeBuffers[(i + 1) % particleTypeBuffers.size()]->descriptorInfo()},
+                {avgDensBuffer->descriptorInfo()},
         });
 
         posCorrectionKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, posCorrectionKernel.layout, {
@@ -339,7 +340,6 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
         uint32_t rigidObjIdx = 0;
         uint32_t initialIdx = NUM_FLUID_PARTICLES;
         for (uint32_t i = NUM_FLUID_PARTICLES; i < NUM_PARTICLES; i++) {
-            particles.density[i] = cUbo.REST_DENS;
             particles.type[i] = 1;
 
             if (i - initialIdx >= rigidObjParticles.size()) {
@@ -382,8 +382,10 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
         densityBuffer = std::make_unique<vkb::Buffer>(device, particles.density.size() * sizeof(float),
                                                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        vkb::Buffer::writeVectorToBuffer(device, densityBuffer, particles.density);
 
+        avgDensBuffer = std::make_unique<vkb::Buffer>(device, sizeof(float),
+                                                      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
         lambdaBuffer = makeBuffer(particles.position.size()*sizeof(float));
         gridIdxBuffer = makeBuffer(particles.gIdx.size() * sizeof(uint32_t));
@@ -588,7 +590,8 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
 
 void PBFGPU3DSim::updateSimulation() {
 
-    computeHandler.runCompute(renderer.currentFrame(), [this](VkCommandBuffer computeCommandBuffer){
+    uint32_t num = 0;
+    computeHandler.runCompute(renderer.currentFrame(), [this, &num](VkCommandBuffer computeCommandBuffer){
         uint32_t blockSize = NUM_PARTICLES / 256 + (1 - (NUM_PARTICLES % 256 == 0));
 
         for (uint32_t _ = 0; _ < substeps; _++) {
@@ -602,6 +605,7 @@ void PBFGPU3DSim::updateSimulation() {
 
             for (uint32_t i = 0; i < jacobiIterations; i++){
 
+                num++;
                 lambdaKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
 
                 vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
@@ -630,6 +634,19 @@ void PBFGPU3DSim::updateSimulation() {
         }
     });
 
+    std::vector<float> avgDens(1);
+    static uint32_t frame = 0;
+    vkb::Buffer::writeBufferToVector(device, avgDensBuffer, avgDens);
+//    std::cout << "Frame: " <<  frame++ << " Average density: " << avgDens[0]/float(substeps*jacobiIterations*NUM_FLUID_PARTICLES) << std::endl;
+    if (frame++ > 0) {
+        auto val = std::to_string(avgDens[0]/float(substeps*jacobiIterations*NUM_FLUID_PARTICLES));
+        val.replace(val.find('.'), 1, ",");
+        std::cout << frame - 1 << "\t" << val << std::endl;
+    } else {
+        std::cout << "Frame\tAverage density\n";
+    }
+    avgDens[0] = 0;
+    vkb::Buffer::writeVectorToBuffer(device, avgDensBuffer, avgDens);
 }
 
 void PBFGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){

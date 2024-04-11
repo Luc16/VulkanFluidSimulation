@@ -182,6 +182,7 @@ private:
     std::unique_ptr<vkb::Buffer> densityBuffer;
     std::unique_ptr<vkb::Buffer> lambdaBuffer;
     std::unique_ptr<vkb::Buffer> gridIdxBuffer;
+    std::unique_ptr<vkb::Buffer> avgDensBuffer;
 
     std::array<std::vector<std::pair<VkBuffer, VkDeviceSize>>, 2> particleBarrierData;
 
@@ -215,8 +216,8 @@ private:
             .descSets = std::vector<VkDescriptorSet>(2),
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                    // grid, predPos, lambda, density, grid idx, type
-                    .addSameTypeBindings(1, 6,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    // grid, predPos, lambda, density, grid idx, type, avg
+                    .addSameTypeBindings(1, 7,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 
