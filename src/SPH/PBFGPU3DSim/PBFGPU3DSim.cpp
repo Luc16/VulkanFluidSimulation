@@ -231,25 +231,32 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
                 {particleTypeBuffers[i]->descriptorInfo()},
         });
 
-        lambdaKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, lambdaKernel.layout, {
-                {computeUniformBuffer->descriptorInfo()},
-                {gridHandler.gridDescriptorInfo()},
-                {predPosBuffers[(i + 1) % predPosBuffers.size()]->descriptorInfo()},
-                {lambdaBuffer->descriptorInfo()},
-                {densityBuffer->descriptorInfo()},
-                {gridIdxBuffer->descriptorInfo()},
-                {particleTypeBuffers[(i + 1) % particleTypeBuffers.size()]->descriptorInfo()},
-                {avgDensBuffer->descriptorInfo()},
-        });
+        for (uint32_t  j = 0; j < gaussPartition; j++) {
+            uint32_t idx = gaussPartition*i + j;
+            lambdaKernel.descSets[idx] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, lambdaKernel.layout, {
+                    {computeUniformBuffer->descriptorInfo()},
+                    {solverUniformBuffers[j]->descriptorInfo()},
+                    {gridHandler.gridDescriptorInfo()},
+                    {predPosBuffers[(i + 1) % predPosBuffers.size()]->descriptorInfo()},
+                    {lambdaBuffer->descriptorInfo()},
+                    {densityBuffer->descriptorInfo()},
+                    {gridIdxBuffer->descriptorInfo()},
+                    {particleTypeBuffers[(i + 1) % particleTypeBuffers.size()]->descriptorInfo()},
+                    {avgDensBuffer->descriptorInfo()},
+            });
 
-        posCorrectionKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, posCorrectionKernel.layout, {
-                {computeUniformBuffer->descriptorInfo()},
-                {gridHandler.gridDescriptorInfo()},
-                {predPosBuffers[(i + 1) % predPosBuffers.size()]->descriptorInfo()},
-                {lambdaBuffer->descriptorInfo()},
-                {gridIdxBuffer->descriptorInfo()},
-                {particleTypeBuffers[(i + 1) % particleTypeBuffers.size()]->descriptorInfo()},
-        });
+            posCorrectionKernel.descSets[idx] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, posCorrectionKernel.layout, {
+                    {computeUniformBuffer->descriptorInfo()},
+                    {solverUniformBuffers[j]->descriptorInfo()},
+                    {gridHandler.gridDescriptorInfo()},
+                    {predPosBuffers[(i + 1) % predPosBuffers.size()]->descriptorInfo()},
+                    {lambdaBuffer->descriptorInfo()},
+                    {gridIdxBuffer->descriptorInfo()},
+                    {particleTypeBuffers[(i + 1) % particleTypeBuffers.size()]->descriptorInfo()},
+                    {deltaPBuffers[(i + 1) % deltaPBuffers.size()]->descriptorInfo()},
+            });
+        }
+
 
         updateVelocitiesKernel.descSets[i] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, updateVelocitiesKernel.layout, {
                 {computeUniformBuffer->descriptorInfo()},
@@ -289,6 +296,7 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     gUbo.proj = camera.getProjection();
     gUbo.planeSize = cUbo.BOUNDARY_SIZE;
     cUbo.numParticles = NUM_PARTICLES;
+    cUbo.DT = 1/(60.0f*float(substeps));
     GRID_SIZE = uint32_t(cUbo.BOUNDARY_SIZE.x/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.y/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.z/cUbo.H) + 1;
     activateWaves = false;
 
@@ -366,6 +374,7 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
                                                                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
             velocityBuffers[i] = makeBuffer(particles.velocity.size() * sizeof(glm::vec4));
             predPosBuffers[i] = makeBuffer(particles.position.size() * sizeof(glm::vec4));
+            deltaPBuffers[i] = makeBuffer(particles.position.size() * sizeof(glm::vec4));
             particleTypeBuffers[i] = std::make_unique<vkb::Buffer>(device, particles.type.size() * sizeof(uint32_t),
                                                                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                                                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -397,6 +406,7 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
                 positionBuffers[(i+1) % positionBuffers.size()]->getBarrierData(),
                 velocityBuffers[(i+1) % velocityBuffers.size()]->getBarrierData(),
                 predPosBuffers[(i+1) % predPosBuffers.size()]->getBarrierData(),
+                deltaPBuffers[(i+1) % deltaPBuffers.size()]->getBarrierData(),
                 particleTypeBuffers[(i+1) % particleTypeBuffers.size()]->getBarrierData(),
                 vorticityBuffer->getBarrierData(),
                 densityBuffer->getBarrierData(),
@@ -415,7 +425,8 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
                 positionBuffers,
                 velocityBuffers,
                 predPosBuffers,
-                particleTypeBuffers);
+                particleTypeBuffers,
+                deltaPBuffers);
     }
 
     //free descriptor sets
@@ -454,6 +465,15 @@ void PBFGPU3DSim::createUniformBuffers() {
     computeUniformBuffer = std::make_unique<vkb::Buffer>(device, cBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     computeUniformBuffer->map();
+
+    std::vector<SolverUniformBufferObject> sUbo = {{gaussPartition, 0}};
+    solverUniformBuffers.clear();
+    for (uint32_t i = 0; i < gaussPartition; i++) {
+        solverUniformBuffers.emplace_back(std::make_unique<vkb::Buffer>(device, sizeof(SolverUniformBufferObject), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
+        vkb::Buffer::writeVectorToBuffer(device, solverUniformBuffers[i], sUbo);
+        sUbo[0].step++;
+    }
 
 
     VkDeviceSize gBufferSize = sizeof(UniformBufferObject);
@@ -590,9 +610,9 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
 
 void PBFGPU3DSim::updateSimulation() {
 
-    uint32_t num = 0;
-    computeHandler.runCompute(renderer.currentFrame(), [this, &num](VkCommandBuffer computeCommandBuffer){
+    computeHandler.runCompute(renderer.currentFrame(), [this](VkCommandBuffer computeCommandBuffer){
         uint32_t blockSize = NUM_PARTICLES / 256 + (1 - (NUM_PARTICLES % 256 == 0));
+        uint32_t solverBlockSize = blockSize/gaussPartition + (1 - (blockSize % gaussPartition == 0));
 
         for (uint32_t _ = 0; _ < substeps; _++) {
             predictPositionKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
@@ -605,14 +625,16 @@ void PBFGPU3DSim::updateSimulation() {
 
             for (uint32_t i = 0; i < jacobiIterations; i++){
 
-                num++;
-                lambdaKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
+                for (uint32_t j = 0; j < gaussPartition; j++) {
+                    uint32_t descSetIdx = computeFrameIdx*gaussPartition + j;
+                    lambdaKernel.bindAndDispatch(computeCommandBuffer, descSetIdx, solverBlockSize, 1, 1);
 
-                vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+                    vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
 
-                posCorrectionKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
+                    posCorrectionKernel.bindAndDispatch(computeCommandBuffer, descSetIdx, solverBlockSize, 1, 1);
 
-                vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+                    vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+                }
             }
 
             updateVelocitiesKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
@@ -634,19 +656,30 @@ void PBFGPU3DSim::updateSimulation() {
         }
     });
 
-    std::vector<float> avgDens(1);
-    static uint32_t frame = 0;
-    vkb::Buffer::writeBufferToVector(device, avgDensBuffer, avgDens);
-//    std::cout << "Frame: " <<  frame++ << " Average density: " << avgDens[0]/float(substeps*jacobiIterations*NUM_FLUID_PARTICLES) << std::endl;
-    if (frame++ > 0) {
-        auto val = std::to_string(avgDens[0]/float(substeps*jacobiIterations*NUM_FLUID_PARTICLES));
-        val.replace(val.find('.'), 1, ",");
-        std::cout << frame - 1 << "\t" << val << std::endl;
-    } else {
-        std::cout << "Frame\tAverage density\n";
-    }
-    avgDens[0] = 0;
-    vkb::Buffer::writeVectorToBuffer(device, avgDensBuffer, avgDens);
+//    std::vector<float> avgDens(1);
+//    static uint32_t frame = 0;
+//    vkb::Buffer::writeBufferToVector(device, avgDensBuffer, avgDens);
+////    std::cout << "Frame: " <<  frame++ << " Average density: " << avgDens[0]/float(substeps*jacobiIterations*NUM_FLUID_PARTICLES) << std::endl;
+//    if (frame++ > 0) {
+//        auto val = std::to_string(avgDens[0]/float(substeps*jacobiIterations*NUM_FLUID_PARTICLES));
+////        val.replace(val.find('.'), 1, ",");
+//        std::cout << frame - 1 << "\t" << val << std::endl;
+//    }
+//    static bool sla = false;
+//    if (frame >= 400) {
+//        std::cout << "end\n";
+//        if (sla) endProgram();
+//        sla = true;
+//        gaussPartition = 1;
+//        hardResetFrame = 0;
+//        disableEmergencyExit();
+//        onCreate();
+//        controlMode = false;
+//        pausedSimulation = false;
+//        frame = 0;
+//    }
+//    avgDens[0] = 0;
+//    vkb::Buffer::writeVectorToBuffer(device, avgDensBuffer, avgDens);
 }
 
 void PBFGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){

@@ -24,5 +24,10 @@ struct computeUBO {
     bool activateVort;
 };
 
+struct solverUBO {
+    uint solverSteps;
+    uint step;
+};
+
 
 #endif //CORE_SHADER_H

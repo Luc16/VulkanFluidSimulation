@@ -7,31 +7,39 @@ layout (binding = 0) uniform ParameterUBO {
     computeUBO ubo;
 };
 
-layout(std430, binding = 1) readonly buffer GridSSBO {
+layout (binding = 1) uniform SolverUBO {
+    solverUBO subo;
+};
+
+layout(std430, binding = 2) readonly buffer GridSSBO {
     uint grid[ ];
 };
 
-layout(std430, binding = 2) buffer PositionSSBO {
+layout(std430, binding = 3) buffer PositionSSBO {
     vec3 predPos[ ];
 };
 
-layout(std430, binding = 3) buffer LambdaSSBO {
+layout(std430, binding = 4) buffer LambdaSSBO {
     float lambdas[ ];
 };
 
-layout(std430, binding = 4) readonly buffer ParticleIdxSSBO {
+layout(std430, binding = 5) readonly buffer ParticleIdxSSBO {
     int gridIdx[ ];
 };
 
-layout(std430, binding = 5) readonly buffer ParticleTypeSSBO {
+layout(std430, binding = 6) readonly buffer ParticleTypeSSBO {
     uint types[ ];
+};
+
+layout(std430, binding = 7) buffer PrevCorrSSBO {
+    vec3 prev[ ];
 };
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 void main()
 {
-    uint i = gl_GlobalInvocationID.x;
+    uint i = subo.solverSteps*gl_GlobalInvocationID.x + subo.step;
     if (i >= ubo.numParticles || types[i] != 0) return;
 
     vec3 deltaP = vec3(0.0f);
@@ -80,8 +88,11 @@ void main()
     deltaP /= ubo.REST_DENS;
 
     pPos += deltaP;
-    // pos += w*deltaP + (1-w)*deltaPs[i];
-    // deltaPs[i] = deltaP;
+//    float w = 1.5f;
+//    if (subo.solverSteps > 1) pPos += w*deltaP + (1-w)*prev[i];
+//    else pPos += deltaP;
+
+    prev[i] = deltaP;
 
     // enforce boundary conditions
     float nearEPS = ubo.EPS*(1 + 0.02);

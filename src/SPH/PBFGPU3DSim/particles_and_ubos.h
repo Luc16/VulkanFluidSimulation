@@ -49,11 +49,11 @@ struct ComputeUniformBufferObject {
     alignas(16) glm::vec3 G = glm::vec3(0.0f, -9.8f, 0.0f);
 
     float wallX = 0.0f;
-    float REST_DENS = 6378.0f;  // rest density
+    float REST_DENS = 5000.0f;  // rest density
     float H = 0.1f;           // kernel radius
     float HSQ = H * H;        // radius^2 for optimization
     float VISC = 0.0001f;       // viscosity constant
-    float DT = 1/120.0f;       // integration timestep
+    float DT = 1/60.0f;       // integration timestep
 //        float DT = 1/60.0f;       // integration timestep
     float ART_PRESSURE_COEF = 0.00025f;
     float VORTICITY_COEF = 0.0004f;
@@ -65,6 +65,11 @@ struct ComputeUniformBufferObject {
     float CFM = 600.0f;
     float EPS = H; // boundary epsilon
     bool activateVort = true;
+};
+
+struct SolverUniformBufferObject {
+    uint32_t solverSteps;
+    uint32_t step;
 };
 
 #endif //VULKANFLUIDSIMULATION_PARTICLES_AND_UBOS_H

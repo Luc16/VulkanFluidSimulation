@@ -56,8 +56,9 @@ private:
     uint32_t NUM_FLUID_PARTICLES = NUM_PARTICLES - NUM_RIGID_PARTICLES;
     static constexpr uint32_t MAX_PARTICLES = 1'000'000;
     static constexpr float MAX_BOUND = 100.0f;
-    uint32_t jacobiIterations = 2;
-    uint32_t substeps = 2;
+    uint32_t jacobiIterations = 4;
+    uint32_t substeps = 1;
+    uint32_t gaussPartition = 2;
     int blurIterations = 2;
     uint32_t GRID_SIZE = 0;
 
@@ -178,6 +179,7 @@ private:
     std::array<std::unique_ptr<vkb::Buffer>, 2> velocityBuffers;
     std::array<std::unique_ptr<vkb::Buffer>, 2> predPosBuffers;
     std::array<std::unique_ptr<vkb::Buffer>, 2> particleTypeBuffers; // 0 for fluid 1 for solid
+    std::array<std::unique_ptr<vkb::Buffer>, 2> deltaPBuffers;
     std::unique_ptr<vkb::Buffer> vorticityBuffer;
     std::unique_ptr<vkb::Buffer> densityBuffer;
     std::unique_ptr<vkb::Buffer> lambdaBuffer;
@@ -197,6 +199,7 @@ private:
 
     u_char computeFrameIdx = 0;
 
+    std::vector<std::unique_ptr<vkb::Buffer>> solverUniformBuffers;
     std::unique_ptr<vkb::Buffer> computeUniformBuffer;
     ComputeUniformBufferObject cUbo{};
     vkb::ComputeShaderHandler computeHandler{device};
@@ -213,21 +216,23 @@ private:
 
     vkb::SimulationKernel lambdaKernel {
             .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 1] + ".spv"},
-            .descSets = std::vector<VkDescriptorSet>(2),
+            .descSets = std::vector<VkDescriptorSet>(2*gaussPartition),
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+                    .addBinding({1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     // grid, predPos, lambda, density, grid idx, type, avg
-                    .addSameTypeBindings(1, 7,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    .addSameTypeBindings(2, 8,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 
     vkb::SimulationKernel posCorrectionKernel {
             .computeSystem{device, COMPILED_SHADER_DIR + shaders[computeShaderStartIdx + 2] + ".spv"},
-            .descSets = std::vector<VkDescriptorSet>(2),
+            .descSets = std::vector<VkDescriptorSet>(2*gaussPartition),
             .layout = vkb::DescriptorSetLayout::Builder(device)
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
-                    // grid, predPos, lambda, grid idx, type
-                    .addSameTypeBindings(1, 5,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    .addBinding({1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
+                    // grid, predPos, lambda, grid idx, type, corr
+                    .addSameTypeBindings(2, 7,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 
