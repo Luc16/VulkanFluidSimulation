@@ -506,16 +506,18 @@ void PBFGPU3DSim::mainLoop(float deltaTime) {
             currentTime = time;
         }
 
-        renderer.runFrame([this](VkCommandBuffer commandBuffer){
-            showImGui();
-            renderObjects(commandBuffer);
-        }, computeHandler.currentSemaphore(renderer.currentFrame()), vkb::ComputeShaderHandler::waitStages());
+        if (!test)
+            renderer.runFrame([this](VkCommandBuffer commandBuffer){
+                showImGui();
+                renderObjects(commandBuffer);
+            }, computeHandler.currentSemaphore(renderer.currentFrame()), vkb::ComputeShaderHandler::waitStages());
     } else {
-        renderer.runFrame([this](VkCommandBuffer commandBuffer){
-            showImGui();
-            if (controlMode) initializeObjects(false);
-            renderObjects(commandBuffer);
-        });
+        if (!test)
+            renderer.runFrame([this](VkCommandBuffer commandBuffer){
+                showImGui();
+                if (controlMode) initializeObjects(false);
+                renderObjects(commandBuffer);
+            });
     }
 
     if (activateTimer) drawTime = std::chrono::duration<float, std::chrono::milliseconds::period>(std::chrono::high_resolution_clock::now() - currentTime).count();
@@ -610,7 +612,7 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
 
 void PBFGPU3DSim::updateSimulation() {
 
-    computeHandler.runCompute(renderer.currentFrame(), [this](VkCommandBuffer computeCommandBuffer){
+    auto simulationStep = [this](VkCommandBuffer computeCommandBuffer){
         uint32_t blockSize = NUM_PARTICLES / 256 + (1 - (NUM_PARTICLES % 256 == 0));
         uint32_t solverBlockSize = blockSize/gaussPartition + (1 - (blockSize % gaussPartition == 0));
 
@@ -629,13 +631,13 @@ void PBFGPU3DSim::updateSimulation() {
                     uint32_t descSetIdx = computeFrameIdx*gaussPartition + j;
                     lambdaKernel.bindAndDispatch(computeCommandBuffer, descSetIdx, solverBlockSize, 1, 1);
 
-                    vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
+//                    vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
 
                     posCorrectionKernel.bindAndDispatch(computeCommandBuffer, descSetIdx, solverBlockSize, 1, 1);
 
-                    vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
                 }
             }
+//            vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
 
             updateVelocitiesKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
 
@@ -654,32 +656,38 @@ void PBFGPU3DSim::updateSimulation() {
 
             computeFrameIdx = (computeFrameIdx + 1) % positionBuffers.size();
         }
-    });
+    };
 
-//    std::vector<float> avgDens(1);
-//    static uint32_t frame = 0;
-//    vkb::Buffer::writeBufferToVector(device, avgDensBuffer, avgDens);
-////    std::cout << "Frame: " <<  frame++ << " Average density: " << avgDens[0]/float(substeps*jacobiIterations*NUM_FLUID_PARTICLES) << std::endl;
-//    if (frame++ > 0) {
-//        auto val = std::to_string(avgDens[0]/float(substeps*jacobiIterations*NUM_FLUID_PARTICLES));
-////        val.replace(val.find('.'), 1, ",");
-//        std::cout << frame - 1 << "\t" << val << std::endl;
-//    }
-//    static bool sla = false;
-//    if (frame >= 400) {
-//        std::cout << "end\n";
-//        if (sla) endProgram();
-//        sla = true;
-//        gaussPartition = 1;
-//        hardResetFrame = 0;
-//        disableEmergencyExit();
-//        onCreate();
-//        controlMode = false;
-//        pausedSimulation = false;
-//        frame = 0;
-//    }
-//    avgDens[0] = 0;
-//    vkb::Buffer::writeVectorToBuffer(device, avgDensBuffer, avgDens);
+    if (!test) computeHandler.runCompute(renderer.currentFrame(), simulationStep);
+    else {
+        computeHandler.runComputeIsolated(renderer.currentFrame(), simulationStep);
+        std::vector<float> avgDens(1);
+        static uint32_t frame = 0;
+        vkb::Buffer::writeBufferToVector(device, avgDensBuffer, avgDens);
+    //    std::cout << "Frame: " <<  frame++ << " Average density: " << avgDens[0]/float(substeps*jacobiIterations*NUM_FLUID_PARTICLES) << std::endl;
+        if (frame++ > 0) {
+            auto val = std::to_string(avgDens[0]/float(substeps*jacobiIterations*NUM_FLUID_PARTICLES));
+    //        val.replace(val.find('.'), 1, ",");
+            std::cout << frame - 1 << "\t" << val << std::endl;
+        }
+        static bool sla = false;
+        if (frame >= 500) {
+            std::cout << "end\n";
+            if (sla) endProgram();
+            sla = true;
+            gaussPartition = 1;
+            hardResetFrame = 0;
+            disableEmergencyExit();
+            onCreate();
+            controlMode = false;
+            pausedSimulation = false;
+            frame = 0;
+        }
+        avgDens[0] = 0;
+        vkb::Buffer::writeVectorToBuffer(device, avgDensBuffer, avgDens);
+    }
+
+
 }
 
 void PBFGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){
@@ -763,8 +771,16 @@ void PBFGPU3DSim::showImGui(){
     }
 
     if (ImGui::CollapsingHeader("Simulation constants")) {
+        int sub = int(substeps);
+        ImGui::DragInt("Num substeps", &sub, 0.1, 1, 8);
+        substeps = sub;
+
+        int gauss = int(gaussPartition);
+        ImGui::DragInt("Num gaussPartition", &gauss, 0.1, 1, 8);
+        gaussPartition = gauss;
+
         int iJac = int(jacobiIterations);
-        ImGui::DragInt("Num iterations", &iJac, 1, 1, 8);
+        ImGui::DragInt("Num iterations", &iJac, 0.1, 1, 8);
         jacobiIterations = iJac;
         ImGui::DragFloat("DeltaTime", &cUbo.DT, 0.00005f, 0.0005f, 0.02f, "%.5f");
         ImGui::DragFloat("Rest Density", &cUbo.REST_DENS, 1.0f, 2000.0f, 10000.0f, "%.0f");

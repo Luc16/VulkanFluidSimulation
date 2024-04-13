@@ -18,7 +18,7 @@ def main():
             frames.append(f)
             gauss2.append(g2)
 
-    plt.plot(frames, gauss2, label="SOR")
+    plt.plot(frames, gauss2, label="Gauss-Seidel")
 
     frames = []
     for d in data[1].split("\n"):
@@ -27,7 +27,7 @@ def main():
             frames.append(f)
             jacobi.append(j)
 
-    plt.plot(frames, jacobi, label="jacobi")
+    plt.plot(frames, jacobi, label="Jacobi")
     plt.legend()
     plt.show()
 

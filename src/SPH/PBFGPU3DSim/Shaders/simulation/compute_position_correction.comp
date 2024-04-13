@@ -44,6 +44,14 @@ void main()
 
     vec3 deltaP = vec3(0.0f);
 
+    // precompute constants
+    float spikyGrad = ubo.SPIKY_GRAD;
+    float h = ubo.H;
+    float hsq = ubo.HSQ;
+    float restDens = ubo.REST_DENS;
+    float artPressureCoef = ubo.ART_PRESSURE_COEF;
+
+
     // For each neighbor
     int numCellsX = int(ubo.BOUNDARY_SIZE.x/ubo.H);
     int numCellsZ = int(ubo.BOUNDARY_SIZE.z/ubo.H);
@@ -69,23 +77,23 @@ void main()
 
                     if (i == j || dist2 < 0.0000001f) continue;
 
-                    if (dist2 < ubo.HSQ) {
+                    if (dist2 < hsq) {
                         float dist = sqrt(dist2);
                         float ftype = float(types[j]);
                         // collision with rigid objects
-                        deltaP += ubo.REST_DENS*ftype*(ubo.H - dist)*(vec/dist);
+                        deltaP += restDens*ftype*(h - dist)*(vec/dist);
 
-                        float delta = ubo.H - dist;
-                        float sCorr = -ubo.ART_PRESSURE_COEF * pow((ubo.HSQ - dist2)/(ubo.HSQ - 0.0009), 12.0f);
+                        float delta = h - dist;
+                        float sCorr = -artPressureCoef * pow((hsq - dist2)/(hsq - 0.0009), 12.0f);
 
-                        deltaP += (1-ftype)*(vec / dist) * (lbda + lambdas[j] + sCorr) * ubo.SPIKY_GRAD * delta * delta;
+                        deltaP += (1-ftype)*(vec / dist) * (lbda + lambdas[j] + sCorr) * spikyGrad * delta * delta;
 
                     }
                 }
             }
         }
     }
-    deltaP /= ubo.REST_DENS;
+    deltaP /= restDens;
 
     pPos += deltaP;
 //    float w = 1.5f;

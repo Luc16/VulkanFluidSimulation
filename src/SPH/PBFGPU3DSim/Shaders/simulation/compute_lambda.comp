@@ -54,6 +54,15 @@ void main()
     vec3 pPos = predPos[i];
     int gIdx = gridIdx[i];
 
+    // Precompute constants
+    float hsq = ubo.HSQ;
+    float poly6 = ubo.POLY6;
+    float spikyGrad = ubo.SPIKY_GRAD;
+    float restDens = ubo.REST_DENS;
+    float cfm = ubo.CFM;
+    float h = ubo.H;
+    float restDensInv = 1.0 / restDens;
+
     // For each neighbor
     int numCellsX = int(ubo.BOUNDARY_SIZE.x/ubo.H);
     int numCellsZ = int(ubo.BOUNDARY_SIZE.z/ubo.H);
@@ -73,14 +82,14 @@ void main()
                     vec3 vec = pPos - predPos[j];
                     float dist2 = dot(vec, vec);
 
-                    if (dist2 < ubo.HSQ) {
-                        dens += ubo.POLY6 * pow(ubo.HSQ - dist2, 3.f);
+                    if (dist2 < hsq) {
+                        dens += poly6 * pow(hsq - dist2, 3.f);
 
                         if (i == j || dist2 < 0.0000001f) continue;
 
                         float dist = sqrt(dist2);
-                        float delta = ubo.H - dist;
-                        vec3 gradCj = (vec/dist) * ubo.SPIKY_GRAD * delta * delta;
+                        float delta = h - dist;
+                        vec3 gradCj = (vec/dist) * spikyGrad * delta * delta;
 
                         // contribution from particle
                         gradCiSum += gradCj;
@@ -98,9 +107,9 @@ void main()
 
     atomicAdd(avgDens[0], dens);
 //    densities[i] = dens;
-    float gradConstraintSqSum = (gradCsqSum + dot(gradCiSum, gradCiSum))/(ubo.REST_DENS * ubo.REST_DENS);
+    float gradConstraintSqSum = (gradCsqSum + dot(gradCiSum, gradCiSum))*restDensInv*restDensInv;
 
-    float constraint = dens/ubo.REST_DENS - 1;
+    float constraint = dens*restDensInv - 1;
 
     lambdas[i] = - constraint / (gradConstraintSqSum + ubo.CFM);
 }
