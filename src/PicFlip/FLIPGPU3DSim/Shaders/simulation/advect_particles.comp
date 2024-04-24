@@ -8,15 +8,15 @@ layout (binding = 0) uniform ParameterUBO {
     ComputeUBO ubo;
 };
 
-layout(std430, binding = 1) buffer VelXSSBO {
+layout(std430, binding = 1) readonly buffer VelXSSBO {
     float velX[ ];
 };
 
-layout(std430, binding = 2) buffer VelYSSBO {
+layout(std430, binding = 2) readonly buffer VelYSSBO {
     float velY[ ];
 };
 
-layout(std430, binding = 3) buffer VelZSSBO {
+layout(std430, binding = 3) readonly buffer VelZSSBO {
     float velZ[ ];
 };
 

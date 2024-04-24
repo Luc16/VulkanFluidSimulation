@@ -36,7 +36,7 @@ struct UniformBufferObject {
     float zNear = 0.1f;
     float zFar = 500.0f;
     uint32_t blurMode = 0;
-    int filterRadius = 5;
+    int filterRadius = 14;
     float blurScale = 0.2;
     float blurDepthFalloff = 1000;
     alignas(16) glm::vec3 planeSize;

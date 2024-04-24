@@ -17,13 +17,25 @@ float getDepth(ivec2 texPos) {
     return texelFetch(samplerDepth, texPos, 0).r;
 }
 
+float linearizeDepth(float depth){
+    float n = ubo.zNear;
+    float f = ubo.zFar;
+    float z = depth;
+    return (2.0 * n) / (f + n - z * (f - n));
+}
+
 float bilateral(ivec2 texPos) {
     float z = getDepth(texPos);
 
+    float lz = linearizeDepth(z);
+    float depthRadius = ubo.screenWidth / (600000 * lz * ubo.tanHalfFov);
+    int filterRadius = int(float(ubo.filterRadius)*min(depthRadius, 1.0f));
+    debugPrintfEXT("filterRadius: %f, ubo: %d, z: %f\n", float(ubo.filterRadius)*depthRadius, ubo.filterRadius, lz);
+
     float sum = 0;
     float wsum = 0;
-    for(int dx = -ubo.filterRadius; dx <= ubo.filterRadius; dx++) {
-        for(int dy = -ubo.filterRadius; dy <= ubo.filterRadius; dy++) {
+    for(int dx = -filterRadius; dx <= filterRadius; dx++) {
+        for(int dy = -filterRadius; dy <= filterRadius; dy++) {
             ivec2 dPos = ivec2(dx, dy);
             float curZ = getDepth(texPos + dPos);
             // spatial domain

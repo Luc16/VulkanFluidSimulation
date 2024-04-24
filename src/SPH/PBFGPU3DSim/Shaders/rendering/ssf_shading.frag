@@ -21,7 +21,7 @@ layout (binding = 6) uniform samplerCube samplerCubeMap;
 
 layout (location = 0) out vec4 outFragColor;
 
-const vec3 defaultColor = vec3(6, 105, 217) / 256;
+const vec3 defaultColor = vec3(15,94,156) / 256;
 const float fresnel_bias = 0.1;
 const float fresnel_scale = 1.5f;
 const float fresnel_power = 3.0f;
