@@ -771,6 +771,7 @@ void PBFGPU3DSim::showImGui(){
         disableKeyboardControl = true;
 
     }
+    bool hardReset = false;
 
     if (ImGui::CollapsingHeader("Simulation constants")) {
         int sub = int(substeps);
@@ -779,6 +780,7 @@ void PBFGPU3DSim::showImGui(){
 
         int gauss = int(gaussPartition);
         ImGui::DragInt("Num gaussPartition", &gauss, 0.1, 1, 8);
+        if (gauss > gaussPartition) hardReset = true;
         gaussPartition = gauss;
 
         int iJac = int(jacobiIterations);
@@ -880,7 +882,7 @@ void PBFGPU3DSim::showImGui(){
         hardResetFrame = 2;
         enableEmergencyExit();
     }
-    if (ImGui::Button("Hard Reset")) {
+    if (ImGui::Button("Hard Reset") || hardReset) {
         hardResetFrame = 0;
         disableEmergencyExit();
         onCreate();
@@ -1199,10 +1201,6 @@ void PBFGPU3DSim::loadDataFromJson(const std::string &fileName) {
     initialPos[2] = jsonData["initial params"]["initialPos"][2];
 
     NUM_RIGID_PARTICLES = 0;
-    for (const auto& rigidObj : rigidObjects) {
-        NUM_RIGID_PARTICLES += rigidObj.numParticles();
-    }
-    NUM_PARTICLES -= NUM_RIGID_PARTICLES;
     rigidObjects.clear();
     rigidObjectsNames.clear();
     std::for_each(rigidObjectTypes.begin(), rigidObjectTypes.end(),[](auto& elem){elem.first = 0;});
@@ -1210,6 +1208,9 @@ void PBFGPU3DSim::loadDataFromJson(const std::string &fileName) {
         for (const auto& rigidObjData : jsonData["rigid objects"]){
             addRigidObject(rigidObjData[0]);
             rigidObjects[rigidObjects.size()-1].translate(glm::vec3(rigidObjData[1][0], rigidObjData[1][1], rigidObjData[1][2]));
+            uint32_t objParticles = rigidObjects[rigidObjects.size()-1].numParticles();
+            NUM_RIGID_PARTICLES += objParticles;
+            NUM_PARTICLES -= objParticles;
         }
     }
 }
