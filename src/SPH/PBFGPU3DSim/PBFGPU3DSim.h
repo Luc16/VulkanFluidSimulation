@@ -59,7 +59,7 @@ private:
     uint32_t jacobiIterations = 4;
     uint32_t substeps = 1;
     uint32_t gaussPartition = 2;
-    bool test = false;
+    bool test = true;
     int blurIterations = 2;
     uint32_t GRID_SIZE = 0;
 

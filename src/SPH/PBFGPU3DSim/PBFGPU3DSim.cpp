@@ -614,7 +614,7 @@ void PBFGPU3DSim::updateSimulation() {
 
     auto simulationStep = [this](VkCommandBuffer computeCommandBuffer){
         uint32_t blockSize = NUM_PARTICLES / 256 + (1 - (NUM_PARTICLES % 256 == 0));
-        uint32_t solverBlockSize = NUM_PARTICLES/(gaussPartition*512) + (1 - (NUM_PARTICLES % (gaussPartition*512) == 0));
+        uint32_t solverBlockSize = NUM_PARTICLES/(gaussPartition*256) + (1 - (NUM_PARTICLES % (gaussPartition*256) == 0));
 
         for (uint32_t _ = 0; _ < substeps; _++) {
             predictPositionKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);

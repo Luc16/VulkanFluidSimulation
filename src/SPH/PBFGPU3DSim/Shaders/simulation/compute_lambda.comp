@@ -41,11 +41,11 @@ layout(std430, binding = 8) buffer AvgDensSSBO {
     float avgDens[ ];
 };
 
-layout (local_size_x = 512, local_size_y = 1, local_size_z = 1) in;
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 void main()
 {
-    uint i = subo.solverSteps*gl_GlobalInvocationID.x + subo.step;
+    uint i = gl_WorkGroupSize.x*(gl_WorkGroupID.x*subo.solverSteps + subo.step) + gl_LocalInvocationID.x;
     if (i >= ubo.numParticles || types[i] != 0) return;
 
     vec3 gradCiSum = vec3(0.0f);
