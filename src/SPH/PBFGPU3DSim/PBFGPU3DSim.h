@@ -291,7 +291,7 @@ private:
     std::string saveFileName;
     std::vector<std::string> presets;
     bool isSaveWindowOpen = false, isLoadWindowOpen = false, disableKeyboardControl = false, isAddWindowOpen = false;
-    bool activateTimer = true, controlMode = false, objectsInitialized = false, pausedSimulation = false;
+    bool activateTimer = false, controlMode = false, objectsInitialized = false, pausedSimulation = false;
     bool activateWaves = false, showParticles = false, singleStep = false;
     bool activateVisc = true, activateVorticity = true, renderSkybox = true;
     float wallForwardSpeed = 0.4f * cUbo.H / cUbo.DT, wallBackwardSpeed = 0.1f * cUbo.H / cUbo.DT, wallLimit = 0.2f * cUbo.BOUNDARY_SIZE.x, curSpeed = 0.0f;
