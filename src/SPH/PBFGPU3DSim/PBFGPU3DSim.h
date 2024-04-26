@@ -186,6 +186,10 @@ private:
     std::unique_ptr<vkb::Buffer> lambdaBuffer;
     std::unique_ptr<vkb::Buffer> gridIdxBuffer;
     std::unique_ptr<vkb::Buffer> avgDensBuffer;
+    std::unique_ptr<vkb::Buffer> alignedLambdaBuffer;
+    std::unique_ptr<vkb::Buffer> alignedGridIdxBuffer;
+    std::unique_ptr<vkb::Buffer> alignedTypeBuffer;
+    std::unique_ptr<vkb::Buffer> alignedPredPosBuffer;
 
     std::array<std::vector<std::pair<VkBuffer, VkDeviceSize>>, 2> particleBarrierData;
 
@@ -222,7 +226,7 @@ private:
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     .addBinding({1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     // grid, predPos, lambda, density, grid idx, type, avg
-                    .addSameTypeBindings(2, 8,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    .addSameTypeBindings(2, 10,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 
@@ -233,7 +237,7 @@ private:
                     .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     .addBinding({1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                     // grid, predPos, lambda, grid idx, type, corr
-                    .addSameTypeBindings(2, 7,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                    .addSameTypeBindings(2, 10,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
 
@@ -287,7 +291,7 @@ private:
     std::string saveFileName;
     std::vector<std::string> presets;
     bool isSaveWindowOpen = false, isLoadWindowOpen = false, disableKeyboardControl = false, isAddWindowOpen = false;
-    bool activateTimer = false, controlMode = false, objectsInitialized = false, pausedSimulation = false;
+    bool activateTimer = true, controlMode = false, objectsInitialized = false, pausedSimulation = false;
     bool activateWaves = false, showParticles = false, singleStep = false;
     bool activateVisc = true, activateVorticity = true, renderSkybox = true;
     float wallForwardSpeed = 0.4f * cUbo.H / cUbo.DT, wallBackwardSpeed = 0.1f * cUbo.H / cUbo.DT, wallLimit = 0.2f * cUbo.BOUNDARY_SIZE.x, curSpeed = 0.0f;

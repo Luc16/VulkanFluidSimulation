@@ -30,29 +30,38 @@ layout(std430, binding = 5) buffer DensitySSBO {
 };
 
 layout(std430, binding = 6) readonly buffer ParticleIdxSSBO {
-    int gridIdx[ ];
+    int alignedGridIdx[ ];
 };
 
 layout(std430, binding = 7) readonly buffer ParticleTypeSSBO {
-    uint types[ ];
+    uint alignedTypes[ ];
 };
 
 layout(std430, binding = 8) buffer AvgDensSSBO {
     float avgDens[ ];
 };
 
+layout(std430, binding = 9) readonly buffer AlignedPositionSSBO {
+    vec3 alignedPredPos[ ];
+};
+
+layout(std430, binding = 10) buffer AlignedLambdaSSBO {
+    float alignedLambdas[ ];
+};
+
 layout (local_size_x = 512, local_size_y = 1, local_size_z = 1) in;
 
 void main()
 {
-    uint i = subo.solverSteps*gl_GlobalInvocationID.x + subo.step;
-    if (i >= ubo.numParticles || types[i] != 0) return;
+    uint offset = ubo.numParticles/subo.solverSteps;
+    uint i = gl_GlobalInvocationID.x + subo.step*offset;
+    if (i >= (subo.step + 1)*offset || alignedTypes[i] != 0) return;
 
     vec3 gradCiSum = vec3(0.0f);
     float gradCsqSum = 0;
     float dens = 0;
-    vec3 pPos = predPos[i];
-    int gIdx = gridIdx[i];
+    vec3 pPos = alignedPredPos[i];
+    int gIdx = alignedGridIdx[i];
 
     // Precompute constants
     float hsq = ubo.HSQ;
@@ -111,5 +120,7 @@ void main()
 
     float constraint = dens*restDensInv - 1;
 
-    lambdas[i] = - constraint / (gradConstraintSqSum + ubo.CFM);
+    float lambda = - constraint / (gradConstraintSqSum + cfm);
+    lambdas[subo.solverSteps*(i - subo.step*offset) + subo.step] = lambda;
+    alignedLambdas[i] = lambda;
 }

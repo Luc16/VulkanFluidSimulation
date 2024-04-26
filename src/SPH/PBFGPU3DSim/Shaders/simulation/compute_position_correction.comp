@@ -24,7 +24,7 @@ layout(std430, binding = 4) buffer LambdaSSBO {
 };
 
 layout(std430, binding = 5) readonly buffer ParticleIdxSSBO {
-    int gridIdx[ ];
+    int alignedGridIdx[ ];
 };
 
 layout(std430, binding = 6) readonly buffer ParticleTypeSSBO {
@@ -35,12 +35,25 @@ layout(std430, binding = 7) buffer PrevCorrSSBO {
     vec3 prev[ ];
 };
 
+layout(std430, binding = 8) readonly buffer AlignedParticleTypeSSBO {
+    uint alignedTypes[ ];
+};
+
+layout(std430, binding = 9) buffer AlignedPositionSSBO {
+    vec3 alignedPredPos[ ];
+};
+
+layout(std430, binding = 10) readonly buffer AlignedLambdaSSBO {
+    float alignedLambdas[ ];
+};
+
 layout (local_size_x = 512, local_size_y = 1, local_size_z = 1) in;
 
 void main()
 {
-    uint i = subo.solverSteps*gl_GlobalInvocationID.x + subo.step;
-    if (i >= ubo.numParticles || types[i] != 0) return;
+    uint offset = ubo.numParticles/subo.solverSteps;
+    uint i = gl_GlobalInvocationID.x + subo.step*offset;
+    if (i >= (subo.step + 1)*offset || alignedTypes[i] != 0) return;
 
     vec3 deltaP = vec3(0.0f);
 
@@ -56,9 +69,9 @@ void main()
     int numCellsX = int(ubo.BOUNDARY_SIZE.x/ubo.H);
     int numCellsZ = int(ubo.BOUNDARY_SIZE.z/ubo.H);
 
-    vec3 pPos = predPos[i];
-    int gIdx = gridIdx[i];
-    float lbda = lambdas[i];
+    vec3 pPos = alignedPredPos[i];
+    int gIdx = alignedGridIdx[i];
+    float lbda = alignedLambdas[i];
 
     for (int y = -1; y <= 1; y++){
         int idxy = y*numCellsX*numCellsZ;
@@ -100,7 +113,7 @@ void main()
 //    if (subo.solverSteps > 1) pPos += w*deltaP + (1-w)*prev[i];
 //    else pPos += deltaP;
 
-    prev[i] = deltaP;
+//    prev[i] = deltaP;
 
     // enforce boundary conditions
     float nearEPS = ubo.EPS*(1 + 0.02);
@@ -120,5 +133,6 @@ void main()
         pPos.y = ubo.BOUNDARY_SIZE.y - nearEPS;
     }
 
-    predPos[i] = pPos;
+    predPos[subo.solverSteps*(i - subo.step*offset) + subo.step] = pPos;
+    alignedPredPos[i] = pPos;
 }
