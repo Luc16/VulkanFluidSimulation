@@ -3,7 +3,6 @@
 
 layout (binding = 0) uniform ParameterUBO {
     uint numParticles;
-    uint solverSteps;
     float spacing;
     vec3 boundSize;
 } ubo;
@@ -56,18 +55,6 @@ layout(std430, binding = 12) buffer OutDeltaPSSBO {
     vec3 outDeltaP[ ];
 };
 
-layout(std430, binding = 13) buffer AlignedParticleTypeSSBO {
-    uint alignedTypes[ ];
-};
-
-layout(std430, binding = 14) buffer AlignedPositionSSBO {
-    vec3 alignedPredPos[ ];
-};
-
-layout(std430, binding = 15) buffer AlignedParticleIdxSSBO {
-    int alignedGridIdx[ ];
-};
-
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
@@ -92,9 +79,4 @@ void main()
     outDeltaP[k-1] = deltaP[i];
     gridIdx[k-1] = gidx;
 
-    // aligned buffers
-    uint idx = (k-1)/ubo.solverSteps + ((k-1) % ubo.solverSteps)*ubo.numParticles/ubo.solverSteps;
-    alignedGridIdx[idx] = gidx;
-    alignedTypes[idx] = type[i];
-    alignedPredPos[idx] = pPos;
 }

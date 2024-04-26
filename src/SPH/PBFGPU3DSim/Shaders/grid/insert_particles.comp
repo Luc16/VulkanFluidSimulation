@@ -3,7 +3,6 @@
 
 layout (binding = 0) uniform ParameterUBO {
     uint numParticles;
-    uint solverSteps;
     float spacing;
     vec3 boundSize;
 } ubo;

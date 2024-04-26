@@ -240,11 +240,9 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
                     {predPosBuffers[(i + 1) % predPosBuffers.size()]->descriptorInfo()},
                     {lambdaBuffer->descriptorInfo()},
                     {densityBuffer->descriptorInfo()},
-                    {alignedGridIdxBuffer->descriptorInfo()},
-                    {alignedTypeBuffer->descriptorInfo()},
+                    {gridIdxBuffer->descriptorInfo()},
+                    {particleTypeBuffers[(i + 1) % particleTypeBuffers.size()]->descriptorInfo()},
                     {avgDensBuffer->descriptorInfo()},
-                    {alignedPredPosBuffer->descriptorInfo()},
-                    {alignedLambdaBuffer->descriptorInfo()},
             });
 
             posCorrectionKernel.descSets[idx] = vkb::DescriptorWriter::createSingleDescriptorSet(globalDescriptorPool, posCorrectionKernel.layout, {
@@ -253,12 +251,9 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
                     {gridHandler.gridDescriptorInfo()},
                     {predPosBuffers[(i + 1) % predPosBuffers.size()]->descriptorInfo()},
                     {lambdaBuffer->descriptorInfo()},
-                    {alignedGridIdxBuffer->descriptorInfo()},
+                    {gridIdxBuffer->descriptorInfo()},
                     {particleTypeBuffers[(i + 1) % particleTypeBuffers.size()]->descriptorInfo()},
                     {deltaPBuffers[(i + 1) % deltaPBuffers.size()]->descriptorInfo()},
-                    {alignedTypeBuffer->descriptorInfo()},
-                    {alignedPredPosBuffer->descriptorInfo()},
-                    {alignedLambdaBuffer->descriptorInfo()},
             });
         }
 
@@ -403,12 +398,6 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
 
         lambdaBuffer = makeBuffer(particles.position.size()*sizeof(float));
         gridIdxBuffer = makeBuffer(particles.gIdx.size() * sizeof(uint32_t));
-
-        // create aligned buffers
-        alignedPredPosBuffer = makeBuffer(particles.position.size() * sizeof(glm::vec4));
-        alignedLambdaBuffer = makeBuffer(particles.position.size() * sizeof(float));
-        alignedGridIdxBuffer = makeBuffer(particles.gIdx.size() * sizeof(uint32_t));
-        alignedTypeBuffer = makeBuffer(particles.type.size() * sizeof(uint32_t));
     }
 
     // create barriers
@@ -431,16 +420,13 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
         gridHandler.createDescriptorsAndBuffers(
                 globalDescriptorPool,
                 GRID_SIZE,
-                {cUbo.numParticles, gaussPartition, cUbo.H, cUbo.BOUNDARY_SIZE},
+                {cUbo.numParticles, cUbo.H, cUbo.BOUNDARY_SIZE},
                 gridIdxBuffer,
                 positionBuffers,
                 velocityBuffers,
                 predPosBuffers,
                 particleTypeBuffers,
-                deltaPBuffers,
-                alignedTypeBuffer,
-                alignedPredPosBuffer,
-                alignedGridIdxBuffer);
+                deltaPBuffers);
     }
 
     //free descriptor sets

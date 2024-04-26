@@ -22,7 +22,6 @@ namespace vkb {
 
         struct GridParticleUniformBufferObject {
             uint32_t numParticles;
-            uint32_t solverSteps;
             float spacing;
             alignas(16) glm::vec3 boundSize;
         };
@@ -42,16 +41,13 @@ namespace vkb {
         void createSystems();
 
         void createDescriptorsAndBuffers(const std::unique_ptr<DescriptorPool>& globalPool,
-                                         uint32_t gridSize, GridParticleUniformBufferObject uboData,
-                                         const std::unique_ptr<Buffer>& gridIdxBuffer,
-                                         const std::array<std::unique_ptr<Buffer>, 2>& particlePosBuffers,
-                                         const std::array<std::unique_ptr<Buffer>, 2>& particleVelBuffers,
-                                         const std::array<std::unique_ptr<Buffer>, 2>& particlePredPosBuffers,
-                                         const std::array<std::unique_ptr<Buffer>, 2>& particleTypeBuffers,
-                                         const std::array<std::unique_ptr<Buffer>, 2>& deltaPBuffers,
-                                         const std::unique_ptr<Buffer>& alignedTypeBuffer,
-                                         const std::unique_ptr<Buffer>& alignedPredPosBuffer,
-                                         const std::unique_ptr<Buffer>& alignedGridIdxBuffer);
+                                                                     uint32_t gridSize, GridParticleUniformBufferObject uboData,
+                                                                     const std::unique_ptr<Buffer>& particleIdxBuffer,
+                                                                     const std::array<std::unique_ptr<Buffer>, 2>& particlePosBuffers,
+                                                                     const std::array<std::unique_ptr<Buffer>, 2>& particleVelBuffers,
+                                                                     const std::array<std::unique_ptr<Buffer>, 2>& particlePredPosBuffers,
+                                                                     const std::array<std::unique_ptr<Buffer>, 2>& particleTypeBuffers,
+                                                                     const std::array<std::unique_ptr<Buffer>, 2>& deltaPBuffers);
 
         void resetGrid(VkCommandBuffer commandBuffer);
         void insertParticles(u_char frameIdx, VkCommandBuffer commandBuffer);
@@ -98,7 +94,7 @@ namespace vkb {
         vkb::DescriptorSetLayout m_sortDescriptorLayout = vkb::DescriptorSetLayout::Builder(m_deviceRef)
                 .addBinding({0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr})
                 // grid, pos in, pos out, vel in, vel out, pred in, pred out, type in, type out, grid idx, deltaP, out deltaP
-                .addSameTypeBindings(1, 15, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
+                .addSameTypeBindings(1, 12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                 .build();
 
         VkDescriptorSet m_resetDescriptorSet{};
