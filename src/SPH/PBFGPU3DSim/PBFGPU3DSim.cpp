@@ -5,6 +5,8 @@
 #include "PBFGPU3DSim.h"
 
 void PBFGPU3DSim::onCreate() {
+    loadDataFromJson(PRESET_DIR + curFile.data());
+
     vkDeviceWaitIdle(device.device());
     presets.clear();
     for (const auto & entry : std::filesystem::directory_iterator(PRESET_DIR)){
@@ -1062,7 +1064,6 @@ void PBFGPU3DSim::showImGui(){
 
         ImGui::Text("Choose preset file");
 
-        static std::string_view curFile{"default.json"}; // this file must always exist
         if (ImGui::BeginCombo("##combo", curFile.data())) {
             for (const std::string_view preset : presets){
                 const std::string_view name = preset.substr(preset.find_last_of('/')+1);
