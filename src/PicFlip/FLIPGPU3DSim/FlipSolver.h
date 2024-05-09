@@ -27,13 +27,16 @@ public:
                m_deviceRef(device),
                m_shaderPaths(shaders),
                m_pressureSolverShaderPaths(pressureSolverShaders),
+               m_boxSize(boxSize),
                m_cUbo({ uint32_t (boxSize.x * boxSize.y * boxSize.z / (_cellSize * _cellSize * _cellSize)),
                         300'000,
                         1.0f / _cellSize,
                         _cellSize,
                         1 / 60.0f,
                         0.95f,
+                        0.0f,
                         {boxSize.x / _cellSize, boxSize.y / _cellSize, boxSize.z / _cellSize},
+                        {boxSize},
                         0.85}
                        ) {
         particleSpan = {m_cUbo.dim.x/2, m_cUbo.dim.y - 4, m_cUbo.dim.z/2};
@@ -61,12 +64,14 @@ private:
     constexpr static uint32_t m_workGroupSize = workGroupSize;
 
     // simulation params
-    uint32_t numIterations = 200;
-    bool kernelsInitialized = false;
+    uint32_t m_numIterations = 200;
+    bool m_kernelsInitialized = false;
+    glm::vec3 m_boxSize;
 
     void createBuffers();
     void initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &globalPool, const std::vector<RigidObject>& sceneObjectBuffers);
     void initializeParticles(bool dislocatePos);
+    void updateWall();
 
     const vkb::Device& m_deviceRef;
     const std::vector<std::string>& m_shaderPaths;
@@ -223,6 +228,11 @@ private:
                     .addSameTypeBindings(1, 8,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT)
                     .build()
     };
+
+
+public:
+    bool activateWaves = false;
+    float wallForwardSpeed = 0.04f * m_cUbo.cellSize / m_cUbo.dt, wallBackwardSpeed = 0.01f * m_cUbo.cellSize / m_cUbo.dt, wallLimit = 0.2f * m_cUbo.boxSize.x, curSpeed = 0.0f;
 };
 
 

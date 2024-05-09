@@ -87,13 +87,16 @@ void main() {
     if (i >= ubo.numParticles) return;
 
     vec3 minV = vec3(ubo.cellSize*1.5);
-    vec3 maxV = ubo.cellSize*vec3(ubo.dim) - minV;
+    vec3 maxV = ubo.boxSize - minV;
 
     vec3 pos = pPos[i];
     float dt = 0.2*ubo.dt;
     vec3 midWay = clamp(pos + 0.5*dt*getVelAt(pos), minV, maxV);
 
-    pos = clamp(pos + dt*getVelAt(midWay), minV, maxV);
+
+    pos = pos + dt*getVelAt(midWay);
+    if (abs(ubo.wallSpeed) > 1e-10 && pos.x > maxV.x) pVel[i].x = -2*ubo.wallSpeed;
+    pos = clamp(pos, minV, maxV);
 
     pPos[i] = pos;
 

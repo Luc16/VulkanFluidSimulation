@@ -57,7 +57,7 @@ private:
     uint32_t cellSize;
     uint32_t numTilesX;
     uint32_t numTilesY;
-    uint32_t numIterations = 200;
+    uint32_t m_numIterations = 200;
     uint32_t extensions = 4;
 
     void createBuffers();

@@ -6,6 +6,8 @@
 
 void FlipSolver::updateSimulation(float deltaTime) {
 
+    updateWall();
+
     uint32_t nGrid = m_cUbo.size/m_workGroupSize + 1;
     uint32_t nParticles = m_cUbo.numParticles/m_workGroupSize + 1;
     m_computeHandler.runComputeIsolated(0, [&](VkCommandBuffer commandBuffer) {
@@ -62,7 +64,7 @@ void FlipSolver::updateSimulation(float deltaTime) {
     });
 
 
-    int res = m_pressureSolver.solve(1e-4, numIterations);
+    int res = m_pressureSolver.solve(1e-4, m_numIterations);
     if (res == 1) {
         std::cout << "Pressure solver did not converge\n";
     }
@@ -83,8 +85,30 @@ void FlipSolver::updateSimulation(float deltaTime) {
     });
 }
 
+void FlipSolver::updateWall() {
+    if (!activateWaves) {
+        m_cUbo.boxSize = m_boxSize;
+        m_cUbo.dim = glm::vec<3, uint32_t>(m_boxSize/m_cUbo.cellSize);
+        return;
+    }
+
+    m_cUbo.boxSize.x -= curSpeed * m_cUbo.dt;
+    if (m_cUbo.boxSize.x <= m_boxSize.x - wallLimit) {
+        curSpeed = -wallBackwardSpeed;
+    } else if (m_cUbo.boxSize.x >= m_boxSize.x) {
+        m_cUbo.boxSize.x = m_boxSize.x;
+        curSpeed = wallForwardSpeed;
+    }
+
+    m_cUbo.wallSpeed = curSpeed;
+    m_computeUniformBuffer->write(&m_cUbo, sizeof(ComputeUniformBufferObject));
+
+}
+
 void FlipSolver::updateUniformBuffers(uint32_t numParticles, glm::vec3 boxSize, float cellSize, float flipRatio, double w) {
 
+    m_boxSize = boxSize;
+    m_cUbo.boxSize = boxSize;
     m_cUbo.numParticles = numParticles;
     if (cellSize > 0) {
         m_cUbo.cellSize = cellSize;
@@ -95,12 +119,11 @@ void FlipSolver::updateUniformBuffers(uint32_t numParticles, glm::vec3 boxSize, 
     m_cUbo.size = m_cUbo.dim.x*m_cUbo.dim.y*m_cUbo.dim.z;
     if (w > 0) m_cUbo.w = w;
 
-    std::vector<ComputeUniformBufferObject> uboVec = {m_cUbo};
-    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_computeUniformBuffer, uboVec);
-
+    m_computeUniformBuffer->write(&m_cUbo, sizeof(ComputeUniformBufferObject));
 }
 
 void FlipSolver::initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPool, const std::vector<RigidObject>& sceneObjectBuffers, bool dislocatePos)  {
+    activateWaves = false;
     createBuffers();
     initializeKernels(globalPool, sceneObjectBuffers);
     initializeParticles(dislocatePos);
@@ -159,7 +182,7 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
     m_applyPressureKernel.createPipeline();
     m_gridToParticleKernel.createPipeline();
 
-    if (kernelsInitialized) {
+    if (m_kernelsInitialized) {
         std::vector<VkDescriptorSet> setsToFree = {
                 m_advectParticlesKernel.descSets[0], m_resetGridKernel.descSets[0], m_particleToGridKernel.descSets[0],
                 m_applyWeightsAndGravityKernel.descSets[0], m_applyBoundaryConditionsKernel.descSets[0],
@@ -177,7 +200,7 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
         globalPool->freeDescriptors(setsToFree);
     }
 
-    kernelsInitialized = true;
+    m_kernelsInitialized = true;
 
     m_advectParticlesKernel.descSets[0] = vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_advectParticlesKernel.layout, {
             {m_computeUniformBuffer->descriptorInfo()},
@@ -324,10 +347,10 @@ void FlipSolver::createBuffers() {
     m_computeUniformBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
                                                            sizeof(ComputeUniformBufferObject),
                                                            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                                           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+                                                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-    std::vector<ComputeUniformBufferObject> uboVec = {m_cUbo};
-    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_computeUniformBuffer, uboVec);
+    m_computeUniformBuffer->map();
+    m_computeUniformBuffer->write(&m_cUbo, sizeof(ComputeUniformBufferObject));
 
     m_matrixBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
                                                    7*m_cUbo.size*sizeof(double),

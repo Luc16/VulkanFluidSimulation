@@ -9,7 +9,9 @@ struct ComputeUBO {
     float cellSize;
     float dt;
     float flipRatio;
+    float wallSpeed;
     ivec3 dim;
+    vec3 boxSize;
     double w;
 };
 

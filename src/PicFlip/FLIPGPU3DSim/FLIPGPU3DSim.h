@@ -183,6 +183,7 @@ private:
     float gpuTime = 0, cpuTime = 0;
     bool activateTimer = false, paused = false, singleStep = false, controlMode = false;
 
+
     void onCreate() override;
     void initializeObjects(bool start = true);
     void initializeGridLines();

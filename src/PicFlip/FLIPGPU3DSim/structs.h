@@ -17,7 +17,9 @@ struct ComputeUniformBufferObject {
     float cellSize;
     float dt;
     float flipRatio;
+    float wallSpeed;
     alignas(16) glm::ivec3 dim;
+    alignas(16) glm::vec3 boxSize;
     alignas(8) double w;
 };
 

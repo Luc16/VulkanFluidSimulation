@@ -62,7 +62,7 @@ private:
     bool test = false;
     int blurIterations = 2;
     uint32_t GRID_SIZE = 0;
-    std::string_view curFile{"rocky_cliff.json"};
+    std::string_view curFile{"default.json"};
 
     static constexpr uint32_t gridShaderStartIdx = 16;
     static constexpr uint32_t computeShaderStartIdx = 21;

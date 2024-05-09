@@ -19,7 +19,7 @@ template<uint32_t numTilesX, uint32_t numTilesY, uint32_t cellSize, uint32_t num
 class FlipSolver {
 public:
     FlipSolver(float particleRadius, uint32_t numIterations, uint32_t extensions):
-            particleRadius(particleRadius), numIterations(numIterations), extensions(extensions) {}
+            particleRadius(particleRadius), m_numIterations(numIterations), extensions(extensions) {}
 
     [[nodiscard]] float getVelX(uint32_t i, uint32_t j) { return current.velX(i, j); }
     [[nodiscard]] float getVelY(uint32_t i, uint32_t j) { return current.velY(i, j); }
@@ -42,7 +42,7 @@ private:
 
 
         float particleRadius;
-        uint32_t numIterations;
+        uint32_t m_numIterations;
         uint32_t extensions;
         uint32_t fluidCells = 0;
         float dt = 1/60.0f;
@@ -396,7 +396,7 @@ void FlipSolver<numTilesX, numTilesY, cellSize, numParticles>::projectVelocities
 
 
     // solve system with CG
-    auto res = pressureSolver.solve(A, rhs, pressure, numIterations, 1e-6);
+    auto res = pressureSolver.solve(A, rhs, pressure, m_numIterations, 1e-6);
     if (res >= 1) {
         std::cout << "Num iteration exceeded!!\n";
     }

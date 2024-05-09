@@ -8,12 +8,12 @@ void FLIPGPU3DSim::onCreate() {
     camera.m_translation = {-3.85021f, 6.08832f, 4.48576f};
     camera.m_rotation = {0.72675f, 2.22789f, 3.14159f};
     camera.updateView();
-    rocks.emplace_back(device, "../Models/rockA.obj", rockTex, 0.05f);
-    rocks[0].translate(glm::vec3(5.0f, 1.5f, 5.0f));
-    rigidObjectsNames.emplace_back("Rock 0");
-    rocks.emplace_back(device, "../Models/rockA.obj", rockTex, 0.05f);
-    rocks[1].translate(glm::vec3(5.0f, 0.75f, 5.0f));
-    rigidObjectsNames.emplace_back("Rock 1");
+//    rocks.emplace_back(device, "../Models/rockA.obj", rockTex, 0.05f);
+//    rocks[0].translate(glm::vec3(5.0f, 1.5f, 5.0f));
+//    rigidObjectsNames.emplace_back("Rock 0");
+//    rocks.emplace_back(device, "../Models/rockA.obj", rockTex, 0.05f);
+//    rocks[1].translate(glm::vec3(5.0f, 0.75f, 5.0f));
+//    rigidObjectsNames.emplace_back("Rock 1");
     createBuffers();
     initializeObjects();
 
@@ -285,6 +285,16 @@ void FLIPGPU3DSim::showImGui(){
         singleStep = true;
         paused = false;
     }
+
+    ImGui::NewLine();
+
+    if (ImGui::CollapsingHeader("Waves")) {
+        ImGui::Checkbox("Activate waves", &flipSolver.activateWaves);
+        ImGui::DragFloat("Wall forward speed", &flipSolver.wallForwardSpeed, 0.001f);
+        ImGui::DragFloat("Wall backward speed", &flipSolver.wallBackwardSpeed, 0.001f);
+        ImGui::DragFloat("Wave limit", &flipSolver.wallLimit, 0.001f);
+    }
+    ImGui::NewLine();
 
     if (ImGui::CollapsingHeader("Rendering")) {
         ImGui::DragFloat("Particle Radius", &ubo.radius, 0.0001f, 0.0001f, 0.2f);
