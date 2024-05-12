@@ -314,36 +314,9 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     }
     NUM_FLUID_PARTICLES = NUM_PARTICLES - NUM_RIGID_PARTICLES;
 
+    pbfInitializer.damBreakInitializer(cUbo, initialPos, numParticlesXZ, particleSpacing, particleVerticalSpacing, activateRandomOffsets);
 
-    auto accPos = initialPos;
-
-    uint32_t count = 0;
-    for (uint32_t i = 0; i < NUM_FLUID_PARTICLES; i++) {
-        particles.position[i] = accPos;
-        if (activateRandomOffsets) {
-            particles.position[i] += glm::vec4(
-                    randomFloat((accPos.x != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
-                    randomFloat((accPos.y != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
-                    randomFloat((accPos.z != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
-                    1.0f);
-        }
-        particles.density[i] = cUbo.REST_DENS;
-        particles.type[i] = 0;
-        accPos.x += particleSpacing;
-
-        if (i % numParticlesXZ.x == numParticlesXZ.x - 1) {
-            count++;
-            accPos.z += particleSpacing;
-            accPos.x = initialPos.x;
-            if (count == numParticlesXZ.y) {
-                count = 0;
-                accPos.y += particleVerticalSpacing;
-                accPos.z = initialPos.z;
-            }
-        }
-    }
-
-    accPos = glm::vec4(0.75*cUbo.BOUNDARY_SIZE.x + cUbo.EPS, cUbo.EPS, cUbo.EPS, 0.0f);
+//    accPos = glm::vec4(0.75*cUbo.BOUNDARY_SIZE.x + cUbo.EPS, cUbo.EPS, cUbo.EPS, 0.0f);
 
     if (!rigidObjects.empty()) {
         auto rigidObjParticles = rigidObjects[0].getPositions();

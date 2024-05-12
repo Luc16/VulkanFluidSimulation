@@ -77,7 +77,9 @@ foreach( testsourcefolder ${SPH_APPS} )
     add_executable( ${testsourcefolder} src/SPH/${testsourcefolder}/main.cpp src/SPH/${testsourcefolder}/${testsourcefolder}.h src/SPH/${testsourcefolder}/${testsourcefolder}.cpp
             src/SPH/PBFGPU3DSim/particles_and_ubos.h
             src/SPH/PBFGPU3DSim/RigidObject.cpp
-            src/SPH/PBFGPU3DSim/RigidObject.h)
+            src/SPH/PBFGPU3DSim/RigidObject.h
+            src/SPH/PBFGPU3DSim/PbfInitializer.cpp
+            src/SPH/PBFGPU3DSim/PbfInitializer.h)
     target_link_libraries( ${testsourcefolder} VkFluidSim GL glfw Vulkan::Vulkan)
 endforeach( testsourcefolder ${SPH_APPS} )
 

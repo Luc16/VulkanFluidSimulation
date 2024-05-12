@@ -31,6 +31,7 @@
 #include "../../../external/nlohmann_json/json.hpp"
 #include "particles_and_ubos.h"
 #include "RigidObject.h"
+#include "PbfInitializer.h"
 
 
 class PBFGPU3DSim: public vkb::VulkanApp {
@@ -278,6 +279,8 @@ private:
     std::vector<RigidObject> rigidObjects{};
     std::vector<std::string> rigidObjectsNames{};
     uint32_t selectedRigidObj = 0;
+
+    PbfInitializer pbfInitializer{particles};
 
     glm::ivec2 numParticlesXZ = glm::ivec2(int(std::cbrt(NUM_PARTICLES)));
     float particleSpacing = cUbo.H*0.56f;
