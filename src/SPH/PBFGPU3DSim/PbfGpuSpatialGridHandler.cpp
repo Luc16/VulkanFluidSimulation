@@ -180,7 +180,10 @@ namespace vkb {
         ComputeShaderHandler::computeBarrier(commandBuffer, m_gridBuffer);
     }
 
-    void PbfGpuSpatialGridHandler::createGrid(VkCommandBuffer commandBuffer, u_char frameIdx) {
+    void PbfGpuSpatialGridHandler::createGrid(VkCommandBuffer commandBuffer, u_char frameIdx, uint32_t numParticles) {
+        m_gridParticleUbo.numParticles = numParticles;
+        m_gridParticleUniformBuffer->write(&m_gridParticleUbo);
+
         resetGrid(commandBuffer);
 
         gridBarrier(commandBuffer);

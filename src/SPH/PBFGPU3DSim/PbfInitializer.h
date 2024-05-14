@@ -13,9 +13,10 @@ class PbfInitializer {
 
 public:
     explicit PbfInitializer(ParticleData& particles);
-    void damBreakInitializer(const ComputeUniformBufferObject& cUbo, bool activateRandomOffsets = false);
-    void doubleDamBreakInitializer(const ComputeUniformBufferObject& cUbo, bool activateRandomOffsets = false);
-    void splashInitializer(const ComputeUniformBufferObject& cUbo, bool activateRandomOffsets = false);
+    void damBreakInitializer(ComputeUniformBufferObject& cUbo, bool activateRandomOffsets = false);
+    void doubleDamBreakInitializer(ComputeUniformBufferObject& cUbo, bool activateRandomOffsets = false);
+    void splashInitializer(ComputeUniformBufferObject& cUbo, bool activateRandomOffsets = false);
+    void waterFallInitializer(ComputeUniformBufferObject& cUbo, bool activateRandomOffsets = false);
 
 private:
     ParticleData& m_particles;

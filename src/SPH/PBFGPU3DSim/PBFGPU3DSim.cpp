@@ -5,7 +5,7 @@
 #include "PBFGPU3DSim.h"
 
 void PBFGPU3DSim::onCreate() {
-    loadDataFromJson(PRESET_DIR + curFile.data());
+//    loadDataFromJson(PRESET_DIR + curFile.data());
 
     vkDeviceWaitIdle(device.device());
     presets.clear();
@@ -314,8 +314,9 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     }
     NUM_FLUID_PARTICLES = NUM_PARTICLES - NUM_RIGID_PARTICLES;
 
-    pbfInitializer.splashInitializer(cUbo, activateRandomOffsets);
-
+    pbfInitializer.waterFallInitializer(cUbo, activateRandomOffsets);
+    sourceParticleSum = cUbo.numParticles;
+    cUbo.numParticles = 0;
 //    accPos = glm::vec4(0.75*cUbo.BOUNDARY_SIZE.x + cUbo.EPS, cUbo.EPS, cUbo.EPS, 0.0f);
 
     if (!rigidObjects.empty()) {
@@ -508,7 +509,7 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
                       [this, &vb, &vbType, &offsets](VkCommandBuffer &commandBuffer) {
                           vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
                           vkCmdBindVertexBuffers(commandBuffer, 1, 1, &vbType, offsets);
-                          vkCmdDraw(commandBuffer, NUM_PARTICLES, 1, 0, 0);
+                          vkCmdDraw(commandBuffer, cUbo.numParticles, 1, 0, 0);
                       });
 
         if (blurIterations > 0) {
@@ -531,7 +532,7 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
                           [this, &vb, &vbType, &offsets](VkCommandBuffer &commandBuffer) {
                               vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
                               vkCmdBindVertexBuffers(commandBuffer, 1, 1, &vbType, offsets);
-                              vkCmdDraw(commandBuffer, NUM_PARTICLES, 1, 0, 0);
+                              vkCmdDraw(commandBuffer, cUbo.numParticles, 1, 0, 0);
                           });
 
         scenePass.run(commandBuffer,
@@ -565,7 +566,7 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
 
             vkCmdBindVertexBuffers(commandBuffer, 2, 1, &vbType, offsets);
             vkCmdBindIndexBuffer(commandBuffer, idxBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
-            vkCmdDrawIndexed(commandBuffer, NUM_PARTICLES, 1, 0, 0, 0);
+            vkCmdDrawIndexed(commandBuffer, cUbo.numParticles, 1, 0, 0, 0);
         } else {
             VkDescriptorSet* finalSceneDescriptorSet;
             if (blurIterations == 0) finalSceneDescriptorSet = &shadingDescriptorSets[0][renderer.currentFrame()];
@@ -588,15 +589,15 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
 void PBFGPU3DSim::updateSimulation() {
 
     auto simulationStep = [this](VkCommandBuffer computeCommandBuffer){
-        uint32_t blockSize = NUM_PARTICLES / 256 + (1 - (NUM_PARTICLES % 256 == 0));
-        uint32_t solverBlockSize = NUM_PARTICLES/(gaussPartition*256) + (1 - (NUM_PARTICLES % (gaussPartition*256) == 0));
+        uint32_t blockSize = cUbo.numParticles / 256 + (1 - (cUbo.numParticles % 256 == 0));
+        uint32_t solverBlockSize = cUbo.numParticles/(gaussPartition*256) + (1 - (cUbo.numParticles % (gaussPartition*256) == 0));
 
         for (uint32_t _ = 0; _ < substeps; _++) {
             predictPositionKernel.bindAndDispatch(computeCommandBuffer, computeFrameIdx, blockSize, 1, 1);
 
             vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[(computeFrameIdx + 1) % 2]);
 
-            gridHandler.createGrid(computeCommandBuffer, computeFrameIdx);
+            gridHandler.createGrid(computeCommandBuffer, computeFrameIdx, cUbo.numParticles);
 
             vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
 
@@ -633,8 +634,9 @@ void PBFGPU3DSim::updateSimulation() {
         }
     };
 
-    if (!test) computeHandler.runCompute(renderer.currentFrame(), simulationStep);
-    else {
+    if (!test) {
+        computeHandler.runCompute(renderer.currentFrame(), simulationStep);
+    } else {
         computeHandler.runComputeIsolated(renderer.currentFrame(), simulationStep);
         std::vector<float> avgDens(1);
         static uint32_t frame = 0;
@@ -673,20 +675,30 @@ void PBFGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){
     gUbo.restDens = cUbo.REST_DENS;
     graphicsUniformBuffers[frameIndex]->write(&gUbo);
 
-    if (activateWaves && !pausedSimulation) {
-        cUbo.wallX += curSpeed * cUbo.DT;
-        if (cUbo.wallX >= wallLimit) {
-            curSpeed = -wallBackwardSpeed;
-        } else if (cUbo.wallX <= 0) {
-            cUbo.wallX = 0;
-            curSpeed = wallForwardSpeed;
-        }
-    } else if (!pausedSimulation) cUbo.wallX = 0;
+    static bool delay = true;
 
-//    cUbo.DT = std::clamp(deltaTime, 0.001f, 0.016f);
-//    cUbo.G = 0.0f*glm::vec3(0.0f, -9.8f, 0.0f);
-    computeUniformBuffer->write(&cUbo);
+    if (!pausedSimulation) {
+        if (activateWaves) {
+            cUbo.wallX += curSpeed * cUbo.DT;
+            if (cUbo.wallX >= wallLimit) {
+                curSpeed = -wallBackwardSpeed;
+            } else if (cUbo.wallX <= 0) {
+                cUbo.wallX = 0;
+                curSpeed = wallForwardSpeed;
+            }
+        } else cUbo.wallX = 0;
+
+//        if (delay)
+        cUbo.numParticles = std::min(NUM_PARTICLES, cUbo.numParticles + sourceParticleSum);
+//        delay = !delay;
+
+//        cUbo.DT = std::clamp(deltaTime, 0.001f, 0.016f);
+//        cUbo.G = 0.0f*glm::vec3(0.0f, -9.8f, 0.0f);
+        computeUniformBuffer->write(&cUbo);
+
+    }
 }
+
 
 void PBFGPU3DSim::keyboardControl(float deltaTime) {
     if (disableKeyboardControl) return;

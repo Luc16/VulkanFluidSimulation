@@ -57,8 +57,8 @@ private:
     uint32_t NUM_FLUID_PARTICLES = NUM_PARTICLES - NUM_RIGID_PARTICLES;
     static constexpr uint32_t MAX_PARTICLES = 1'000'000;
     static constexpr float MAX_BOUND = 100.0f;
-    uint32_t jacobiIterations = 4;
-    uint32_t substeps = 1;
+    uint32_t jacobiIterations = 2;
+    uint32_t substeps = 2;
     uint32_t gaussPartition = 2;
     bool test = false;
     int blurIterations = 2;
@@ -290,8 +290,9 @@ private:
 
     std::string saveFileName;
     std::vector<std::string> presets;
+    uint32_t sourceParticleSum = 0;
     bool isSaveWindowOpen = false, isLoadWindowOpen = false, disableKeyboardControl = false, isAddWindowOpen = false;
-    bool activateTimer = false, controlMode = false, objectsInitialized = false, pausedSimulation = true;
+    bool activateTimer = false, controlMode = false, objectsInitialized = false, pausedSimulation = false;
     bool activateWaves = false, showParticles = false, singleStep = false;
     bool activateVisc = true, activateVorticity = true, renderSkybox = true;
     float wallForwardSpeed = 0.4f * cUbo.H / cUbo.DT, wallBackwardSpeed = 0.1f * cUbo.H / cUbo.DT, wallLimit = 0.2f * cUbo.BOUNDARY_SIZE.x, curSpeed = 0.0f;
