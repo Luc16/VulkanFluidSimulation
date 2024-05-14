@@ -314,7 +314,7 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     }
     NUM_FLUID_PARTICLES = NUM_PARTICLES - NUM_RIGID_PARTICLES;
 
-    pbfInitializer.damBreakInitializer(cUbo, initialPos, numParticlesXZ, particleSpacing, particleVerticalSpacing, activateRandomOffsets);
+    pbfInitializer.splashInitializer(cUbo, activateRandomOffsets);
 
 //    accPos = glm::vec4(0.75*cUbo.BOUNDARY_SIZE.x + cUbo.EPS, cUbo.EPS, cUbo.EPS, 0.0f);
 

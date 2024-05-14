@@ -13,7 +13,9 @@ class PbfInitializer {
 
 public:
     explicit PbfInitializer(ParticleData& particles);
-    void damBreakInitializer(const ComputeUniformBufferObject& cUbo, const glm::vec4& initialPos, const glm::ivec2& numParticlesXZ, float particleSpacing, float particleVerticalSpacing, bool activateRandomOffsets = false);
+    void damBreakInitializer(const ComputeUniformBufferObject& cUbo, bool activateRandomOffsets = false);
+    void doubleDamBreakInitializer(const ComputeUniformBufferObject& cUbo, bool activateRandomOffsets = false);
+    void splashInitializer(const ComputeUniformBufferObject& cUbo, bool activateRandomOffsets = false);
 
 private:
     ParticleData& m_particles;
