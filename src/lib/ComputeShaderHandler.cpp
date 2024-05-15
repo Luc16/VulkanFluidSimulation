@@ -178,4 +178,8 @@ namespace vkb {
 
     }
 
+    void ComputeShaderHandler::waitForCompute() {
+        vkWaitForFences(m_deviceRef.device(), 2, m_computeInFlightFences.data(), VK_TRUE, UINT64_MAX);
+    }
+
 }

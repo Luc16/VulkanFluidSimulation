@@ -314,9 +314,8 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     }
     NUM_FLUID_PARTICLES = NUM_PARTICLES - NUM_RIGID_PARTICLES;
 
-    pbfInitializer.waterFallInitializer(cUbo, activateRandomOffsets);
-    sourceParticleSum = cUbo.numParticles;
-    cUbo.numParticles = 0;
+    sourceParticleSum = pbfInitializer.splashInitializer(cUbo, activateRandomOffsets);
+
 //    accPos = glm::vec4(0.75*cUbo.BOUNDARY_SIZE.x + cUbo.EPS, cUbo.EPS, cUbo.EPS, 0.0f);
 
     if (!rigidObjects.empty()) {
@@ -597,7 +596,7 @@ void PBFGPU3DSim::updateSimulation() {
 
             vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[(computeFrameIdx + 1) % 2]);
 
-            gridHandler.createGrid(computeCommandBuffer, computeFrameIdx, cUbo.numParticles);
+            gridHandler.createGrid(computeCommandBuffer, computeFrameIdx);
 
             vkb::ComputeShaderHandler::computeBarriers(computeCommandBuffer, particleBarrierData[computeFrameIdx]);
 
@@ -635,7 +634,10 @@ void PBFGPU3DSim::updateSimulation() {
     };
 
     if (!test) {
+//        std::cout << "init\n";
+//        std::cout << "grid built\n";
         computeHandler.runCompute(renderer.currentFrame(), simulationStep);
+//        std::cout << "end\n";
     } else {
         computeHandler.runComputeIsolated(renderer.currentFrame(), simulationStep);
         std::vector<float> avgDens(1);
@@ -675,7 +677,7 @@ void PBFGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){
     gUbo.restDens = cUbo.REST_DENS;
     graphicsUniformBuffers[frameIndex]->write(&gUbo);
 
-    static bool delay = true;
+    static float accTime = 0;
 
     if (!pausedSimulation) {
         if (activateWaves) {
@@ -689,12 +691,21 @@ void PBFGPU3DSim::updateUniformBuffers(uint32_t frameIndex, float deltaTime){
         } else cUbo.wallX = 0;
 
 //        if (delay)
-        cUbo.numParticles = std::min(NUM_PARTICLES, cUbo.numParticles + sourceParticleSum);
+//        accTime += deltaTime;
+//        std::cout << "accTime: " << accTime << std::endl;
+        auto addParticles = uint32_t((float(sourceParticleSum)));
+        cUbo.numParticles = std::min(NUM_PARTICLES, cUbo.numParticles + addParticles);
+        accTime = 0;
+//        if (accTime > 1/80.0f) {
+//        }
 //        delay = !delay;
 
-//        cUbo.DT = std::clamp(deltaTime, 0.001f, 0.016f);
+//        cUbo.DT = std::clamp(deltaTime, 0.001f, 0.02f);
 //        cUbo.G = 0.0f*glm::vec3(0.0f, -9.8f, 0.0f);
+
+        computeHandler.waitForCompute();
         computeUniformBuffer->write(&cUbo);
+        gridHandler.updateUniforms(cUbo.numParticles, cUbo.H, cUbo.BOUNDARY_SIZE);
 
     }
 }
@@ -704,14 +715,14 @@ void PBFGPU3DSim::keyboardControl(float deltaTime) {
     if (disableKeyboardControl) return;
     cameraController.moveCamera(window.window(), deltaTime, camera);
 
-    static bool pWasReleased = false;
-    if (!controlMode && pWasReleased && glfwGetKey(window.window(), GLFW_KEY_P) == GLFW_PRESS) {
-        singleStep = true;
-        pausedSimulation = false;
-
-    } else if (glfwGetKey(window.window(), GLFW_KEY_P) == GLFW_RELEASE){
-        pWasReleased = true;
-    }
+//    static bool pWasReleased = false;
+//    if (!controlMode && pWasReleased && glfwGetKey(window.window(), GLFW_KEY_P) == GLFW_PRESS) {
+//        singleStep = true;
+//        pausedSimulation = false;
+//
+//    } else if (glfwGetKey(window.window(), GLFW_KEY_P) == GLFW_RELEASE){
+//        pWasReleased = true;
+//    }
 
 //    static bool rWasReleased = false;
 //    if (rWasReleased && glfwGetKey(window.window(), GLFW_KEY_R) == GLFW_PRESS) {
@@ -852,7 +863,7 @@ void PBFGPU3DSim::showImGui(){
         singleStep = false;
     }
 
-    if (ImGui::Button("Step") && !controlMode) {
+    if ((ImGui::Button("Step") || glfwIsKeyJustPressed<GLFW_KEY_P>()) && !controlMode) {
         singleStep = true;
         pausedSimulation = false;
     }

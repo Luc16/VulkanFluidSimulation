@@ -7,7 +7,7 @@
 
 PbfInitializer::PbfInitializer(ParticleData& particles): m_particles(particles) {}
 
-void PbfInitializer::damBreakInitializer(ComputeUniformBufferObject& cUbo, bool activateRandomOffsets) {
+uint32_t PbfInitializer::damBreakInitializer(ComputeUniformBufferObject& cUbo, bool activateRandomOffsets) {
     uint32_t count = 0;
     auto numParticlesXZ = glm::ivec2(int(std::cbrt(cUbo.numParticles)));
     float particleSpacing = cUbo.H*0.56f;
@@ -40,9 +40,11 @@ void PbfInitializer::damBreakInitializer(ComputeUniformBufferObject& cUbo, bool 
         }
     }
 
+    return 0;
+
 }
 
-void PbfInitializer::doubleDamBreakInitializer(ComputeUniformBufferObject &cUbo, bool activateRandomOffsets) {
+uint32_t PbfInitializer::doubleDamBreakInitializer(ComputeUniformBufferObject &cUbo, bool activateRandomOffsets) {
     uint32_t count = 0;
     auto numParticlesXZ = glm::ivec2(int(std::cbrt(cUbo.numParticles/2)));
     float particleSpacing = cUbo.H*0.56f;
@@ -102,9 +104,11 @@ void PbfInitializer::doubleDamBreakInitializer(ComputeUniformBufferObject &cUbo,
             }
         }
     }
+
+    return 0;
 }
 
-void PbfInitializer::splashInitializer(ComputeUniformBufferObject &cUbo, bool activateRandomOffsets) {
+uint32_t PbfInitializer::splashInitializer(ComputeUniformBufferObject &cUbo, bool activateRandomOffsets) {
     float particleSpacing = cUbo.H*0.56f;
     float sphereSpacing = cUbo.H*0.68f;
     float particleVerticalSpacing = cUbo.H*0.50f;
@@ -142,7 +146,7 @@ void PbfInitializer::splashInitializer(ComputeUniformBufferObject &cUbo, bool ac
 
                 i++;
                 if (i == cUbo.numParticles) {
-                    return;
+                    return 0;
                 }
             }
 
@@ -207,68 +211,75 @@ void PbfInitializer::splashInitializer(ComputeUniformBufferObject &cUbo, bool ac
 //
 //
 //    }
+
+    return 0;
 }
 
 
-void PbfInitializer::waterFallInitializer(ComputeUniformBufferObject &cUbo, bool activateRandomOffsets) {
-    float sphereSpacing = cUbo.H*0.8f;
-
+uint32_t PbfInitializer::waterFallInitializer(ComputeUniformBufferObject &cUbo, bool activateRandomOffsets) {
+    float particleSpacing = cUbo.H*0.56f;
+    float sphereSpacing = cUbo.H*0.68f;
+    float particleVerticalSpacing = cUbo.H*0.50f;
     float r = 0.5f;
-    glm::vec4 center = {cUbo.EPS*3.0f, cUbo.BOUNDARY_SIZE.y/2, cUbo.BOUNDARY_SIZE.z/2, 0.0f};
-    uint32_t i = 0;
-    bool firstIteration = true;
-    uint32_t particlesInCircle;
+    glm::vec4 center = {cUbo.EPS*5.0f, cUbo.BOUNDARY_SIZE.y/2, cUbo.BOUNDARY_SIZE.z/2, 0.0f};
     uint32_t numLines = std::floor(r/sphereSpacing);
-    while (i < cUbo.numParticles) {
-        uint32_t c = 1;
-        bool half = false;
-        while (c > 0) {
-            float z = std::sqrt(r * r - (r - float(c) * sphereSpacing) * (r - float(c) * sphereSpacing));
-            uint32_t numCols = std::floor(2 * z / sphereSpacing);
-            glm::vec4 initPos = {center.x, center.y + (2*float(half) - 1.0f)*(r - float(c)*sphereSpacing), center.z - z, 0.0f};
-            glm::vec4 pos = initPos;
-            for (uint32_t k = 0; k < numCols; k++) {
-                m_particles.position[i] = pos;
-//                if (activateRandomOffsets) {
-//                    m_particles.position[i] += glm::vec4(
-//                            0.0f,
-////                            randomFloat((pos.x != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
-//                            randomFloat(0.0f, cUbo.H/5),
-//                            randomFloat(0.0f, cUbo.H/5),
-//                            1.0f);
-//                }
-
-                pos.z += sphereSpacing;
-                m_particles.density[i] = cUbo.REST_DENS;
-                m_particles.type[i] = 0;
-                glm::vec4 centerSpeed = (pos - center);
-                m_particles.velocity[i] = glm::vec4(0.4f * cUbo.H / cUbo.DT, 0.0f, 0.0f, 0.0f);
-
-                i++;
-                if (i == cUbo.numParticles) {
-                    std::cout << "done!\n";
-                    cUbo.numParticles = particlesInCircle;
-                    return;
-                }
-            }
-
-            if (!half) {
-                c++;
-                if (c > numLines) {
-                    half = true;
-                }
-            } else {
-                c--;
-            }
-
+    uint32_t c = 1;
+    bool half = false;
+    std::vector<glm::vec4> positions;
+    while (c > 0) {
+        float z = std::sqrt(r * r - (r - float(c) * sphereSpacing) * (r - float(c) * sphereSpacing));
+        uint32_t numCols = std::floor(2 * z / sphereSpacing);
+        glm::vec4 initPos = {center.x, center.y + (2*float(half) - 1.0f)*(r - float(c)*sphereSpacing), center.z - z, 0.0f};
+        glm::vec4 pos = initPos;
+        for (uint32_t k = 0; k < numCols; k++) {
+            positions.push_back(pos);
+            pos.z += sphereSpacing;
         }
-
-        if (firstIteration) {
-            particlesInCircle = i+1;
-            firstIteration = false;
+        if (!half) {
+            c++;
+            if (c > numLines) {
+                half = true;
+            }
+        } else {
+            c--;
         }
     }
 
-    cUbo.numParticles = particlesInCircle;
+    glm::vec4 initialPos = {cUbo.EPS, cUbo.EPS, cUbo.EPS, 0};
+    glm::vec4 limitPos = {cUbo.BOUNDARY_SIZE.x - 1.2*cUbo.EPS, cUbo.BOUNDARY_SIZE.y - 1.2*cUbo.EPS, cUbo.BOUNDARY_SIZE.z - 1.2*cUbo.EPS, 0};
+    auto accPos = initialPos;
+    for (uint32_t i = 0; i < cUbo.numParticles/2; i++) {
+        m_particles.position[i] = accPos;
+        if (activateRandomOffsets) {
+            m_particles.position[i] += glm::vec4(
+                    randomFloat((accPos.x != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
+                    randomFloat((accPos.y != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
+                    randomFloat((accPos.z != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
+                    1.0f);
+        }
+        m_particles.density[i] = cUbo.REST_DENS;
+        m_particles.type[i] = 0;
+        m_particles.velocity[i] = glm::vec4(0.0f);
+        accPos.x += particleSpacing;
 
+        if (accPos.x + particleSpacing >= limitPos.x) {
+            accPos.z += particleSpacing;
+            accPos.x = initialPos.x;
+            if (accPos.z + particleSpacing >= limitPos.z) {
+                accPos.y += particleVerticalSpacing;
+                accPos.z = initialPos.z;
+            }
+        }
+    }
+
+    for (uint32_t i = cUbo.numParticles/2; i < cUbo.numParticles; i++) {
+        m_particles.position[i] = positions[i%positions.size()];
+        m_particles.density[i] = cUbo.REST_DENS;
+        m_particles.type[i] = 0;
+        m_particles.velocity[i] = glm::vec4(0.4f * cUbo.H / cUbo.DT, 0.0f, 0.0f, 0.0f);
+    }
+
+    cUbo.numParticles /= 2;
+
+    return positions.size();
 }

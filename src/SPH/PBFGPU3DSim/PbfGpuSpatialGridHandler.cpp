@@ -180,9 +180,15 @@ namespace vkb {
         ComputeShaderHandler::computeBarrier(commandBuffer, m_gridBuffer);
     }
 
-    void PbfGpuSpatialGridHandler::createGrid(VkCommandBuffer commandBuffer, u_char frameIdx, uint32_t numParticles) {
+    void PbfGpuSpatialGridHandler::updateUniforms(uint32_t numParticles, float spacing, glm::vec3 boundSize) {
         m_gridParticleUbo.numParticles = numParticles;
+        m_gridParticleUbo.spacing = spacing;
+        m_gridParticleUbo.boundSize = boundSize;
         m_gridParticleUniformBuffer->write(&m_gridParticleUbo);
+
+    }
+
+    void PbfGpuSpatialGridHandler::createGrid(VkCommandBuffer commandBuffer, u_char frameIdx) {
 
         resetGrid(commandBuffer);
 

@@ -54,7 +54,8 @@ namespace vkb {
         void prefixSum(VkCommandBuffer commandBuffer);
         void countingSort(u_char frameIdx, VkCommandBuffer commandBuffer);
         void gridBarrier(VkCommandBuffer commandBuffer);
-        void createGrid(VkCommandBuffer commandBuffer, u_char frameIdx,  uint32_t numParticles);
+        void updateUniforms(uint32_t numParticles, float spacing, glm::vec3 boundSize);
+        void createGrid(VkCommandBuffer commandBuffer, u_char frameIdx);
 
         [[nodiscard]] VkDescriptorBufferInfo gridDescriptorInfo(
                 VkDeviceSize size = VK_WHOLE_SIZE,
