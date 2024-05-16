@@ -12,9 +12,10 @@ class FlipInitializer {
 public:
     explicit FlipInitializer(glm::ivec3 particlesPerCell): particlesPerCell(particlesPerCell){}
 
-    std::vector<glm::vec4> damBreakInitializer(ComputeUniformBufferObject& cUbo, bool dislocatePos = false) const;
-    std::vector<glm::vec4> doubleDamBreakInitializer(ComputeUniformBufferObject& cUbo, bool dislocatePos = false) const;
-    std::vector<glm::vec4> splashInitializer(ComputeUniformBufferObject& cUbo, bool dislocatePos = false) const;
+    void damBreakInitializer(ComputeUniformBufferObject& cUbo, uint32_t& particlesToAdd, bool dislocatePos, std::vector<glm::vec4>& pPos, std::vector<glm::vec4>& pVel) const;
+    void doubleDamBreakInitializer(ComputeUniformBufferObject& cUbo, uint32_t& particlesToAdd, bool dislocatePos, std::vector<glm::vec4>& pPos, std::vector<glm::vec4>& pVel) const;
+    void splashInitializer(ComputeUniformBufferObject& cUbo, uint32_t& particlesToAdd, bool dislocatePos, std::vector<glm::vec4>& pPos, std::vector<glm::vec4>& pVel) const;
+    void waterfallInitializer(ComputeUniformBufferObject& cUbo, uint32_t& particlesToAdd, bool dislocatePos, std::vector<glm::vec4>& pPos, std::vector<glm::vec4>& pVel) const;
 
 
 

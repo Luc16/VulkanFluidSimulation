@@ -278,6 +278,7 @@ void PressureSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool
             {m_directionBuffer->descriptorInfo()},
     });
 
+    m_reduceKernel.descSets.clear();
     for (uint32_t i = 1; i < m_dotProductAuxBuffers.size(); i++) {
         m_reduceKernel.descSets.push_back(vkb::DescriptorWriter::createSingleDescriptorSet(globalPool, m_reduceKernel.layout, {
                 {m_pressureSolverUniformBuffer[0]->descriptorInfo()},
@@ -313,11 +314,14 @@ void PressureSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool
 
 std::vector<VkDescriptorSet> PressureSolver::activeDescriptorSets() const {
     std::vector<VkDescriptorSet> descSets;
-    descSets.reserve(3);
+    descSets.reserve(12);
+    descSets.push_back(m_formPreconditionerKernel.descSets[0]);
     descSets.push_back(m_matrixMultiplyKernel.descSets[0]);
+    descSets.push_back(m_matrixMultiplyKernel.descSets[1]);
     descSets.push_back(m_addScaledKernel.descSets[0]);
     descSets.push_back(m_addScaledKernel.descSets[1]);
     descSets.push_back(m_addScaledKernel.descSets[2]);
+    descSets.push_back(m_addScaledKernel.descSets[3]);
     descSets.push_back(m_dotProductKernel.descSets[0]);
     descSets.push_back(m_dotProductKernel.descSets[1]);
     descSets.push_back(m_finishDotKernel.descSets[0]);

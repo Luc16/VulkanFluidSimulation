@@ -32,7 +32,7 @@ struct UniformBufferObject {
     float screenHeight;
     float screenWidth;
     float tanHalfFov = std::tan(glm::radians(50.0f)/2);
-    uint32_t renderType = 0;
+    uint32_t renderType = 8;
     float zNear = 0.1f;
     float zFar = 500.0f;
     uint32_t blurMode = 0;

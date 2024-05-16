@@ -163,13 +163,13 @@ private:
                                     std::ranges::views::take(computeShaderStartIdx - pressureSolverStartIdx) |
                                     std::ranges::views::transform(transformFunc);
 
-    glm::vec3 dimensions = glm::vec3(7.0f);
+    glm::vec3 dimensions = glm::vec3(7.0f, 10.0f, 7.0f);
     FlipSolver flipSolver {
         device,
         {simulationShaderPaths.begin(), simulationShaderPaths.end()},
         {pressureSolverShaderPaths.begin(), pressureSolverShaderPaths.end()},
         dimensions,
-        0.2f
+        0.175f
     };
     bool showParticles = true;
     bool renderSkybox = true;

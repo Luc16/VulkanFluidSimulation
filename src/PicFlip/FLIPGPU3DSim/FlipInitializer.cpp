@@ -4,9 +4,8 @@
 
 #include "FlipInitializer.h"
 
-std::vector<glm::vec4> FlipInitializer::damBreakInitializer(ComputeUniformBufferObject &cUbo, bool dislocatePos) const {
+void FlipInitializer::damBreakInitializer(ComputeUniformBufferObject &cUbo, uint32_t& particlesToAdd, bool dislocatePos, std::vector<glm::vec4>& pPos, std::vector<glm::vec4>& pVel) const {
 
-    std::vector<glm::vec4> particles{cUbo.numParticles};
     glm::ivec3 particleStart{2, 2, 2};
     glm::ivec3 particleSpan{cUbo.dim.x/2, cUbo.dim.y - 4, cUbo.dim.z/2};
 
@@ -14,7 +13,7 @@ std::vector<glm::vec4> FlipInitializer::damBreakInitializer(ComputeUniformBuffer
     for (uint32_t j = particleStart.y; j < particleStart.y + particleSpan.y; j++) {
         for (uint32_t k = particleStart.z; k < particleStart.z + particleSpan.z; k++) {
             for (uint32_t i = particleStart.x; i < particleStart.x + particleSpan.x; i++) {
-                placeParticlesInCell(particles, p, i, j, k, cUbo.cellSize, dislocatePos);
+                placeParticlesInCell(pPos, p, i, j, k, cUbo.cellSize, dislocatePos);
             }
         }
     }
@@ -22,13 +21,12 @@ std::vector<glm::vec4> FlipInitializer::damBreakInitializer(ComputeUniformBuffer
 //    if (p < numParticles) {
 //        throw std::runtime_error("Too many particles to fit in grid");
 //    }
-    return particles;
+
 
 }
 
-std::vector<glm::vec4> FlipInitializer::doubleDamBreakInitializer(ComputeUniformBufferObject &cUbo, bool dislocatePos) const {
+void FlipInitializer::doubleDamBreakInitializer(ComputeUniformBufferObject &cUbo, uint32_t& particlesToAdd, bool dislocatePos, std::vector<glm::vec4>& pPos, std::vector<glm::vec4>& pVel) const {
 
-    std::vector<glm::vec4> particles{cUbo.numParticles};
     glm::ivec3 particleStart{2, 2, 2};
     glm::ivec3 particleSpan{3*cUbo.dim.x/8, cUbo.dim.y - 4, 3*cUbo.dim.z/8};
 
@@ -36,8 +34,8 @@ std::vector<glm::vec4> FlipInitializer::doubleDamBreakInitializer(ComputeUniform
     for (uint32_t j = particleStart.y; j < particleStart.y + particleSpan.y; j++) {
         for (uint32_t k = particleStart.z; k < particleStart.z + particleSpan.z; k++) {
             for (uint32_t i = particleStart.x; i < particleStart.x + particleSpan.x; i++) {
-                placeParticlesInCell(particles, p, i, j, k, cUbo.cellSize, dislocatePos);
-                if (p >= particles.size()/2) {
+                placeParticlesInCell(pPos, p, i, j, k, cUbo.cellSize, dislocatePos);
+                if (p >= pPos.size()/2) {
                     goto endFirstHalf;
                 }
             }
@@ -49,7 +47,7 @@ std::vector<glm::vec4> FlipInitializer::doubleDamBreakInitializer(ComputeUniform
     for (uint32_t j = particleStart.y; j < particleStart.y + particleSpan.y; j++) {
         for (uint32_t k = particleStart.z; k < particleStart.z + particleSpan.z; k++) {
             for (uint32_t i = particleStart.x; i < particleStart.x + particleSpan.x; i++) {
-                placeParticlesInCell(particles, p, i, j, k, cUbo.cellSize, dislocatePos);
+                placeParticlesInCell(pPos, p, i, j, k, cUbo.cellSize, dislocatePos);
             }
         }
     }
@@ -59,17 +57,15 @@ std::vector<glm::vec4> FlipInitializer::doubleDamBreakInitializer(ComputeUniform
 //    if (p < numParticles) {
 //        throw std::runtime_error("Too many particles to fit in grid");
 //    }
-    return particles;
+
 
 }
 
-std::vector<glm::vec4> FlipInitializer::splashInitializer(ComputeUniformBufferObject &cUbo, bool dislocatePos) const {
-
-    std::vector<glm::vec4> particles{cUbo.numParticles};
+void FlipInitializer::splashInitializer(ComputeUniformBufferObject &cUbo, uint32_t& particlesToAdd, bool dislocatePos, std::vector<glm::vec4>& pPos, std::vector<glm::vec4>& pVel) const {
     glm::ivec3 particleStart{2, 2, 2};
     glm::ivec3 particleSpan{cUbo.dim.x - 2, cUbo.dim.y - 4, cUbo.dim.z - 2};
 
-    float radius = 1.2f;
+    float radius = 6*cUbo.cellSize;
 
     uint32_t numCellsR = std::floor(radius/cUbo.cellSize);
 
@@ -85,7 +81,7 @@ std::vector<glm::vec4> FlipInitializer::splashInitializer(ComputeUniformBufferOb
                         float(k)*cUbo.cellSize + cUbo.cellSize/2
                         );
                 if (glm::distance(glm::vec3(center)*cUbo.cellSize, cellCenter) < radius) {
-                    placeParticlesInCell(particles, p, i, j, k, cUbo.cellSize, dislocatePos);
+                    placeParticlesInCell(pPos, p, i, j, k, cUbo.cellSize, dislocatePos);
                 }
             }
         }
@@ -94,12 +90,64 @@ std::vector<glm::vec4> FlipInitializer::splashInitializer(ComputeUniformBufferOb
     for (uint32_t j = particleStart.y; j < particleStart.y + particleSpan.y; j++) {
         for (uint32_t k = particleStart.z; k < particleStart.z + particleSpan.z; k++) {
             for (uint32_t i = particleStart.x; i < particleStart.x + particleSpan.x; i++) {
-                placeParticlesInCell(particles, p, i, j, k, cUbo.cellSize, dislocatePos);
+                placeParticlesInCell(pPos, p, i, j, k, cUbo.cellSize, dislocatePos);
             }
         }
     }
 
-    return particles;
+}
+
+void FlipInitializer::waterfallInitializer(ComputeUniformBufferObject &cUbo, uint32_t& particlesToAdd, bool dislocatePos, std::vector<glm::vec4>& pPos, std::vector<glm::vec4>& pVel) const {
+    glm::ivec3 particleStart{2, 2, 2};
+    glm::ivec3 particleSpan{cUbo.dim.x - 2, cUbo.dim.y - 4, cUbo.dim.z - 2};
+
+    float radius = cUbo.cellSize*4;
+
+    uint32_t numCellsR = std::floor(radius/cUbo.cellSize);
+
+    glm::ivec3 center{3, cUbo.dim.y/2, cUbo.dim.z/2};
+    uint32_t p = 0;
+    particlesToAdd = 0;
+
+
+    for (uint32_t j = particleStart.y; j < particleStart.y + particleSpan.y; j++) {
+        for (uint32_t k = particleStart.z; k < particleStart.z + particleSpan.z; k++) {
+            for (uint32_t i = particleStart.x; i < particleStart.x + particleSpan.x; i++) {
+                placeParticlesInCell(pPos, p, i, j, k, cUbo.cellSize, dislocatePos);
+                if (p >= cUbo.numParticles/3) {
+                    goto endFirstPart;
+                }
+            }
+        }
+    } endFirstPart:
+
+    uint32_t startParticles = p;
+
+    while (p < cUbo.numParticles) {
+        for (uint32_t j = center.y - numCellsR; j < center.y + numCellsR; j++) {
+            for (uint32_t k = center.z - numCellsR; k < center.z + numCellsR; k++) {
+                for (uint32_t i = center.x; i < center.x + 1; i++) {
+                    auto cellCenter = glm::vec3(
+                            float(i)*cUbo.cellSize + cUbo.cellSize/2,
+                            float(j)*cUbo.cellSize + cUbo.cellSize/2,
+                            float(k)*cUbo.cellSize + cUbo.cellSize/2
+                    );
+                    if (glm::distance(glm::vec3(center)*cUbo.cellSize, cellCenter) < radius) {
+                        uint32_t pp = p;
+                        placeParticlesInCell(pPos, p, i, j, k, cUbo.cellSize, dislocatePos);
+                        for (; pp < p; pp++) {
+                            pVel[pp] = glm::vec4(0.08f*cUbo.cellSize/cUbo.dt, 0.0f, 0.0f, 0.0f);
+                        }
+                    }
+                }
+            }
+        }
+        if (particlesToAdd == 0) {
+            particlesToAdd = p - startParticles;
+        }
+    }
+
+    cUbo.numParticles = startParticles + particlesToAdd;
 }
 
 void FlipInitializer::placeParticlesInCell(std::vector<glm::vec4> &particles, uint32_t &p, uint32_t i, uint32_t j,

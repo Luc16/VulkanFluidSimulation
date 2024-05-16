@@ -7,6 +7,8 @@
 void FlipSolver::updateSimulation(float deltaTime) {
 
     updateWall();
+    m_cUbo.numParticles = std::min(m_maxParticles, m_cUbo.numParticles + m_particlesToAdd/10);
+    m_computeUniformBuffer->write(&m_cUbo, sizeof(ComputeUniformBufferObject));
 
     uint32_t nGrid = m_cUbo.size/m_workGroupSize + 1;
     uint32_t nParticles = m_cUbo.numParticles/m_workGroupSize + 1;
@@ -110,6 +112,7 @@ void FlipSolver::updateUniformBuffers(uint32_t numParticles, glm::vec3 boxSize, 
     m_boxSize = boxSize;
     m_cUbo.boxSize = boxSize;
     m_cUbo.numParticles = numParticles;
+    m_maxParticles = numParticles;
     if (cellSize > 0) {
         m_cUbo.cellSize = cellSize;
         m_cUbo.overCellSize = 1/cellSize;
@@ -124,16 +127,21 @@ void FlipSolver::updateUniformBuffers(uint32_t numParticles, glm::vec3 boxSize, 
 
 void FlipSolver::initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPool, const std::vector<RigidObject>& sceneObjectBuffers, bool dislocatePos)  {
     activateWaves = false;
+    m_cUbo.numParticles = m_maxParticles;
+    m_particlesToAdd = 0;
     createBuffers();
     initializeKernels(globalPool, sceneObjectBuffers);
     initializeParticles(dislocatePos);
 }
 
 void FlipSolver::initializeParticles(bool dislocatePos) {
-    auto particles = m_initializer.splashInitializer(m_cUbo, dislocatePos);
+    std::vector<glm::vec4> velocities{m_cUbo.numParticles};
+    std::vector<glm::vec4> positions{m_cUbo.numParticles};
 
+    m_initializer.waterfallInitializer(m_cUbo, m_particlesToAdd, dislocatePos, positions, velocities);
 
-    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_particlePosBuffer, particles);
+    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_particlePosBuffer, positions);
+    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_particleVelBuffer, velocities);
 }
 
 void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &globalPool, const std::vector<RigidObject>& sceneObjectBuffers) {
@@ -159,6 +167,14 @@ void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &g
         };
         for (uint32_t k = 0; k < maxExtensions; k++) {
             setsToFree.push_back(m_extendVelocitiesKernel.descSets[k]);
+        }
+
+        for (auto descSet : m_collideObjKernel.descSets) {
+            setsToFree.push_back(descSet);
+        }
+
+        for (auto descSet : m_applyObjBoundaryConditionsKernel.descSets) {
+            setsToFree.push_back(descSet);
         }
 
         auto pressureSets = m_pressureSolver.activeDescriptorSets();

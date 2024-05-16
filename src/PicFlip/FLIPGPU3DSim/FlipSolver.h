@@ -41,6 +41,7 @@ public:
                         0.85}
                        ) {
         particleSpan = {m_cUbo.dim.x/2, m_cUbo.dim.y - 4, m_cUbo.dim.z/2};
+        m_maxParticles = m_cUbo.numParticles;
     }
 
     void updateSimulation(float deltaTime);
@@ -66,6 +67,8 @@ private:
 
     // simulation params
     uint32_t m_numIterations = 200;
+    uint32_t m_maxParticles;
+    uint32_t m_particlesToAdd = 0;
     bool m_kernelsInitialized = false;
     glm::vec3 m_boxSize;
 
@@ -77,7 +80,7 @@ private:
     const vkb::Device& m_deviceRef;
     const std::vector<std::string>& m_shaderPaths;
     const std::vector<std::string>& m_pressureSolverShaderPaths;
-    const FlipInitializer m_initializer{glm::vec3(3)};
+    const FlipInitializer m_initializer{glm::vec3(4)};
 
     struct ExtensionUBO {
         uint32_t size;
