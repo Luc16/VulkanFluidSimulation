@@ -18,6 +18,7 @@
 #include "../../lib/descriptors/DescriptorWriter.h"
 #include "../../lib/graphicsDataStructures/Matrices.h"
 #include "RigidObject.h"
+#include "FlipInitializer.h"
 
 
 class FlipSolver {
@@ -76,6 +77,7 @@ private:
     const vkb::Device& m_deviceRef;
     const std::vector<std::string>& m_shaderPaths;
     const std::vector<std::string>& m_pressureSolverShaderPaths;
+    const FlipInitializer m_initializer{glm::vec3(3)};
 
     struct ExtensionUBO {
         uint32_t size;

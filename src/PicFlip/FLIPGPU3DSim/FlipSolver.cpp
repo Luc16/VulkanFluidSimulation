@@ -130,39 +130,7 @@ void FlipSolver::initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPo
 }
 
 void FlipSolver::initializeParticles(bool dislocatePos) {
-    std::vector<glm::vec4> particles{m_cUbo.numParticles};
-    uint32_t p = 0;
-    for (uint32_t j = particleStart.y; j < particleStart.y + particleSpan.y; j++) {
-        for (uint32_t k = particleStart.z; k < particleStart.z + particleSpan.z; k++) {
-            for (uint32_t i = particleStart.x; i < particleStart.x + particleSpan.x; i++) {
-                for (uint32_t a = 0; a < particlePerCell.x; a++) {
-                    for (uint32_t b = 0; b < particlePerCell.y; b++) {
-                        for (uint32_t c = 0; c < particlePerCell.z; c++) {
-                            if (p < particles.size()) {
-                                particles[p++] = glm::vec4(
-                                        float(i) * m_cUbo.cellSize + float(a) * m_cUbo.cellSize / float(particlePerCell.x) +
-                                        m_cUbo.cellSize / float(particlePerCell.x * particlePerCell.x),
-                                        float(j) * m_cUbo.cellSize + float(b) * m_cUbo.cellSize / float(particlePerCell.y) +
-                                        m_cUbo.cellSize / float(particlePerCell.y * particlePerCell.y),
-                                        float(k) * m_cUbo.cellSize + float(c) * m_cUbo.cellSize / float(particlePerCell.z) +
-                                        m_cUbo.cellSize / float(particlePerCell.z * particlePerCell.z),
-                                        0.0f);
-                                if (dislocatePos) particles[p-1] += glm::vec4(
-                                        randomFloat(0.0f, 0.3f * m_cUbo.cellSize),
-                                        randomFloat(0.0f, 0.3f * m_cUbo.cellSize),
-                                        randomFloat(0.0f, 0.3f * m_cUbo.cellSize),
-                                        0.0f);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-//    if (p < numParticles) {
-//        throw std::runtime_error("Too many particles to fit in grid");
-//    }
+    auto particles = m_initializer.splashInitializer(m_cUbo, dislocatePos);
 
 
     vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_particlePosBuffer, particles);
