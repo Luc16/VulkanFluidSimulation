@@ -58,7 +58,7 @@ private:
     static constexpr uint32_t MAX_PARTICLES = 1'000'000;
     static constexpr float MAX_BOUND = 100.0f;
     uint32_t jacobiIterations = 4;
-    uint32_t substeps = 1;
+    uint32_t substeps = 2;
     uint32_t gaussPartition = 2;
     bool test = false;
     int blurIterations = 2;

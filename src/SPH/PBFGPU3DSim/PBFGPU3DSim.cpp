@@ -5,7 +5,7 @@
 #include "PBFGPU3DSim.h"
 
 void PBFGPU3DSim::onCreate() {
-//    loadDataFromJson(PRESET_DIR + curFile.data());
+    loadDataFromJson(PRESET_DIR + curFile.data());
 
     vkDeviceWaitIdle(device.device());
     presets.clear();
@@ -297,7 +297,6 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     gUbo.inverseView = glm::inverse(gUbo.view);
     gUbo.proj = camera.getProjection();
     gUbo.planeSize = cUbo.BOUNDARY_SIZE;
-    cUbo.numParticles = NUM_PARTICLES;
     cUbo.DT = 1/(60.0f*float(substeps));
     GRID_SIZE = uint32_t(cUbo.BOUNDARY_SIZE.x/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.y/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.z/cUbo.H) + 1;
     activateWaves = false;
@@ -313,16 +312,27 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
         NUM_RIGID_PARTICLES += rigidObj.numParticles();
     }
     NUM_FLUID_PARTICLES = NUM_PARTICLES - NUM_RIGID_PARTICLES;
+    cUbo.numParticles = NUM_FLUID_PARTICLES;
+    sourceParticleSum = pbfInitializer.waterFallInitializer(cUbo, activateRandomOffsets);
 
-    sourceParticleSum = pbfInitializer.splashInitializer(cUbo, activateRandomOffsets);
+    cUbo.numParticles += NUM_RIGID_PARTICLES;
+
+
+
+    for (int i = int(NUM_PARTICLES) - 1; i >= int(NUM_RIGID_PARTICLES); i--) {
+        particles.position[i] = particles.position[i - NUM_RIGID_PARTICLES];
+        particles.density[i] = particles.density[i - NUM_RIGID_PARTICLES];
+        particles.type[i] = particles.type[i - NUM_RIGID_PARTICLES];
+        particles.velocity[i] = particles.velocity[i - NUM_RIGID_PARTICLES];
+    }
 
 //    accPos = glm::vec4(0.75*cUbo.BOUNDARY_SIZE.x + cUbo.EPS, cUbo.EPS, cUbo.EPS, 0.0f);
 
     if (!rigidObjects.empty()) {
         auto rigidObjParticles = rigidObjects[0].getPositions();
         uint32_t rigidObjIdx = 0;
-        uint32_t initialIdx = NUM_FLUID_PARTICLES;
-        for (uint32_t i = NUM_FLUID_PARTICLES; i < NUM_PARTICLES; i++) {
+        uint32_t initialIdx = 0;
+        for (uint32_t i = 0; i < NUM_RIGID_PARTICLES; i++) {
             particles.type[i] = 1;
 
             if (i - initialIdx >= rigidObjParticles.size()) {
