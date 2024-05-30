@@ -138,7 +138,7 @@ void FlipSolver::initializeParticles(bool dislocatePos) {
     std::vector<glm::vec4> velocities{m_cUbo.numParticles};
     std::vector<glm::vec4> positions{m_cUbo.numParticles};
 
-    m_initializer.waterfallInitializer(m_cUbo, m_particlesToAdd, dislocatePos, positions, velocities);
+    m_initializer.splashInitializer(m_cUbo, m_particlesToAdd, dislocatePos, positions, velocities);
 
     vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_particlePosBuffer, positions);
     vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_particleVelBuffer, velocities);

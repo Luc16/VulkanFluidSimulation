@@ -276,7 +276,7 @@ uint32_t PbfInitializer::waterFallInitializer(ComputeUniformBufferObject &cUbo, 
         m_particles.position[i] = positions[i%positions.size()];
         m_particles.density[i] = cUbo.REST_DENS;
         m_particles.type[i] = 0;
-        m_particles.velocity[i] = glm::vec4(0.4f * cUbo.H / cUbo.DT, 0.0f, 0.0f, 0.0f);
+        m_particles.velocity[i] = glm::vec4(0.6f * cUbo.H / cUbo.DT, 0.0f, 0.0f, 0.0f);
     }
 
     cUbo.numParticles /= 2;

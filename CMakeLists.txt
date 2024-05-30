@@ -79,7 +79,10 @@ foreach( testsourcefolder ${SPH_APPS} )
             src/SPH/PBFGPU3DSim/RigidObject.cpp
             src/SPH/PBFGPU3DSim/RigidObject.h
             src/SPH/PBFGPU3DSim/PbfInitializer.cpp
-            src/SPH/PBFGPU3DSim/PbfInitializer.h)
+            src/SPH/PBFGPU3DSim/PbfInitializer.h
+            src/SPH/PBFGPU3DSim/PBFSceneManager.cpp
+            src/SPH/PBFGPU3DSim/PBFSceneManager.h
+    )
     target_link_libraries( ${testsourcefolder} VkFluidSim GL glfw Vulkan::Vulkan)
 endforeach( testsourcefolder ${SPH_APPS} )
 

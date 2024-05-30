@@ -5,8 +5,6 @@
 #include "PBFGPU3DSim.h"
 
 void PBFGPU3DSim::onCreate() {
-    loadDataFromJson(PRESET_DIR + curFile.data());
-
     vkDeviceWaitIdle(device.device());
     presets.clear();
     for (const auto & entry : std::filesystem::directory_iterator(PRESET_DIR)){
@@ -292,57 +290,72 @@ void PBFGPU3DSim::createComputeDescriptorSets() {
 }
 
 void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
+    vkDeviceWaitIdle(device.device());
     computeFrameIdx = 0;
     gUbo.view = camera.getView();
     gUbo.inverseView = glm::inverse(gUbo.view);
     gUbo.proj = camera.getProjection();
-    gUbo.planeSize = cUbo.BOUNDARY_SIZE;
-    cUbo.DT = 1/(60.0f*float(substeps));
-    GRID_SIZE = uint32_t(cUbo.BOUNDARY_SIZE.x/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.y/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.z/cUbo.H) + 1;
     activateWaves = false;
 
-
-    vkDeviceWaitIdle(device.device());
-
     particles.resize(NUM_PARTICLES);
-
     plane.setScale(cUbo.BOUNDARY_SIZE);
-    NUM_RIGID_PARTICLES = 0;
-    for (const auto& rigidObj : rigidObjects) {
-        NUM_RIGID_PARTICLES += rigidObj.numParticles();
-    }
-    NUM_FLUID_PARTICLES = NUM_PARTICLES - NUM_RIGID_PARTICLES;
-    cUbo.numParticles = NUM_FLUID_PARTICLES;
-    sourceParticleSum = pbfInitializer.waterFallInitializer(cUbo, activateRandomOffsets);
+    if (!objectsInitialized) PBFSceneManager::loadScene(*this, PRESET_DIR + curFile.data());
 
-    cUbo.numParticles += NUM_RIGID_PARTICLES;
+    // run once to create the files
+    cUbo.numParticles = NUM_PARTICLES;
+    PbfInitializer pbfInitializer{particles};
+//    sourceParticleSum = pbfInitializer.damBreakInitializer(cUbo, true);
+//    PBFSceneManager::saveScene(*this, PRESET_DIR + "dambreak.json");
+//    sourceParticleSum = pbfInitializer.doubleDamBreakInitializer(cUbo, true);
+//    PBFSceneManager::saveScene(*this, PRESET_DIR + "doubleDamBreak.json");
+//    sourceParticleSum = pbfInitializer.splashInitializer(cUbo, true);
+//    PBFSceneManager::saveScene(*this, PRESET_DIR + "splash.json");
+//    substeps = 2;
+//    sourceParticleSum = pbfInitializer.waterFallInitializer(cUbo, true);
+//    PBFSceneManager::saveScene(*this, PRESET_DIR + "waterfall.json");
+//    initialParticles = cUbo.numParticles;
+
+
+    cUbo.numParticles = initialParticles;
+    cUbo.DT = 1/(60.0f*float(substeps));
+    GRID_SIZE = uint32_t(cUbo.BOUNDARY_SIZE.x/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.y/cUbo.H)*uint32_t(cUbo.BOUNDARY_SIZE.z/cUbo.H) + 1;
+    gUbo.planeSize = cUbo.BOUNDARY_SIZE;
+
+
+//    NUM_RIGID_PARTICLES = 0;
+//    for (const auto& rigidObj : rigidObjects) {
+//        NUM_RIGID_PARTICLES += rigidObj.numParticles();
+//    }
+//    NUM_FLUID_PARTICLES = NUM_PARTICLES - NUM_RIGID_PARTICLES;
+//    cUbo.numParticles = NUM_FLUID_PARTICLES;
+//    sourceParticleSum = pbfInitializer.waterFallInitializer(cUbo, activateRandomOffsets);
+
+//    cUbo.numParticles += NUM_RIGID_PARTICLES;
 
 
 
-    for (int i = int(NUM_PARTICLES) - 1; i >= int(NUM_RIGID_PARTICLES); i--) {
-        particles.position[i] = particles.position[i - NUM_RIGID_PARTICLES];
-        particles.density[i] = particles.density[i - NUM_RIGID_PARTICLES];
-        particles.type[i] = particles.type[i - NUM_RIGID_PARTICLES];
-        particles.velocity[i] = particles.velocity[i - NUM_RIGID_PARTICLES];
-    }
-
-//    accPos = glm::vec4(0.75*cUbo.BOUNDARY_SIZE.x + cUbo.EPS, cUbo.EPS, cUbo.EPS, 0.0f);
-
-    if (!rigidObjects.empty()) {
-        auto rigidObjParticles = rigidObjects[0].getPositions();
-        uint32_t rigidObjIdx = 0;
-        uint32_t initialIdx = 0;
-        for (uint32_t i = 0; i < NUM_RIGID_PARTICLES; i++) {
-            particles.type[i] = 1;
-
-            if (i - initialIdx >= rigidObjParticles.size()) {
-                rigidObjIdx++;
-                initialIdx = i;
-                rigidObjParticles = rigidObjects[rigidObjIdx].getPositions();
-            }
-            particles.position[i] = glm::vec4(rigidObjParticles[i - initialIdx], 0);
-        }
-    }
+//    for (int i = int(NUM_PARTICLES) - 1; i >= int(NUM_RIGID_PARTICLES); i--) {
+//        particles.position[i] = particles.position[i - NUM_RIGID_PARTICLES];
+//        particles.density[i] = particles.density[i - NUM_RIGID_PARTICLES];
+//        particles.type[i] = particles.type[i - NUM_RIGID_PARTICLES];
+//        particles.velocity[i] = particles.velocity[i - NUM_RIGID_PARTICLES];
+//    }
+//
+//    if (!rigidObjects.empty()) {
+//        auto rigidObjParticles = rigidObjects[0].getPositions();
+//        uint32_t rigidObjIdx = 0;
+//        uint32_t initialIdx = 0;
+//        for (uint32_t i = 0; i < NUM_RIGID_PARTICLES; i++) {
+//            particles.type[i] = 1;
+//
+//            if (i - initialIdx >= rigidObjParticles.size()) {
+//                rigidObjIdx++;
+//                initialIdx = i;
+//                rigidObjParticles = rigidObjects[rigidObjIdx].getPositions();
+//            }
+//            particles.position[i] = glm::vec4(rigidObjParticles[i - initialIdx], 0);
+//        }
+//    }
 
 
     //create buffers
@@ -416,20 +429,23 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
 
     //free descriptor sets
     if (objectsInitialized) {
-        globalDescriptorPool->freeDescriptors({
-            predictPositionKernel.descSets[0],
-            predictPositionKernel.descSets[1],
-            lambdaKernel.descSets[0],
-            lambdaKernel.descSets[1],
-            posCorrectionKernel.descSets[0],
-            posCorrectionKernel.descSets[1],
-            updateVelocitiesKernel.descSets[0],
-            updateVelocitiesKernel.descSets[1],
-            applyViscAndComputeVortKernel.descSets[0],
-            applyViscAndComputeVortKernel.descSets[1],
-            applyVortAndUpdatePos.descSets[0],
-            applyVortAndUpdatePos.descSets[1],
-        });
+        std::vector<VkDescriptorSet> descriptorsToFree = {
+                predictPositionKernel.descSets[0],
+                predictPositionKernel.descSets[1],
+                updateVelocitiesKernel.descSets[0],
+                updateVelocitiesKernel.descSets[1],
+                applyViscAndComputeVortKernel.descSets[0],
+                applyViscAndComputeVortKernel.descSets[1],
+                applyVortAndUpdatePos.descSets[0],
+                applyVortAndUpdatePos.descSets[1],
+        };
+        for (uint32_t i = 0; i < lambdaKernel.descSets.size(); i++) {
+            descriptorsToFree.push_back(lambdaKernel.descSets[i]);
+            descriptorsToFree.push_back(posCorrectionKernel.descSets[i]);
+        }
+
+
+        globalDescriptorPool->freeDescriptors(descriptorsToFree);
     }
     createComputeDescriptorSets();
 
@@ -1052,7 +1068,7 @@ void PBFGPU3DSim::showImGui(){
         ImGui::InputText("File Name", &saveFileName);
 
         if (ImGui::Button("Save") && saveFileName != "Enter file name") {
-            saveToJson(saveFileName + ".json");
+            PBFSceneManager::saveScene(*this, saveFileName + ".json");
             isSaveWindowOpen = false;
             pausedSimulation = controlMode;
             disableKeyboardControl = false;
@@ -1086,13 +1102,15 @@ void PBFGPU3DSim::showImGui(){
         }
 
         if (ImGui::Button("Load")) {
-            loadDataFromJson(PRESET_DIR + curFile.data());
+            PBFSceneManager::loadScene(*this, PRESET_DIR + curFile.data());
             isLoadWindowOpen = false;
             pausedSimulation = controlMode;
             if (!pausedSimulation) {
                 initializeObjects(true);
             }
             disableKeyboardControl = false;
+            disableEmergencyExit();
+            hardResetFrame = 0;
         }
         ImGui::SameLine();
         if (ImGui::Button("Cancel")) {
@@ -1108,7 +1126,8 @@ void PBFGPU3DSim::showImGui(){
 
 void PBFGPU3DSim::addRigidObject(uint32_t type) {
     rigidObjectsNames.push_back(rigidObjectTypes[type].second + std::to_string(rigidObjectTypes[type].first++));
-    rigidObjects.emplace_back(device, "../Models/"+rigidObjectTypes[type].second+".obj", rockTex, 0.1f, cUbo.H/2);
+//    rigidObjects.emplace_back(device, "../Models/"+rigidObjectTypes[type].second+".obj", rockTex, 0.1f, cUbo.H/2);
+    rigidObjects.emplace_back(device, "../Models/bunny.obj", rockTex, 20.0f, cUbo.H/2);
     selectedRigidObj = rigidObjects.size() - 1;
     NUM_PARTICLES += rigidObjects[rigidObjects.size()-1].numParticles();
     hardResetFrame = 0;
@@ -1158,129 +1177,6 @@ void PBFGPU3DSim::onResize(int width, int height) {
                                                  {graphicsUniformBuffers[0]->descriptorInfo()}, {smoothPass.descriptorInfo()});
     smooth2DescriptorSets = createDescriptorSets(defaultDescriptorLayout,
                                                  {graphicsUniformBuffers[0]->descriptorInfo()}, {smoothPass.additionalImageDescriptorInfo()});
-}
-
-void PBFGPU3DSim::loadDataFromJson(const std::string &fileName) {
-    vkDeviceWaitIdle(device.device());
-    nlohmann::json jsonData;
-    std::ifstream fileData(fileName);
-    fileData >> jsonData;
-
-    NUM_PARTICLES = jsonData["NUM_PARTICLES"];
-    substeps = jsonData["substeps"];
-
-    // rendering param
-    gUbo.radius = jsonData["rendering"]["radius"];
-    gUbo.renderType = jsonData["rendering"]["renderType"];
-    gUbo.blurMode = jsonData["rendering"]["blurMode"];
-    blurIterations = jsonData["rendering"]["blurIterations"];
-    gUbo.filterRadius = jsonData["rendering"]["filterRadius"];
-    gUbo.blurScale = jsonData["rendering"]["blurScale"];
-    gUbo.blurDepthFalloff = jsonData["rendering"]["blurDepthFalloff"];
-
-    // simulation params
-    jacobiIterations = jsonData["simulation"]["jacobiIterations"];
-    cUbo.BOUNDARY_SIZE[0] = jsonData["simulation"]["BOUNDARY_SIZE"][0];
-    cUbo.BOUNDARY_SIZE[1] = jsonData["simulation"]["BOUNDARY_SIZE"][1];
-    cUbo.BOUNDARY_SIZE[2] = jsonData["simulation"]["BOUNDARY_SIZE"][2];
-    cUbo.REST_DENS = jsonData["simulation"]["REST_DENS"];
-    cUbo.VISC = jsonData["simulation"]["VISC"];
-    cUbo.ART_PRESSURE_COEF = jsonData["simulation"]["ART_PRESSURE_COEF"];
-    cUbo.VORTICITY_COEF = jsonData["simulation"]["VORTICITY_COEF"];
-    cUbo.CFM = jsonData["simulation"]["CFM"];
-    cUbo.activateVort = jsonData["simulation"]["activateVort"];
-    activateVisc = jsonData["simulation"]["activateVisc"];
-    activateVorticity = jsonData["simulation"]["activateVorticity"];
-
-    // walls
-    wallForwardSpeed = jsonData["walls"]["wallForwardSpeed"];
-    wallBackwardSpeed = jsonData["walls"]["wallBackwardSpeed"];
-    wallLimit = jsonData["walls"]["wallLimit"];
-
-    // initial params
-    numParticlesXZ[0] = jsonData["initial params"]["numParticlesXZ"][0];
-    numParticlesXZ[1] = jsonData["initial params"]["numParticlesXZ"][1];
-    particleSpacing = jsonData["initial params"]["particleSpacing"];
-    particleVerticalSpacing = jsonData["initial params"]["particleVerticalSpacing"];
-    initialPos[0] = jsonData["initial params"]["initialPos"][0];
-    initialPos[1] = jsonData["initial params"]["initialPos"][1];
-    initialPos[2] = jsonData["initial params"]["initialPos"][2];
-
-    NUM_RIGID_PARTICLES = 0;
-    rigidObjects.clear();
-    rigidObjectsNames.clear();
-    std::for_each(rigidObjectTypes.begin(), rigidObjectTypes.end(),[](auto& elem){elem.first = 0;});
-    if (jsonData["rigid objects"] != nullptr) {
-        for (const auto& rigidObjData : jsonData["rigid objects"]){
-            addRigidObject(rigidObjData[0]);
-            rigidObjects[rigidObjects.size()-1].translate(glm::vec3(rigidObjData[1][0], rigidObjData[1][1], rigidObjData[1][2]));
-            uint32_t objParticles = rigidObjects[rigidObjects.size()-1].numParticles();
-            NUM_RIGID_PARTICLES += objParticles;
-            NUM_PARTICLES -= objParticles;
-        }
-    }
-}
-
-void PBFGPU3DSim::saveToJson(const std::string &fileName) {
-    nlohmann::json saveData = {
-            {"NUM_PARTICLES",   NUM_PARTICLES},
-            {"substeps", substeps},
-            {"rendering",             {
-                    {"radius", gUbo.radius},
-                    {"renderType", gUbo.renderType},
-                    {"blurMode", gUbo.blurMode},
-                    {"blurIterations",   blurIterations},
-                    {"filterRadius", gUbo.filterRadius},
-                    {"blurScale", gUbo.blurScale},
-                    {"blurDepthFalloff", gUbo.blurDepthFalloff},
-                },
-            },
-            {"simulation", {
-                    {"jacobiIterations", jacobiIterations},
-                    {"BOUNDARY_SIZE", {cUbo.BOUNDARY_SIZE.x, cUbo.BOUNDARY_SIZE.y, cUbo.BOUNDARY_SIZE.z}},
-                    {"REST_DENS", cUbo.REST_DENS},
-                    {"VISC", cUbo.VISC},
-                    {"ART_PRESSURE_COEF", cUbo.ART_PRESSURE_COEF},
-                    {"VORTICITY_COEF", cUbo.VORTICITY_COEF},
-                    {"CFM", cUbo.CFM},
-                    {"activateVort", cUbo.activateVort},
-                    {"activateVisc", activateVisc},
-                    {"activateVorticity", activateVorticity},
-                },
-            },
-            {"walls", {
-                    {"wallForwardSpeed", wallForwardSpeed},
-                    {"wallBackwardSpeed", wallBackwardSpeed},
-                    {"wallLimit", wallLimit},
-                },
-            },
-            {"initial params", {
-                    {"numParticlesXZ", {numParticlesXZ.x, numParticlesXZ.y}},
-                    {"particleSpacing", particleSpacing},
-                    {"particleVerticalSpacing", particleVerticalSpacing},
-                    {"initialPos", {initialPos.x, initialPos.y, initialPos.z}},
-                }
-            },
-            {"rigid objects", {}}
-    };
-
-    for (uint32_t i = 0; i < rigidObjects.size(); i++) {
-        uint32_t idx = 0;
-        for (uint32_t j = 0; j < rigidObjectTypes.size(); j++) {
-            if (rigidObjectsNames[i].contains(rigidObjectTypes[j].second)) {
-                idx = j;
-                break;
-            }
-        }
-        glm::vec3 pos = rigidObjects[i].getTranslation();
-        saveData["rigid objects"].emplace_back(std::pair<const uint32_t, const std::vector<float>>(idx, {pos.x, pos.y, pos.z}));
-    }
-
-
-    std::ofstream o(PRESET_DIR + fileName);
-    o << std::setw(4) << saveData << std::endl;
-    presets.emplace_back(PRESET_DIR + fileName);
-
 }
 
 void PBFGPU3DSim::compileShaders() {

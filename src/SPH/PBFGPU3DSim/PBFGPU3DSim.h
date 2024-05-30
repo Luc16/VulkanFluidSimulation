@@ -28,10 +28,10 @@
 #include "PbfGpuSpatialGridHandler.h"
 #include "../../lib/simulations/OffscreenPass.h"
 #include "../../lib/CubeMapModel.h"
-#include "../../../external/nlohmann_json/json.hpp"
 #include "particles_and_ubos.h"
 #include "RigidObject.h"
 #include "PbfInitializer.h"
+#include "PBFSceneManager.h"
 
 
 class PBFGPU3DSim: public vkb::VulkanApp {
@@ -58,12 +58,12 @@ private:
     static constexpr uint32_t MAX_PARTICLES = 1'000'000;
     static constexpr float MAX_BOUND = 100.0f;
     uint32_t jacobiIterations = 4;
-    uint32_t substeps = 2;
+    uint32_t substeps = 1;
     uint32_t gaussPartition = 2;
     bool test = false;
     int blurIterations = 2;
     uint32_t GRID_SIZE = 0;
-    std::string_view curFile{"default.json"};
+    std::string_view curFile{"waterfall.json"};
 
     static constexpr uint32_t gridShaderStartIdx = 16;
     static constexpr uint32_t computeShaderStartIdx = 21;
@@ -280,8 +280,6 @@ private:
     std::vector<std::string> rigidObjectsNames{};
     uint32_t selectedRigidObj = 0;
 
-    PbfInitializer pbfInitializer{particles};
-
     glm::ivec2 numParticlesXZ = glm::ivec2(int(std::cbrt(NUM_PARTICLES)));
     float particleSpacing = cUbo.H*0.56f;
     float particleVerticalSpacing = cUbo.H*0.50f;
@@ -291,6 +289,7 @@ private:
     std::string saveFileName;
     std::vector<std::string> presets;
     uint32_t sourceParticleSum = 0;
+    uint32_t initialParticles = 0;
     bool isSaveWindowOpen = false, isLoadWindowOpen = false, disableKeyboardControl = false, isAddWindowOpen = false;
     bool activateTimer = false, controlMode = false, objectsInitialized = false, pausedSimulation = false;
     bool activateWaves = false, showParticles = false, singleStep = false;
@@ -310,8 +309,8 @@ private:
     void updateUniformBuffers(uint32_t frameIndex, float deltaTime);
     void showImGui();
     void addRigidObject(uint32_t type);
-    void loadDataFromJson(const std::string& file);
-    void saveToJson(const std::string& file);
+
+    friend class PBFSceneManager;
 
 
 };
