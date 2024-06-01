@@ -246,7 +246,7 @@ uint32_t PbfInitializer::waterFallInitializer(ComputeUniformBufferObject &cUbo, 
     }
 
     glm::vec4 initialPos = {cUbo.EPS, cUbo.EPS, cUbo.EPS, 0};
-    glm::vec4 limitPos = {cUbo.BOUNDARY_SIZE.x - 1.2*cUbo.EPS, cUbo.BOUNDARY_SIZE.y - 1.2*cUbo.EPS, cUbo.BOUNDARY_SIZE.z - 1.2*cUbo.EPS, 0};
+    glm::vec4 limitPos = {5.0f - 1.2*cUbo.EPS, cUbo.BOUNDARY_SIZE.y - 1.2*cUbo.EPS, cUbo.BOUNDARY_SIZE.z - 1.2*cUbo.EPS, 0};
     auto accPos = initialPos;
     for (uint32_t i = 0; i < cUbo.numParticles/2; i++) {
         m_particles.position[i] = accPos;
@@ -276,7 +276,7 @@ uint32_t PbfInitializer::waterFallInitializer(ComputeUniformBufferObject &cUbo, 
         m_particles.position[i] = positions[i%positions.size()];
         m_particles.density[i] = cUbo.REST_DENS;
         m_particles.type[i] = 0;
-        m_particles.velocity[i] = glm::vec4(0.6f * cUbo.H / cUbo.DT, 0.0f, 0.0f, 0.0f);
+        m_particles.velocity[i] = glm::vec4(0.4f * cUbo.H / cUbo.DT, 0.0f, 0.0f, 0.0f);
     }
 
     cUbo.numParticles /= 2;

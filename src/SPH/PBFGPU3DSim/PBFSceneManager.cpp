@@ -47,35 +47,40 @@ void PBFSceneManager::loadScene(PBFGPU3DSim& sim, const std::string &fileName) {
     sim.wallBackwardSpeed = jsonData["walls"]["wallBackwardSpeed"];
     sim.wallLimit = jsonData["walls"]["wallLimit"];
 
+    sim.NUM_RIGID_PARTICLES = 0;
+    sim.particles.resize(sim.NUM_PARTICLES);
     for (uint32_t i = 0; i < sim.NUM_PARTICLES; i++){
         sim.particles.position[i] = glm::vec4(jsonData["particles"][i][0], jsonData["particles"][i][1], jsonData["particles"][i][2], 0.0f);
         sim.particles.type[i] = static_cast<uint32_t>(jsonData["particles"][i][3]);
+        if (sim.particles.type[i] == 1) {
+            sim.initialParticles++;
+            sim.NUM_RIGID_PARTICLES++;
+        }
         sim.particles.velocity[i] = glm::vec4(jsonData["particles"][i][4], jsonData["particles"][i][5], jsonData["particles"][i][6], 0.0f);
     }
 
 
-//    sim.NUM_RIGID_PARTICLES = 0;
-//    sim.rigidObjects.clear();
-//    sim.rigidObjectsNames.clear();
-//    std::for_each(sim.rigidObjectTypes.begin(), sim.rigidObjectTypes.end(),[](auto& elem){elem.first = 0;});
-//    if (jsonData["rigid objects"] != nullptr) {
-//        for (const auto& rigidObjData : jsonData["rigid objects"]){
-//            sim.addRigidObject(rigidObjData[0]);
-//            sim.rigidObjects[sim.rigidObjects.size()-1].translate(glm::vec3(rigidObjData[1][0], rigidObjData[1][1], rigidObjData[1][2]));
-//            uint32_t objParticles = sim.rigidObjects[sim.rigidObjects.size()-1].numParticles();
-//            sim.NUM_RIGID_PARTICLES += objParticles;
-//            sim.NUM_PARTICLES -= objParticles;
-//        }
-//    }
+    sim.rigidObjects.clear();
+    sim.rigidObjectsNames.clear();
+    if (jsonData["rigid objects"] != nullptr) {
+        for (auto & obj : jsonData["rigid objects"]) {
+            std::string name = obj[0];
+            sim.rigidObjectsNames.emplace_back(name);
+
+            sim.rigidObjects.emplace_back(sim.device, "../Models/" + name + ".obj",
+                                          sim.rockTex, obj[2], sim.cUbo.H / 2);
+            sim.rigidObjects[sim.rigidObjects.size()-1].translate(glm::vec3(obj[1][0],obj[1][1],obj[1][2]));
+        }
+    }
 }
 
 void PBFSceneManager::saveScene(PBFGPU3DSim& sim, const std::string &fileName) {
     nlohmann::json saveData = {
-            {"NUM_PARTICLES", sim.NUM_FLUID_PARTICLES},
+            {"NUM_PARTICLES", sim.NUM_PARTICLES},
             {"substeps", sim.substeps},
             {"gaussSteps", sim.gaussPartition},
             {"sourceParticleSum", sim.sourceParticleSum},
-            {"initialParticles", sim.cUbo.numParticles},
+            {"initialParticles", sim.initialParticles},
 
             {"rendering",             {
                                         {"radius", sim.gUbo.radius},
@@ -108,7 +113,7 @@ void PBFSceneManager::saveScene(PBFGPU3DSim& sim, const std::string &fileName) {
                                 },
             },
             {"particles", {}},
-//            {"rigid objects", {}}
+            {"rigid objects", {}}
     };
 
     for (uint32_t i = 0; i < sim.NUM_PARTICLES; i++) {
@@ -118,21 +123,19 @@ void PBFSceneManager::saveScene(PBFGPU3DSim& sim, const std::string &fileName) {
         saveData["particles"].emplace_back(std::vector<float>{pos.x, pos.y, pos.z, static_cast<float>(type), vel.x, vel.y, vel.z});
     }
 
-    //    for (uint32_t i = 0; i < sim.rigidObjects.size(); i++) {
-//        uint32_t idx = 0;
-//        for (uint32_t j = 0; j < sim.rigidObjectTypes.size(); j++) {
-//            if (sim.rigidObjectsNames[i].contains(sim.rigidObjectTypes[j].second)) {
-//                idx = j;
-//                break;
-//            }
-//        }
-//        glm::vec3 pos = sim.rigidObjects[i].getTranslation();
-//        saveData["rigid objects"].emplace_back(std::pair<const uint32_t, const std::vector<float>>(idx, {pos.x, pos.y, pos.z}));
-//    }
+    for (uint32_t i = 0; i < sim.rigidObjects.size(); i++) {
+        glm::vec3 pos = sim.rigidObjects[i].getTranslation();
+        saveData["rigid objects"][i].emplace_back(sim.rigidObjectsNames[i]);
+        saveData["rigid objects"][i].emplace_back(std::vector<float>{pos.x, pos.y, pos.z});
+        saveData["rigid objects"][i].emplace_back(sim.rigidObjects[i].getScale());
+    }
 
-
-    std::ofstream o(fileName);
-    o << std::setw(4) << saveData << std::endl;
+    std::ofstream o(sim.PRESET_DIR + fileName);
+    if (!o.is_open()) {
+        std::cerr << "Could not open file " << sim.PRESET_DIR + fileName << " for writing" << std::endl;
+        return;
+    }
+    o << saveData << std::endl;
     sim.presets.emplace_back(fileName);
-
+//    std::cout << "Scene saved to " << fileName << std::endl;
 }

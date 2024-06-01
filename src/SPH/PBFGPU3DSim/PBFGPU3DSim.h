@@ -53,7 +53,7 @@ private:
 
 
     uint32_t NUM_PARTICLES = 200'000;
-    uint32_t NUM_RIGID_PARTICLES = 5'000;
+    uint32_t NUM_RIGID_PARTICLES = 0;
     uint32_t NUM_FLUID_PARTICLES = NUM_PARTICLES - NUM_RIGID_PARTICLES;
     static constexpr uint32_t MAX_PARTICLES = 1'000'000;
     static constexpr float MAX_BOUND = 100.0f;
@@ -63,7 +63,7 @@ private:
     bool test = false;
     int blurIterations = 2;
     uint32_t GRID_SIZE = 0;
-    std::string_view curFile{"waterfall.json"};
+    std::string_view curFile{"dam_break.json"};
 
     static constexpr uint32_t gridShaderStartIdx = 16;
     static constexpr uint32_t computeShaderStartIdx = 21;
