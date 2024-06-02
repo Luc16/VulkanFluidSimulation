@@ -22,6 +22,5 @@ void main() {
     vec3 n = normalize(fragNormalWorld);
     vec3 l = normalize(-ubo.lightDir);
     float lightIntensity = AMBIENT + max(dot(n, l), 0);
-    debugPrintfEXT("normal: %f %f %f, lightDir: %f %f %f, lightIntensity: %f\n", n.x, n.y, n.z, l.x, l.y, l.z, dot(n, l));
     outColor = vec4(vec3(texture(texSampler, fragTexCoord))*lightIntensity, 1.0);
 }
