@@ -18,7 +18,7 @@ layout(location = 0) out vec4 outColor;
 const float AMBIENT = 0.05;
 
 void main() {
-//    float lightIntensity = AMBIENT + max(dot(normalize(fragNormalWorld), normalize(ubo.lightDir)), 0);
+    float lightIntensity = AMBIENT + max(dot(normalize(fragNormalWorld), normalize(-ubo.lightDir)), 0);
 
-    outColor = vec4(vec3(texture(texSampler, fragTexCoord)), 1.0);
+    outColor = vec4(vec3(texture(texSampler, fragTexCoord))*lightIntensity, 1.0);
 }

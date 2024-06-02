@@ -13,7 +13,6 @@ RigidObject::RigidObject(const vkb::Device& device, const std::string& modelFile
                          float scale): m_scale(scale) {
     m_name = modelFile;
     std::vector<vkb::Model::Vertex> vertices{};
-    std::vector<uint32_t> indices{};
 
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
@@ -51,7 +50,6 @@ RigidObject::RigidObject(const vkb::Device& device, const std::string& modelFile
                         1.0f - attrib.texcoords[2 * index.texcoord_index + 1],
                 };
 
-            indices.push_back(vertices.size());
             vertices.push_back(vertex);
             if (uniqueVertices.count(vertex) == 0){
                 uniqueVertices[vertex] = static_cast<uint32_t>(m_vertices.size());
@@ -75,7 +73,7 @@ RigidObject::RigidObject(const vkb::Device& device, const std::string& modelFile
     }
 
 
-    m_object = std::make_unique<vkb::DrawableObject>(std::make_unique<vkb::Model>(device, vertices, indices), tex);
+    m_object = std::make_unique<vkb::DrawableObject>(std::make_unique<vkb::Model>(device, vertices), tex);
 
 }
 
