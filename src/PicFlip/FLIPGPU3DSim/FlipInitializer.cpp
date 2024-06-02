@@ -99,13 +99,13 @@ void FlipInitializer::splashInitializer(ComputeUniformBufferObject &cUbo, uint32
 
 void FlipInitializer::waterfallInitializer(ComputeUniformBufferObject &cUbo, uint32_t& particlesToAdd, bool dislocatePos, std::vector<glm::vec4>& pPos, std::vector<glm::vec4>& pVel) const {
     glm::ivec3 particleStart{2, 2, 2};
-    glm::ivec3 particleSpan{cUbo.dim.x - 2, cUbo.dim.y - 4, cUbo.dim.z - 2};
+    glm::ivec3 particleSpan{std::floor(5.0/cUbo.cellSize), cUbo.dim.y - 4, cUbo.dim.z - 2};
 
-    float radius = cUbo.cellSize*4;
+    float radius = cUbo.cellSize*2.5f;
 
     uint32_t numCellsR = std::floor(radius/cUbo.cellSize);
 
-    glm::ivec3 center{3, cUbo.dim.y/2, cUbo.dim.z/2};
+    glm::ivec3 center{3, cUbo.dim.y/2 - 6, cUbo.dim.z/2};
     uint32_t p = 0;
     particlesToAdd = 0;
 
@@ -136,7 +136,7 @@ void FlipInitializer::waterfallInitializer(ComputeUniformBufferObject &cUbo, uin
                         uint32_t pp = p;
                         placeParticlesInCell(pPos, p, i, j, k, cUbo.cellSize, dislocatePos);
                         for (; pp < p; pp++) {
-                            pVel[pp] = glm::vec4(0.08f*cUbo.cellSize/cUbo.dt, 0.0f, 0.0f, 0.0f);
+                            pVel[pp] = glm::vec4(0.05f*cUbo.cellSize/cUbo.dt, 0.0f, 0.0f, 0.0f);
                         }
                     }
                 }

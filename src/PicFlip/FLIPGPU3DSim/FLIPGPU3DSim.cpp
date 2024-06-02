@@ -2,18 +2,20 @@
 // Created by luc on 11/03/23.
 //
 
+#include <filesystem>
 #include "FLIPGPU3DSim.h"
 
 void FLIPGPU3DSim::onCreate() {
+    presets.clear();
+    for (const auto & entry : std::filesystem::directory_iterator(PRESET_DIR)){
+        presets.emplace_back(entry.path());
+    }
     camera.m_translation = {-3.85021f, 6.08832f, 4.48576f};
     camera.m_rotation = {0.72675f, 2.22789f, 3.14159f};
     camera.updateView();
-//    rocks.emplace_back(device, "../Models/rockA.obj", rockTex, 0.05f);
-//    rocks[0].translate(glm::vec3(5.0f, 1.5f, 5.0f));
-//    rigidObjectsNames.emplace_back("Rock 0");
-//    rocks.emplace_back(device, "../Models/rockA.obj", rockTex, 0.05f);
-//    rocks[1].translate(glm::vec3(5.0f, 0.75f, 5.0f));
-//    rigidObjectsNames.emplace_back("Rock 1");
+
+//    rigidObjects.emplace_back(device, "../Models/bunny.obj", rockTex, 20.0f);
+//    rigidObjects[0].translate(glm::vec3(6.785f, -0.5f, 3.2f));
     createBuffers();
     initializeObjects();
 
@@ -24,8 +26,8 @@ void FLIPGPU3DSim::onCreate() {
             .build();
     planeDescriptorSets = createDescriptorSets(descriptorLayout, {uniformBuffers[0]->descriptorInfo()},
                                                {plane.textureInfo()});
-    rockDescriptorSets = createDescriptorSets(descriptorLayout, {uniformBuffers[0]->descriptorInfo()},
-                                               {rockTex->descriptorInfo()});
+    rigidObjDescriptorSets = createDescriptorSets(descriptorLayout, {uniformBuffers[0]->descriptorInfo()},
+                                                  {rockTex->descriptorInfo()});
     {
         defaultSystem.createPipelineLayout(descriptorLayout.descriptorSetLayout(),
                                            sizeof(vkb::DrawableObject::PushConstantData));
@@ -76,20 +78,20 @@ void FLIPGPU3DSim::onCreate() {
 
 void FLIPGPU3DSim::initializeObjects(bool start) {
     vkDeviceWaitIdle(device.device());
+    disableEmergencyExit();
+
+    flipSolver.initialize(globalDescriptorPool, rigidObjects, PRESET_DIR + curFile.data(), start);
+    dimensions = flipSolver.getBoxSize();
 
     initializeGridLines();
-
-
-    plane.setScale(dimensions);
-
     if (start) {
         disableEmergencyExit();
-        for (auto& rock : rocks) {
+        for (auto& rock : rigidObjects) {
             rock.createSdf(device,flipSolver.getCellSize(), dimensions);
         }
     }
+    plane.setScale(dimensions);
 
-    flipSolver.initialize(globalDescriptorPool, rocks, start);
 //    flipSolver.initialize(globalDescriptorPool, {}, start);
 }
 
@@ -181,8 +183,8 @@ void FLIPGPU3DSim::renderObjects() {
 
         if (showParticles && ubo.renderType > 0)
             flipRenderer.runOffscreenPasses(commandBuffer, flipSolver,
-                                        renderer.currentFrame(), skybox, plane, rocks, defaultSystem,
-                                        planeDescriptorSets, rockDescriptorSets, skyboxDescriptorSets, renderSkybox);
+                                            renderer.currentFrame(), skybox, plane, rigidObjects, defaultSystem,
+                                            planeDescriptorSets, rigidObjDescriptorSets, skyboxDescriptorSets, renderSkybox);
         renderer.runRenderPass([this](VkCommandBuffer &commandBuffer) {
             if (renderSkybox) {
                 skyboxSystem.bind(commandBuffer, &skyboxDescriptorSets[renderer.currentFrame()]);
@@ -193,8 +195,8 @@ void FLIPGPU3DSim::renderObjects() {
 
             defaultSystem.bind(commandBuffer, &planeDescriptorSets[renderer.currentFrame()]);
             plane.render(defaultSystem, commandBuffer);
-            defaultSystem.bind(commandBuffer, &rockDescriptorSets[renderer.currentFrame()]);
-            for (auto& rock : rocks)
+            defaultSystem.bind(commandBuffer, &rigidObjDescriptorSets[renderer.currentFrame()]);
+            for (auto& rock : rigidObjects)
                 rock.render(defaultSystem, commandBuffer);
 
             if (showGrid) drawGrid(commandBuffer);
@@ -286,6 +288,18 @@ void FLIPGPU3DSim::showImGui(){
         paused = false;
     }
 
+    if (ImGui::Button("Load Configurations")) {
+        paused = true;
+        isLoadWindowOpen = true;
+        saveFileName = "Enter file name";
+    }
+
+    if (ImGui::Button("Save Configurations")) {
+        paused = true;
+        isSaveWindowOpen = true;
+        saveFileName = "Enter file name";
+    }
+
     ImGui::NewLine();
 
     if (ImGui::CollapsingHeader("Waves")) {
@@ -366,28 +380,25 @@ void FLIPGPU3DSim::showImGui(){
         auto prev = dimensions;
         ImGui::CDragFloatRanged3("Box Size", &dimensions[0], 0.01f, &minBound[0], &maxBound[0]);
 
-        auto numParticleMin = glm::ivec3(2);
-        auto numParticleMax = glm::ivec3(5);
-        ImGui::CSliderIntRanged3("Particles per cell", &flipSolver.particlePerCell[0], &numParticleMin[0], &numParticleMax[0]);
-
-        auto startMin = glm::ivec3(2);
-        auto startMax = glm::ivec3(flipSolver.getDimension()) - flipSolver.particleSpan - glm::ivec3(1);
-        ImGui::CSliderIntRanged3("Particles start", &flipSolver.particleStart[0], &startMin[0], &startMax[0]);
-
-        auto spanMin = glm::ivec3(4);
-        auto spanMax = glm::ivec3(flipSolver.getDimension());
-        ImGui::CSliderIntRanged3("Particles size", &flipSolver.particleSpan[0], &spanMin[0], &spanMax[0]);
-
         ImGui::NewLine();
         if (ImGui::CollapsingHeader("Rigid Objects", ImGuiTreeNodeFlags_DefaultOpen)) {
-            if (!rocks.empty()) {
-                auto rockPos = rocks[selectedObj].getTranslation();
-                auto prevPos = rocks[selectedObj].getTranslation();
+            if (!rigidObjects.empty()) {
+                auto rockPos = rigidObjects[selectedObj].getTranslation();
+                auto prevPos = rigidObjects[selectedObj].getTranslation();
                 auto minRockPos = glm::vec3(0.0f);
                 auto maxBoundRock = dimensions;
-                ImGui::CSliderFloatRanged3("Rock Position", &rockPos[0], &minRockPos[0], &maxBoundRock[0]);
-                rocks[selectedObj].translate(rockPos - prevPos);
+                ImGui::CSliderFloatRanged3("Position", &rockPos[0], &minRockPos[0], &maxBoundRock[0]);
+                rigidObjects[selectedObj].translate(rockPos - prevPos);
 
+                if (rigidObjects.size() != rigidObjectsNames.size()) {
+                    rigidObjectsNames.resize(rigidObjects.size());
+                    for (uint32_t i = 0; i < rigidObjects.size(); i++) {
+                        auto name = rigidObjects[i].getModelPath();
+                        auto start = name.find_last_of('/') + 1;
+                        auto end = name.find_last_of('.');
+                        rigidObjectsNames[i] =  name.substr(start, end) + std::to_string(i);
+                    }
+                }
                 std::string curItem = rigidObjectsNames[selectedObj];
                 if (ImGui::BeginCombo("##combo", curItem.c_str())) {
                     for (uint32_t i = 0; i < rigidObjectsNames.size(); i++){
@@ -433,6 +444,63 @@ void FLIPGPU3DSim::showImGui(){
         if (ImGui::Button("Close")) {
             changeGridColorWindowOpen = false;
         }
+        ImGui::End();
+    }
+
+    if (isSaveWindowOpen) {
+        ImGui::Begin("Save Configuration");
+
+        ImGui::InputText("File Name", &saveFileName);
+
+        if (ImGui::Button("Save") && saveFileName != "Enter file name") {
+            FlipSceneManager::saveScene(flipSolver, rigidObjects, PRESET_DIR, saveFileName + ".json");
+            isSaveWindowOpen = false;
+            paused = controlMode;
+            disableEmergencyExit();
+//            hardResetFrame = 0;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) {
+            isSaveWindowOpen = false;
+            paused = controlMode;
+        }
+
+        ImGui::End();
+    }
+
+    if (isLoadWindowOpen) {
+        ImGui::Begin("Load Preset");
+
+        ImGui::Text("Choose preset file");
+
+        if (ImGui::BeginCombo("##combo", curFile.data())) {
+            for (const std::string_view preset : presets){
+                const std::string_view name = preset.substr(preset.find_last_of('/')+1);
+                bool isSelected = (curFile == name);
+                if (ImGui::Selectable(name.data(), isSelected)) {
+                    curFile = name;
+                }
+                if (isSelected)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+
+        if (ImGui::Button("Load")) {
+            FlipSceneManager::loadScene(flipSolver, rigidObjects, PRESET_DIR + curFile.data());
+            isLoadWindowOpen = false;
+            paused = controlMode;
+            if (!paused) {
+                initializeObjects(true);
+            }
+            disableEmergencyExit();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) {
+            isLoadWindowOpen = false;
+            paused = controlMode;
+        }
+
         ImGui::End();
     }
 }

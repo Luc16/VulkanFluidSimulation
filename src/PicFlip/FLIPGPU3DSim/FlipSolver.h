@@ -19,6 +19,7 @@
 #include "../../lib/graphicsDataStructures/Matrices.h"
 #include "RigidObject.h"
 #include "FlipInitializer.h"
+#include "FlipSceneManager.h"
 
 
 class FlipSolver {
@@ -30,7 +31,7 @@ public:
                m_pressureSolverShaderPaths(pressureSolverShaders),
                m_boxSize(boxSize),
                m_cUbo({ uint32_t (boxSize.x * boxSize.y * boxSize.z / (_cellSize * _cellSize * _cellSize)),
-                        300'000,
+                        200'000,
                         1.0f / _cellSize,
                         _cellSize,
                         1 / 60.0f,
@@ -40,12 +41,11 @@ public:
                         {boxSize},
                         0.85}
                        ) {
-        particleSpan = {m_cUbo.dim.x/2, m_cUbo.dim.y - 4, m_cUbo.dim.z/2};
         m_maxParticles = m_cUbo.numParticles;
     }
 
     void updateSimulation(float deltaTime);
-    void initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPool, const std::vector<RigidObject>& sceneObjectBuffers, bool dislocatePos = true);
+    void initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPool, std::vector<RigidObject>& sceneObjectBuffers, const std::string& scene, bool dislocatePos = true);
     void updateUniformBuffers(uint32_t numParticles, glm::vec3 boxSize, float cellSize = -1, float flipRatio = -1, double w = -1.0);
 
     [[nodiscard]] uint32_t getNumTilesX() const { return m_cUbo.dim.x; }
@@ -53,6 +53,7 @@ public:
     [[nodiscard]] uint32_t getNumTilesZ() const { return m_cUbo.dim.z; }
     [[nodiscard]] float getCellSize() const { return m_cUbo.cellSize; }
     [[nodiscard]] glm::ivec3 getDimension() const { return m_cUbo.dim; }
+    [[nodiscard]] glm::vec3 getBoxSize() const { return m_cUbo.boxSize; }
     [[nodiscard]] uint32_t getParticleCount() const { return m_cUbo.numParticles; }
     [[nodiscard]] uint32_t getCellCount() const { return m_cUbo.size; }
     [[nodiscard]] VkBuffer particleBuffer() const { return m_particlePosBuffer->getBuffer(); }
@@ -60,21 +61,32 @@ public:
 
     uint32_t extensions = 0;
     const uint32_t maxExtensions = 4;
-    glm::ivec3 particleStart{2, 2, 2}, particleSpan{}, particlePerCell{4};
 
 private:
     constexpr static uint32_t m_workGroupSize = workGroupSize;
+    struct ParticleData {
+        std::vector<glm::vec4> positions;
+        std::vector<glm::vec4> velocities;
+
+        void resize(size_t newSize) {
+            positions.resize(newSize);
+            velocities.resize(newSize);
+        }
+    };
 
     // simulation params
     uint32_t m_numIterations = 200;
     uint32_t m_maxParticles;
     uint32_t m_particlesToAdd = 0;
     bool m_kernelsInitialized = false;
+    std::string m_scene;
     glm::vec3 m_boxSize;
+    uint32_t m_initialParticles{};
+    ParticleData m_particleData{};
 
     void createBuffers();
     void initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &globalPool, const std::vector<RigidObject>& sceneObjectBuffers);
-    void initializeParticles(bool dislocatePos);
+    void initializeParticles(const std::string &scene);
     void updateWall();
 
     const vkb::Device& m_deviceRef;
@@ -238,6 +250,8 @@ private:
 public:
     bool activateWaves = false;
     float wallForwardSpeed = 0.04f * m_cUbo.cellSize / m_cUbo.dt, wallBackwardSpeed = 0.01f * m_cUbo.cellSize / m_cUbo.dt, wallLimit = 0.2f * m_cUbo.boxSize.x, curSpeed = 0.0f;
+
+    friend class FlipSceneManager;
 };
 
 

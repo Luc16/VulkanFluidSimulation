@@ -18,12 +18,14 @@ public:
         m_object(std::move(other.m_object)),
         m_sdf(std::move(other.m_sdf)),
         m_sdfPos(other.m_sdfPos),
+        m_scale(other.m_scale),
         m_vertices(other.m_vertices),
         m_indices(other.m_indices){};
     RigidObject& operator=(RigidObject&& other) noexcept {
         m_object = std::move(other.m_object);
         m_sdf = std::move(other.m_sdf);
         m_sdfPos = other.m_sdfPos;
+        m_scale = other.m_scale;
         m_vertices = other.m_vertices;
         m_indices = other.m_indices;
         return *this;
@@ -37,6 +39,8 @@ public:
 
     [[nodiscard]] glm::vec3 getTranslation() const { return m_object->translation; }
     [[nodiscard]] bool sdfCreated() const { return m_sdfPos == m_object->translation; }
+    [[nodiscard]] float getScale() const { return m_scale; }
+    [[nodiscard]] std::string getModelPath() const { return m_name; }
 
     void translate(const glm::vec3& move);
 
@@ -44,6 +48,8 @@ private:
     std::unique_ptr<vkb::DrawableObject> m_object;
     std::unique_ptr<vkb::Buffer> m_sdf;
     glm::vec3 m_sdfPos{};
+    std::string m_name;
+    float m_scale;
     std::vector<glm::vec3> m_vertices;
     std::vector<uint32_t> m_indices;
 

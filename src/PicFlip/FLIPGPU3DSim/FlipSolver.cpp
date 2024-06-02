@@ -125,23 +125,27 @@ void FlipSolver::updateUniformBuffers(uint32_t numParticles, glm::vec3 boxSize, 
     m_computeUniformBuffer->write(&m_cUbo, sizeof(ComputeUniformBufferObject));
 }
 
-void FlipSolver::initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPool, const std::vector<RigidObject>& sceneObjectBuffers, bool dislocatePos)  {
+void FlipSolver::initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPool, std::vector<RigidObject>& sceneObjectBuffers, const std::string& scene, bool dislocatePos)  {
     activateWaves = false;
-    m_cUbo.numParticles = m_maxParticles;
-    m_particlesToAdd = 0;
+    if (m_scene != scene) {
+//        m_cUbo.numParticles = m_maxParticles;
+//        m_particleData.resize(m_maxParticles);
+//        m_initializer.waterfallInitializer(m_cUbo, m_particlesToAdd, dislocatePos, m_particleData.positions, m_particleData.velocities);
+//        FlipSceneManager::saveScene(*this, sceneObjectBuffers, "", scene);
+        FlipSceneManager::loadScene(*this, sceneObjectBuffers, scene);
+        m_initialParticles = m_cUbo.numParticles;
+        m_scene = scene;
+    }
+    m_cUbo.numParticles = m_initialParticles;
     createBuffers();
     initializeKernels(globalPool, sceneObjectBuffers);
-    initializeParticles(dislocatePos);
+    initializeParticles(scene);
 }
 
-void FlipSolver::initializeParticles(bool dislocatePos) {
-    std::vector<glm::vec4> velocities{m_cUbo.numParticles};
-    std::vector<glm::vec4> positions{m_cUbo.numParticles};
+void FlipSolver::initializeParticles(const std::string &scene) {
 
-    m_initializer.splashInitializer(m_cUbo, m_particlesToAdd, dislocatePos, positions, velocities);
-
-    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_particlePosBuffer, positions);
-    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_particleVelBuffer, velocities);
+    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_particlePosBuffer, m_particleData.positions);
+    vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_particleVelBuffer, m_particleData.velocities);
 }
 
 void FlipSolver::initializeKernels(const std::unique_ptr<vkb::DescriptorPool> &globalPool, const std::vector<RigidObject>& sceneObjectBuffers) {
@@ -423,7 +427,7 @@ void FlipSolver::createBuffers() {
                                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     m_particlePosBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
-                                                        m_cUbo.numParticles * sizeof(glm::vec4),
+                                                        m_maxParticles * sizeof(glm::vec4),
                                                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
                                                     VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                                                     VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
@@ -431,7 +435,7 @@ void FlipSolver::createBuffers() {
                                                         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     m_particleVelBuffer = std::make_unique<vkb::Buffer>(m_deviceRef,
-                                                        m_cUbo.numParticles * sizeof(glm::vec4),
+                                                        m_maxParticles * sizeof(glm::vec4),
                                                         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
                                                         VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                                                         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,

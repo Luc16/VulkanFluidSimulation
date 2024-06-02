@@ -10,7 +10,8 @@
 #include <functional>
 
 RigidObject::RigidObject(const vkb::Device& device, const std::string& modelFile, const std::shared_ptr<vkb::Texture>& tex,
-                         float scale) {
+                         float scale): m_scale(scale) {
+    m_name = modelFile;
     std::vector<vkb::Model::Vertex> vertices{};
 
     tinyobj::attrib_t attrib;

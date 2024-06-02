@@ -9,6 +9,7 @@
 #include <sstream>
 #include <ranges>
 #include "../../../external/imgui/imgui.h"
+#include "../../../external/imgui/imgui_stdlib.h"
 #include "../../../external/objloader/tiny_obj_loader.h"
 #include "../../lib/SwapChain.h"
 #include "../../lib/Buffer.h"
@@ -31,6 +32,7 @@
 #include "FlipRenderer.h"
 #include "../../lib/CubeMapModel.h"
 #include "RigidObject.h"
+#include "FlipSceneManager.h"
 
 class FLIPGPU3DSim: public vkb::VulkanApp {
 public:
@@ -49,6 +51,10 @@ private:
     const std::string SIMULATIONS_SHADER_DIR = SHADER_DIR + "simulation/";
     const std::string PRESSURE_SOLVER_SHADER_DIR = SHADER_DIR + "pressure_solver/";
     const std::string COMPILED_SHADER_DIR = SHADER_DIR + "bin/";
+    const std::string PRESET_DIR = DIR + "presets/";
+    std::string_view curFile{"bunny_bath.json"};
+
+
 
     static constexpr uint32_t pressureSolverStartIdx = 16;
     static constexpr uint32_t computeShaderStartIdx = pressureSolverStartIdx+6;
@@ -115,7 +121,7 @@ private:
                               std::make_shared<vkb::Texture>(device, "../textures/coral_reef_texture.jpg")};
     std::shared_ptr<vkb::Texture> rockTex = std::make_shared<vkb::Texture>(device, "../textures/rock_tex.png");
 
-    std::vector<RigidObject> rocks{};
+    std::vector<RigidObject> rigidObjects{};
     std::vector<std::string> rigidObjectsNames{};
     uint32_t selectedObj = 0;
 
@@ -132,7 +138,7 @@ private:
     vkb::RenderSystem defaultSystem{device};
     vkb::RenderSystem lineSystem{device};
     std::vector<VkDescriptorSet> planeDescriptorSets;
-    std::vector<VkDescriptorSet> rockDescriptorSets;
+    std::vector<VkDescriptorSet> rigidObjDescriptorSets;
     std::vector<VkDescriptorSet> lineDescriptorSets;
     std::vector<VkDescriptorSet> skyboxDescriptorSets;
 
@@ -163,7 +169,7 @@ private:
                                     std::ranges::views::take(computeShaderStartIdx - pressureSolverStartIdx) |
                                     std::ranges::views::transform(transformFunc);
 
-    glm::vec3 dimensions = glm::vec3(7.0f, 10.0f, 7.0f);
+    glm::vec3 dimensions = glm::vec3(9.0f, 10.0f, 7.0f);
     FlipSolver flipSolver {
         device,
         {simulationShaderPaths.begin(), simulationShaderPaths.end()},
@@ -182,6 +188,9 @@ private:
 
     float gpuTime = 0, cpuTime = 0;
     bool activateTimer = false, paused = false, singleStep = false, controlMode = false;
+    bool isLoadWindowOpen = false, isSaveWindowOpen = false;
+    std::vector<std::string> presets;
+    std::string saveFileName;
 
 
     void onCreate() override;

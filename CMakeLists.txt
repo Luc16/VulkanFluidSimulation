@@ -105,6 +105,8 @@ foreach( testsourcefolder ${FLIP_APPS} )
             src/PicFlip/FLIPGPU3DSim/RigidObject.h
             src/PicFlip/FLIPGPU3DSim/FlipInitializer.cpp
             src/PicFlip/FLIPGPU3DSim/FlipInitializer.h
+            src/PicFlip/FLIPGPU3DSim/FlipSceneManager.cpp
+            src/PicFlip/FLIPGPU3DSim/FlipSceneManager.h
     )
     target_link_libraries( ${testsourcefolder} VkFluidSim GL glfw Vulkan::Vulkan)
 endforeach( testsourcefolder ${FLIP_APPS} )

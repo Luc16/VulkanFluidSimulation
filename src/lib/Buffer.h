@@ -52,7 +52,11 @@ namespace vkb {
         VkDeviceSize bufferSize = vec.size() * sizeof(T);
 
         if (buffer->getSize() < bufferSize) {
-            throw std::runtime_error("Buffer too small to receive data");
+            throw std::runtime_error("Vector too small to receive data, vector has " +
+                                     std::to_string(bufferSize) +
+                                     " bytes, buffer has " +
+                                     std::to_string(buffer->getSize()) +
+                                     " bytes");
         }
 
         vkb::Buffer stagingBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
