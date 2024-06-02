@@ -396,7 +396,7 @@ void FLIPGPU3DSim::showImGui(){
                         auto name = rigidObjects[i].getModelPath();
                         auto start = name.find_last_of('/') + 1;
                         auto end = name.find_last_of('.');
-                        rigidObjectsNames[i] =  name.substr(start, end) + std::to_string(i);
+                        rigidObjectsNames[i] =  name.substr(start, end - start) + " " + std::to_string(i);
                     }
                 }
                 std::string curItem = rigidObjectsNames[selectedObj];

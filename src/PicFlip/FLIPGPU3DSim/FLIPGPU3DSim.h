@@ -52,7 +52,7 @@ private:
     const std::string PRESSURE_SOLVER_SHADER_DIR = SHADER_DIR + "pressure_solver/";
     const std::string COMPILED_SHADER_DIR = SHADER_DIR + "bin/";
     const std::string PRESET_DIR = DIR + "presets/";
-    std::string_view curFile{"bunny_bath.json"};
+    std::string_view curFile{"dam_break.json"};
 
 
 
