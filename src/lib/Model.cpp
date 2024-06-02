@@ -41,7 +41,7 @@ namespace vkb {
         vkb::Buffer::writeVectorToBuffer(m_deviceRef, m_indexBuffer, indices);
     }
 
-    std::unique_ptr<Model> Model::createModelFromFile(const Device &device, const std::string &filepath) {
+    std::unique_ptr<Model> Model::createModelFromFile(const Device &device, const std::string &filepath, bool calculateNormals) {
         std::vector<Vertex> vertices{};
         std::vector<uint32_t> indices{};
 
@@ -55,6 +55,7 @@ namespace vkb {
         }
 
         std::unordered_map<Vertex, uint32_t> uniqueVertices{};
+        uint32_t normalCount = 0;
 
         for (const auto& shape: shapes) {
             for (const auto& index : shape.mesh.indices) {
@@ -69,26 +70,48 @@ namespace vkb {
                         attrib.colors[3 * index.vertex_index + 1],
                         attrib.colors[3 * index.vertex_index + 2],
                 };
-                if (index.normal_index > 0)
+                if (index.normal_index > 0) {
+                    normalCount++;
                     vertex.normal = {
                             attrib.normals[3 * index.normal_index + 0],
                             attrib.normals[3 * index.normal_index + 1],
                             attrib.normals[3 * index.normal_index + 2],
                     };
+                }
                 if (index.texcoord_index > 0)
                     vertex.texCoord = {
                             attrib.texcoords[2 * index.texcoord_index],
                             1.0f - attrib.texcoords[2 * index.texcoord_index + 1],
                     };
 
-                if (uniqueVertices.count(vertex) == 0){
-                    uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
+                if (calculateNormals) {
+                    indices.push_back(vertices.size());
                     vertices.push_back(vertex);
+                } else {
+                    if (uniqueVertices.count(vertex) == 0){
+                        uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
+                        vertices.push_back(vertex);
+                    }
+                    indices.push_back(uniqueVertices[vertex]);
                 }
-
-                indices.push_back(uniqueVertices[vertex]);
             }
         }
+
+        if (calculateNormals && normalCount == 0) {
+//            std::cout << "No normals found in model file, generating normals" << std::endl;
+            for (size_t i = 0; i < vertices.size(); i += 3) {
+                glm::vec3 v0 = vertices[i].pos;
+                glm::vec3 v1 = vertices[i + 1].pos;
+                glm::vec3 v2 = vertices[i + 2].pos;
+
+                glm::vec3 normal = glm::normalize(glm::cross(v1 - v0, v2 - v0));
+
+                vertices[i].normal = normal;
+                vertices[i + 1].normal = normal;
+                vertices[i + 2].normal = normal;
+            }
+        }
+
         return std::make_unique<Model>(device, vertices, indices);
 
     }

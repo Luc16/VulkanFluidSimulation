@@ -52,7 +52,7 @@ private:
     const std::string PRESSURE_SOLVER_SHADER_DIR = SHADER_DIR + "pressure_solver/";
     const std::string COMPILED_SHADER_DIR = SHADER_DIR + "bin/";
     const std::string PRESET_DIR = DIR + "presets/";
-    std::string_view curFile{"dam_break.json"};
+    std::string_view curFile{"bunny_bath.json"};
 
 
 
@@ -117,7 +117,7 @@ private:
         .screenHeight = HEIGHT,
         .screenWidth = WIDTH,
     };
-    vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, "../Models/quadXZ1.obj"),
+    vkb::DrawableObject plane{vkb::Model::createModelFromFile(device, "../Models/quadXZ1.obj", true),
                               std::make_shared<vkb::Texture>(device, "../textures/coral_reef_texture.jpg")};
     std::shared_ptr<vkb::Texture> rockTex = std::make_shared<vkb::Texture>(device, "../textures/rock_tex.png");
 

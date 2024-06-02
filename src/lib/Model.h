@@ -38,7 +38,7 @@ namespace vkb {
         Model(const Model &) = delete;
         Model &operator=(const Model &) = delete;
 
-        static std::unique_ptr<Model> createModelFromFile(const Device &device, const std::string &filepath);
+        static std::unique_ptr<Model> createModelFromFile(const Device &device, const std::string &filepath, bool calculateNormals = false);
 
         void bind(VkCommandBuffer commandBuffer);
         void draw(VkCommandBuffer commandBuffer, size_t numInstances = 1) const;

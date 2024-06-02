@@ -133,6 +133,7 @@ void FlipSolver::initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPo
 //        m_initializer.waterfallInitializer(m_cUbo, m_particlesToAdd, dislocatePos, m_particleData.positions, m_particleData.velocities);
 //        FlipSceneManager::saveScene(*this, sceneObjectBuffers, "", scene);
         FlipSceneManager::loadScene(*this, sceneObjectBuffers, scene);
+        std::cout << "loaded scene: " << scene << "\n";
         m_initialParticles = m_cUbo.numParticles;
         m_scene = scene;
     }

@@ -1,5 +1,6 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_debug_printf : enable
 
 #include "common.glsl"
 
@@ -26,5 +27,6 @@ void main() {
     gl_Position = ubo.proj * ubo.view * posWorld;
     fragPosWorld = posWorld.xyz;
     fragNormalWorld = normalize(mat3(push.model) * inNormal);
+    debugPrintfEXT("fragNormalWorld: %f %f %f\n", fragNormalWorld.x, fragNormalWorld.y, fragNormalWorld.z);
     fragTexCoord = inTexCoord;
 }

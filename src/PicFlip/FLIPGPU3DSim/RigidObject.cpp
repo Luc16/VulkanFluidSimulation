@@ -13,6 +13,7 @@ RigidObject::RigidObject(const vkb::Device& device, const std::string& modelFile
                          float scale): m_scale(scale) {
     m_name = modelFile;
     std::vector<vkb::Model::Vertex> vertices{};
+    std::vector<uint32_t> indices{};
 
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
@@ -50,16 +51,31 @@ RigidObject::RigidObject(const vkb::Device& device, const std::string& modelFile
                         1.0f - attrib.texcoords[2 * index.texcoord_index + 1],
                 };
 
+            indices.push_back(vertices.size());
+            vertices.push_back(vertex);
             if (uniqueVertices.count(vertex) == 0){
-                uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-                vertices.push_back(vertex);
+                uniqueVertices[vertex] = static_cast<uint32_t>(m_vertices.size());
                 m_vertices.push_back(vertex.pos);
             }
 
             m_indices.push_back(uniqueVertices[vertex]);
         }
     }
-    m_object = std::make_unique<vkb::DrawableObject>(std::make_unique<vkb::Model>(device, vertices, m_indices), tex);
+
+    for (size_t i = 0; i < vertices.size(); i += 3) {
+        glm::vec3 v0 = vertices[i].pos;
+        glm::vec3 v1 = vertices[i + 1].pos;
+        glm::vec3 v2 = vertices[i + 2].pos;
+
+        glm::vec3 normal = glm::normalize(glm::cross(v1 - v0, v2 - v0));
+
+        vertices[i].normal = normal;
+        vertices[i + 1].normal = normal;
+        vertices[i + 2].normal = normal;
+    }
+
+
+    m_object = std::make_unique<vkb::DrawableObject>(std::make_unique<vkb::Model>(device, vertices, indices), tex);
 
 }
 
