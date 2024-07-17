@@ -11,8 +11,9 @@ void PBFGPU3DSim::onCreate() {
         presets.emplace_back(entry.path());
     }
 
+    rigidObjects.clear();
     addRigidObject(0);
-    rigidObjects[0].translate({6.875,-0.5,3.200000047683716});
+    rigidObjects[0].translate({8.2f,0.0f, 7.5f});
 
     compileShaders();
 //    camera.m_translation = {-9.31845f, 14.2878f, 15.5649f};
@@ -315,7 +316,7 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
 //    sourceParticleSum = pbfInitializer.splashInitializer(cUbo, true);
 //    PBFSceneManager::saveScene(*this, "splash.json");
 //    substeps = 2;
-    sourceParticleSum = pbfInitializer.waterFallInitializer(cUbo, true);
+//    sourceParticleSum = pbfInitializer.damBreakInitializer(cUbo, true);
 //    PBFSceneManager::saveScene(*this, "waterfall.json");
     initialParticles = cUbo.numParticles;
 
@@ -333,7 +334,9 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     }
     NUM_FLUID_PARTICLES = NUM_PARTICLES - NUM_RIGID_PARTICLES;
     cUbo.numParticles = NUM_FLUID_PARTICLES;
-    sourceParticleSum = pbfInitializer.waterFallInitializer(cUbo, activateRandomOffsets);
+//    sourceParticleSum = pbfInitializer.waterFallInitializer(cUbo, activateRandomOffsets);
+    sourceParticleSum = pbfInitializer.damBreakInitializer(cUbo, true);
+
 
     cUbo.numParticles += NUM_RIGID_PARTICLES;
 
@@ -1149,9 +1152,9 @@ void PBFGPU3DSim::showImGui(){
 }
 
 void PBFGPU3DSim::addRigidObject(uint32_t type) {
-    rigidObjectsNames.emplace_back("bunny");
+    rigidObjectsNames.emplace_back("city");
 //    rigidObjects.emplace_back(device, "../Models/"+rigidObjectTypes[type].second+".obj", rockTex, 0.1f, cUbo.H/2);
-    rigidObjects.emplace_back(device, "../Models/bunny.obj", rockTex, 20.0f, cUbo.H/2);
+    rigidObjects.emplace_back(device, "../Models/city.obj", rockTex, 0.0005f, cUbo.H/2);
     selectedRigidObj = rigidObjects.size() - 1;
     NUM_PARTICLES += rigidObjects[rigidObjects.size()-1].numParticles();
     NUM_RIGID_PARTICLES += rigidObjects[rigidObjects.size()-1].numParticles();
