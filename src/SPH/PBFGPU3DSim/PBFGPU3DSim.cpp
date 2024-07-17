@@ -11,6 +11,9 @@ void PBFGPU3DSim::onCreate() {
         presets.emplace_back(entry.path());
     }
 
+    addRigidObject(0);
+    rigidObjects[0].translate({6.875,-0.5,3.200000047683716});
+
     compileShaders();
 //    camera.m_translation = {-9.31845f, 14.2878f, 15.5649f};
 //    camera.m_rotation = {0.569391f, 2.26887f, 3.14159f};
@@ -297,7 +300,7 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     gUbo.proj = camera.getProjection();
     activateWaves = false;
 
-    if (!objectsInitialized) PBFSceneManager::loadScene(*this, PRESET_DIR + curFile.data());
+//    if (!objectsInitialized) PBFSceneManager::loadScene(*this, PRESET_DIR + curFile.data());
     particles.resize(NUM_PARTICLES);
     plane.setScale(cUbo.BOUNDARY_SIZE);
 
@@ -312,9 +315,10 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
 //    sourceParticleSum = pbfInitializer.splashInitializer(cUbo, true);
 //    PBFSceneManager::saveScene(*this, "splash.json");
 //    substeps = 2;
-//    sourceParticleSum = pbfInitializer.waterFallInitializer(cUbo, true);
+    sourceParticleSum = pbfInitializer.waterFallInitializer(cUbo, true);
 //    PBFSceneManager::saveScene(*this, "waterfall.json");
-//    initialParticles = cUbo.numParticles;
+    initialParticles = cUbo.numParticles;
+
 
 
     cUbo.DT = 1/(60.0f*float(substeps));
@@ -323,40 +327,40 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     gUbo.planeSize = cUbo.BOUNDARY_SIZE;
 
 
-//    NUM_RIGID_PARTICLES = 0;
-//    for (const auto& rigidObj : rigidObjects) {
-//        NUM_RIGID_PARTICLES += rigidObj.numParticles();
-//    }
-//    NUM_FLUID_PARTICLES = NUM_PARTICLES - NUM_RIGID_PARTICLES;
-//    cUbo.numParticles = NUM_FLUID_PARTICLES;
-//    sourceParticleSum = pbfInitializer.waterFallInitializer(cUbo, activateRandomOffsets);
-//
-//    cUbo.numParticles += NUM_RIGID_PARTICLES;
-//
-//
-//
-//    for (int i = int(NUM_PARTICLES) - 1; i >= int(NUM_RIGID_PARTICLES); i--) {
-//        particles.position[i] = particles.position[i - NUM_RIGID_PARTICLES];
-//        particles.density[i] = particles.density[i - NUM_RIGID_PARTICLES];
-//        particles.type[i] = particles.type[i - NUM_RIGID_PARTICLES];
-//        particles.velocity[i] = particles.velocity[i - NUM_RIGID_PARTICLES];
-//    }
-//
-//    if (!rigidObjects.empty()) {
-//        auto rigidObjParticles = rigidObjects[0].getPositions();
-//        uint32_t rigidObjIdx = 0;
-//        uint32_t initialIdx = 0;
-//        for (uint32_t i = 0; i < NUM_RIGID_PARTICLES; i++) {
-//            particles.type[i] = 1;
-//
-//            if (i - initialIdx >= rigidObjParticles.size()) {
-//                rigidObjIdx++;
-//                initialIdx = i;
-//                rigidObjParticles = rigidObjects[rigidObjIdx].getPositions();
-//            }
-//            particles.position[i] = glm::vec4(rigidObjParticles[i - initialIdx], 0);
-//        }
-//    }
+    NUM_RIGID_PARTICLES = 0;
+    for (const auto& rigidObj : rigidObjects) {
+        NUM_RIGID_PARTICLES += rigidObj.numParticles();
+    }
+    NUM_FLUID_PARTICLES = NUM_PARTICLES - NUM_RIGID_PARTICLES;
+    cUbo.numParticles = NUM_FLUID_PARTICLES;
+    sourceParticleSum = pbfInitializer.waterFallInitializer(cUbo, activateRandomOffsets);
+
+    cUbo.numParticles += NUM_RIGID_PARTICLES;
+
+
+
+    for (int i = int(NUM_PARTICLES) - 1; i >= int(NUM_RIGID_PARTICLES); i--) {
+        particles.position[i] = particles.position[i - NUM_RIGID_PARTICLES];
+        particles.density[i] = particles.density[i - NUM_RIGID_PARTICLES];
+        particles.type[i] = particles.type[i - NUM_RIGID_PARTICLES];
+        particles.velocity[i] = particles.velocity[i - NUM_RIGID_PARTICLES];
+    }
+
+    if (!rigidObjects.empty()) {
+        auto rigidObjParticles = rigidObjects[0].getPositions();
+        uint32_t rigidObjIdx = 0;
+        uint32_t initialIdx = 0;
+        for (uint32_t i = 0; i < NUM_RIGID_PARTICLES; i++) {
+            particles.type[i] = 1;
+
+            if (i - initialIdx >= rigidObjParticles.size()) {
+                rigidObjIdx++;
+                initialIdx = i;
+                rigidObjParticles = rigidObjects[rigidObjIdx].getPositions();
+            }
+            particles.position[i] = glm::vec4(rigidObjParticles[i - initialIdx], 0);
+        }
+    }
 
     //create buffers
     {
@@ -500,7 +504,7 @@ void PBFGPU3DSim::mainLoop(float deltaTime) {
     }
 
     if (!pausedSimulation) {
-        updateSimulation();
+        updateSimulation(deltaTime);
         if (activateTimer) {
             auto time = std::chrono::high_resolution_clock::now();
             computeTime = std::chrono::duration<float, std::chrono::milliseconds::period>(time - currentTime).count();
@@ -611,7 +615,7 @@ void PBFGPU3DSim::renderObjects(VkCommandBuffer commandBuffer) {
 
 }
 
-void PBFGPU3DSim::updateSimulation() {
+void PBFGPU3DSim::updateSimulation(float deltaTime) {
 
     auto simulationStep = [this](VkCommandBuffer computeCommandBuffer){
         uint32_t blockSize = cUbo.numParticles / 256 + (1 - (cUbo.numParticles % 256 == 0));
@@ -660,10 +664,19 @@ void PBFGPU3DSim::updateSimulation() {
     };
 
     if (!test) {
-//        std::cout << "init\n";
-//        std::cout << "grid built\n";
+        static uint32_t frame = 0;
+        static float totalTime = 0;
         computeHandler.runCompute(renderer.currentFrame(), simulationStep);
-//        std::cout << "end\n";
+        if (frame++ >= 2) {
+            totalTime += deltaTime;
+        }
+
+//        if (frame >= 800) {
+//            std::cout << std::fixed << std::setprecision(6) << 1000*totalTime/float(frame - 2) << "ms\n";
+//            std::cout << std::setprecision(2) << 1000*totalTime/float(frame - 2) << "\n";
+//            endProgram();
+//        }
+
     } else {
         computeHandler.runComputeIsolated(renderer.currentFrame(), simulationStep);
         std::vector<float> avgDens(1);
@@ -671,15 +684,24 @@ void PBFGPU3DSim::updateSimulation() {
         vkb::Buffer::writeBufferToVector(device, avgDensBuffer, avgDens);
     //    std::cout << "Frame: " <<  frame++ << " Average density: " << avgDens[0]/float(substeps*jacobiIterations*NUM_FLUID_PARTICLES) << std::endl;
         if (frame++ > 0) {
-            auto val = std::to_string(avgDens[0]/float(substeps*jacobiIterations*NUM_FLUID_PARTICLES));
+            auto val = std::to_string(avgDens[0]/(float(substeps*jacobiIterations*NUM_FLUID_PARTICLES)*cUbo.REST_DENS));
     //        val.replace(val.find('.'), 1, ",");
             std::cout << frame - 1 << "\t" << val << std::endl;
         }
-        static bool sla = false;
-        if (frame >= 500) {
-            std::cout << "end\n";
-            if (sla) endProgram();
-            sla = true;
+        static int sla = 0;
+        static float avgTime = 0;
+        static uint32_t count = 0;
+        if (frame >= 2) {
+            avgTime += deltaTime;
+            count++;
+        }
+        uint32_t numFrames = 800;
+        if (frame >= numFrames) {
+            std::cout << "end\t" << avgTime/float(count) << "\n";
+            if (sla == 1) endProgram();
+            sla++;
+            avgTime = 0;
+            count = 0;
             gaussPartition = 1;
             hardResetFrame = 0;
             disableEmergencyExit();

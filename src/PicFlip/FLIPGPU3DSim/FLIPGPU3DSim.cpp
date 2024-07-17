@@ -10,12 +10,14 @@ void FLIPGPU3DSim::onCreate() {
     for (const auto & entry : std::filesystem::directory_iterator(PRESET_DIR)){
         presets.emplace_back(entry.path());
     }
-    camera.m_translation = {-3.85021f, 6.08832f, 4.48576f};
-    camera.m_rotation = {0.72675f, 2.22789f, 3.14159f};
+//    camera.m_translation = {-3.85021f, 6.08832f, 4.48576f};
+    camera.m_translation = {-22.76f, 6.09f, 20.74f};
+//    camera.m_rotation = {0.72675f, 2.22789f, 3.14159f};
+    camera.m_rotation = {0.17f, 2.22789f, 3.14159f};
     camera.updateView();
 
-//    rigidObjects.emplace_back(device, "../Models/bunny.obj", rockTex, 20.0f);
-//    rigidObjects[0].translate(glm::vec3(6.785f, -0.5f, 3.2f));
+    rigidObjects.emplace_back(device, "../Models/bunny.obj", rockTex, 20.0f);
+    rigidObjects[0].translate(glm::vec3(6.785f, -0.5f, 3.2f));
     createBuffers();
     initializeObjects();
 
@@ -80,16 +82,14 @@ void FLIPGPU3DSim::initializeObjects(bool start) {
     vkDeviceWaitIdle(device.device());
     disableEmergencyExit();
 
-    flipSolver.initialize(globalDescriptorPool, rigidObjects, PRESET_DIR + curFile.data(), start);
-    dimensions = flipSolver.getBoxSize();
-
     initializeGridLines();
     if (start) {
-        disableEmergencyExit();
         for (auto& rock : rigidObjects) {
             rock.createSdf(device,flipSolver.getCellSize(), dimensions);
         }
     }
+    flipSolver.initialize(globalDescriptorPool, rigidObjects, PRESET_DIR + curFile.data(), start);
+    dimensions = flipSolver.getBoxSize();
     plane.setScale(dimensions);
 
 //    flipSolver.initialize(globalDescriptorPool, {}, start);
@@ -269,6 +269,8 @@ void FLIPGPU3DSim::showImGui(){
 
     if (ImGui::Button("Reset") || glfwIsKeyJustPressed<GLFW_KEY_R>()) initializeObjects();
     if (ImGui::Button("Pause") || glfwIsKeyJustPressed<GLFW_KEY_SPACE>()) {
+//        std::cout << "Camera position: " << camera.m_translation.x << " " << camera.m_translation.y << " " << camera.m_translation.z << std::endl;
+//        std::cout << "Camera rotation: " << camera.m_rotation.x << " " << camera.m_rotation.y << " " << camera.m_rotation.z << std::endl;
         if (paused && controlMode) {
             initializeObjects();
             controlMode = false;

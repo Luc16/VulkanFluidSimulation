@@ -5,7 +5,7 @@
 
 #include "PBFGPU3DSim.h"
 
-const uint32_t WIDTH = 1200;
+const uint32_t WIDTH = 1500;
 const uint32_t HEIGHT = 1000;
 const std::string APP_NAME = "Vulkan GPU PBF 3D fluid simulation";
 

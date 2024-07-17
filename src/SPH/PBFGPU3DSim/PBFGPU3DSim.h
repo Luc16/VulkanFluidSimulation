@@ -304,7 +304,7 @@ private:
     void onResize(int width, int height) override;
     void mainLoop(float deltaTime) override;
     void renderObjects(VkCommandBuffer commandBuffer);
-    void updateSimulation();
+    void updateSimulation(float deltaTime);
     void keyboardControl(float deltaTime);
     void updateUniformBuffers(uint32_t frameIndex, float deltaTime);
     void showImGui();

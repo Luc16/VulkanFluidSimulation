@@ -52,9 +52,7 @@ private:
     const std::string PRESSURE_SOLVER_SHADER_DIR = SHADER_DIR + "pressure_solver/";
     const std::string COMPILED_SHADER_DIR = SHADER_DIR + "bin/";
     const std::string PRESET_DIR = DIR + "presets/";
-    std::string_view curFile{"bunny_bath.json"};
-
-
+    std::string_view curFile{"dam_break.json"};
 
     static constexpr uint32_t pressureSolverStartIdx = 16;
     static constexpr uint32_t computeShaderStartIdx = pressureSolverStartIdx+6;
@@ -113,7 +111,7 @@ private:
 
     std::vector<std::unique_ptr<vkb::Buffer>> uniformBuffers;
     UniformBufferObject ubo{
-        .radius = 0.05f,
+        .radius = 0.09f,
         .screenHeight = HEIGHT,
         .screenWidth = WIDTH,
     };
@@ -169,13 +167,13 @@ private:
                                     std::ranges::views::take(computeShaderStartIdx - pressureSolverStartIdx) |
                                     std::ranges::views::transform(transformFunc);
 
-    glm::vec3 dimensions = glm::vec3(9.0f, 10.0f, 7.0f);
+    glm::vec3 dimensions = glm::vec3(8.0f);
     FlipSolver flipSolver {
         device,
         {simulationShaderPaths.begin(), simulationShaderPaths.end()},
         {pressureSolverShaderPaths.begin(), pressureSolverShaderPaths.end()},
         dimensions,
-        0.175f
+        0.2f
     };
     bool showParticles = true;
     bool renderSkybox = true;
