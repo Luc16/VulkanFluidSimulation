@@ -17,6 +17,7 @@ public:
     uint32_t doubleDamBreakInitializer(ComputeUniformBufferObject& cUbo, bool activateRandomOffsets = false);
     uint32_t splashInitializer(ComputeUniformBufferObject& cUbo, bool activateRandomOffsets = false);
     uint32_t waterFallInitializer(ComputeUniformBufferObject& cUbo, bool activateRandomOffsets = false);
+    uint32_t cityInitializer(ComputeUniformBufferObject& cUbo, bool activateRandomOffsets = false);
 
 private:
     ParticleData& m_particles;

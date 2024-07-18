@@ -24,7 +24,7 @@ RigidObject::RigidObject(const vkb::Device& device, const std::string& modelFile
 
     std::unordered_map<vkb::Model::Vertex, uint32_t> uniqueVertices{};
     std::unordered_set<glm::vec3> particlePositionSet;
-
+    // count 10
     for (const auto& shape: shapes) {
         for (const auto& index : shape.mesh.indices) {
             vkb::Model::Vertex vertex{};
@@ -44,11 +44,11 @@ RigidObject::RigidObject(const vkb::Device& device, const std::string& modelFile
                         attrib.normals[3 * index.normal_index + 1],
                         attrib.normals[3 * index.normal_index + 2],
                 };
-            if (index.texcoord_index > 0)
-                vertex.texCoord = {
-                        attrib.texcoords[2 * index.texcoord_index],
-                        1.0f - attrib.texcoords[2 * index.texcoord_index + 1],
-                };
+//            if (index.texcoord_index > 0)
+//                vertex.texCoord = {
+//                        attrib.texcoords[2 * index.texcoord_index],
+//                        1.0f - attrib.texcoords[2 * index.texcoord_index + 1],
+//                };
 
             vertices.push_back(vertex);
 

@@ -283,3 +283,40 @@ uint32_t PbfInitializer::waterFallInitializer(ComputeUniformBufferObject &cUbo, 
 
     return positions.size();
 }
+
+uint32_t PbfInitializer::cityInitializer(ComputeUniformBufferObject& cUbo, bool activateRandomOffsets) {
+    uint32_t count = 0;
+    float particleSpacing = cUbo.H*0.56f;
+    auto numParticlesXZ = glm::ivec2(int(std::cbrt(cUbo.numParticles)), int(cUbo.BOUNDARY_SIZE.z/(particleSpacing) - 2));
+    float particleVerticalSpacing = cUbo.H*0.50f;
+    glm::vec4 initialPos = {cUbo.EPS, cUbo.EPS, cUbo.EPS, 0};
+    auto accPos = initialPos;
+    for (uint32_t i = 0; i < cUbo.numParticles; i++) {
+        m_particles.position[i] = accPos;
+        if (activateRandomOffsets) {
+            m_particles.position[i] += glm::vec4(
+                    randomFloat((accPos.x != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
+                    randomFloat((accPos.y != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
+                    randomFloat((accPos.z != cUbo.EPS) ? -cUbo.H/5 : 0.0f, cUbo.H/5),
+                    1.0f);
+        }
+        m_particles.density[i] = cUbo.REST_DENS;
+        m_particles.type[i] = 0;
+        m_particles.velocity[i] = glm::vec4(0.0f);
+        accPos.x += particleSpacing;
+
+        if (i % numParticlesXZ.x == numParticlesXZ.x - 1) {
+            count++;
+            accPos.z += particleSpacing;
+            accPos.x = initialPos.x;
+            if (count == numParticlesXZ.y) {
+                count = 0;
+                accPos.y += particleVerticalSpacing;
+                accPos.z = initialPos.z;
+            }
+        }
+    }
+
+    return 0;
+
+}

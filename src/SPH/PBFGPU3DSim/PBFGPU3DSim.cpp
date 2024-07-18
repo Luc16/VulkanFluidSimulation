@@ -13,7 +13,7 @@ void PBFGPU3DSim::onCreate() {
 
     rigidObjects.clear();
     addRigidObject(0);
-    rigidObjects[0].translate({8.2f,0.0f, 7.5f});
+    rigidObjects[0].translate({10.0f,0.0f, 5.6f});
 
     compileShaders();
 //    camera.m_translation = {-9.31845f, 14.2878f, 15.5649f};
@@ -301,14 +301,14 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     gUbo.proj = camera.getProjection();
     activateWaves = false;
 
-//    if (!objectsInitialized) PBFSceneManager::loadScene(*this, PRESET_DIR + curFile.data());
+    if (!objectsInitialized) PBFSceneManager::loadScene(*this, PRESET_DIR + curFile.data());
     particles.resize(NUM_PARTICLES);
     plane.setScale(cUbo.BOUNDARY_SIZE);
 
     // run once to create the files
     NUM_FLUID_PARTICLES = NUM_PARTICLES - NUM_RIGID_PARTICLES;
     cUbo.numParticles = NUM_FLUID_PARTICLES;
-    PbfInitializer pbfInitializer{particles};
+//    PbfInitializer pbfInitializer{particles};
 //    sourceParticleSum = pbfInitializer.damBreakInitializer(cUbo, true);
 //    PBFSceneManager::saveScene(*this, "dambreak.json");
 //    sourceParticleSum = pbfInitializer.doubleDamBreakInitializer(cUbo, true);
@@ -318,8 +318,7 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
 //    substeps = 2;
 //    sourceParticleSum = pbfInitializer.damBreakInitializer(cUbo, true);
 //    PBFSceneManager::saveScene(*this, "waterfall.json");
-    initialParticles = cUbo.numParticles;
-
+//    initialParticles = cUbo.numParticles;
 
 
     cUbo.DT = 1/(60.0f*float(substeps));
@@ -328,42 +327,42 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     gUbo.planeSize = cUbo.BOUNDARY_SIZE;
 
 
-    NUM_RIGID_PARTICLES = 0;
-    for (const auto& rigidObj : rigidObjects) {
-        NUM_RIGID_PARTICLES += rigidObj.numParticles();
-    }
-    NUM_FLUID_PARTICLES = NUM_PARTICLES - NUM_RIGID_PARTICLES;
-    cUbo.numParticles = NUM_FLUID_PARTICLES;
-//    sourceParticleSum = pbfInitializer.waterFallInitializer(cUbo, activateRandomOffsets);
-    sourceParticleSum = pbfInitializer.damBreakInitializer(cUbo, true);
-
-
-    cUbo.numParticles += NUM_RIGID_PARTICLES;
-
-
-
-    for (int i = int(NUM_PARTICLES) - 1; i >= int(NUM_RIGID_PARTICLES); i--) {
-        particles.position[i] = particles.position[i - NUM_RIGID_PARTICLES];
-        particles.density[i] = particles.density[i - NUM_RIGID_PARTICLES];
-        particles.type[i] = particles.type[i - NUM_RIGID_PARTICLES];
-        particles.velocity[i] = particles.velocity[i - NUM_RIGID_PARTICLES];
-    }
-
-    if (!rigidObjects.empty()) {
-        auto rigidObjParticles = rigidObjects[0].getPositions();
-        uint32_t rigidObjIdx = 0;
-        uint32_t initialIdx = 0;
-        for (uint32_t i = 0; i < NUM_RIGID_PARTICLES; i++) {
-            particles.type[i] = 1;
-
-            if (i - initialIdx >= rigidObjParticles.size()) {
-                rigidObjIdx++;
-                initialIdx = i;
-                rigidObjParticles = rigidObjects[rigidObjIdx].getPositions();
-            }
-            particles.position[i] = glm::vec4(rigidObjParticles[i - initialIdx], 0);
-        }
-    }
+//    NUM_RIGID_PARTICLES = 0;
+//    for (const auto& rigidObj : rigidObjects) {
+//        NUM_RIGID_PARTICLES += rigidObj.numParticles();
+//    }
+//    NUM_FLUID_PARTICLES = NUM_PARTICLES - NUM_RIGID_PARTICLES;
+//    cUbo.numParticles = NUM_FLUID_PARTICLES;
+////    sourceParticleSum = pbfInitializer.waterFallInitializer(cUbo, activateRandomOffsets);
+//    sourceParticleSum = pbfInitializer.cityInitializer(cUbo, true);
+//
+//
+//    cUbo.numParticles += NUM_RIGID_PARTICLES;
+//
+//
+//
+//    for (int i = int(NUM_PARTICLES) - 1; i >= int(NUM_RIGID_PARTICLES); i--) {
+//        particles.position[i] = particles.position[i - NUM_RIGID_PARTICLES];
+//        particles.density[i] = particles.density[i - NUM_RIGID_PARTICLES];
+//        particles.type[i] = particles.type[i - NUM_RIGID_PARTICLES];
+//        particles.velocity[i] = particles.velocity[i - NUM_RIGID_PARTICLES];
+//    }
+//
+//    if (!rigidObjects.empty()) {
+//        auto rigidObjParticles = rigidObjects[0].getPositions();
+//        uint32_t rigidObjIdx = 0;
+//        uint32_t initialIdx = 0;
+//        for (uint32_t i = 0; i < NUM_RIGID_PARTICLES; i++) {
+//            particles.type[i] = 1;
+//
+//            if (i - initialIdx >= rigidObjParticles.size()) {
+//                rigidObjIdx++;
+//                initialIdx = i;
+//                rigidObjParticles = rigidObjects[rigidObjIdx].getPositions();
+//            }
+//            particles.position[i] = glm::vec4(rigidObjParticles[i - initialIdx], 0);
+//        }
+//    }
 
     //create buffers
     {
@@ -1155,6 +1154,7 @@ void PBFGPU3DSim::addRigidObject(uint32_t type) {
     rigidObjectsNames.emplace_back("city");
 //    rigidObjects.emplace_back(device, "../Models/"+rigidObjectTypes[type].second+".obj", rockTex, 0.1f, cUbo.H/2);
     rigidObjects.emplace_back(device, "../Models/city.obj", rockTex, 0.0005f, cUbo.H/2);
+//    rigidObjects.emplace_back(device, "../Models/bunny.obj", rockTex, 20.0f, cUbo.H/2);
     selectedRigidObj = rigidObjects.size() - 1;
     NUM_PARTICLES += rigidObjects[rigidObjects.size()-1].numParticles();
     NUM_RIGID_PARTICLES += rigidObjects[rigidObjects.size()-1].numParticles();
