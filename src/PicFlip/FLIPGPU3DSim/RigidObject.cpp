@@ -44,11 +44,11 @@ RigidObject::RigidObject(const vkb::Device& device, const std::string& modelFile
                         attrib.normals[3 * index.normal_index + 1],
                         attrib.normals[3 * index.normal_index + 2],
                 };
-            if (index.texcoord_index > 0)
-                vertex.texCoord = {
-                        attrib.texcoords[2 * index.texcoord_index],
-                        1.0f - attrib.texcoords[2 * index.texcoord_index + 1],
-                };
+//            if (index.texcoord_index > 0)
+//                vertex.texCoord = {
+//                        attrib.texcoords[2 * index.texcoord_index],
+//                        1.0f - attrib.texcoords[2 * index.texcoord_index + 1],
+//                };
 
             vertices.push_back(vertex);
             if (uniqueVertices.count(vertex) == 0){
@@ -80,9 +80,11 @@ RigidObject::RigidObject(const vkb::Device& device, const std::string& modelFile
 
 void RigidObject::translate(const glm::vec3 &move) {
     if (glm::dot(move, move) == 0) return;
-
     m_object->translate(move);
+}
 
+void RigidObject::rotate(const glm::vec3 &rotation) {
+    m_object->rotation += rotation;
 }
 
 void RigidObject::createSdf(const vkb::Device& device, float cellSize, const glm::vec3& gridDimensions) {
@@ -91,8 +93,9 @@ void RigidObject::createSdf(const vkb::Device& device, float cellSize, const glm
 
     std::vector<glm::vec3> verts(m_vertices.size());
     for (uint32_t i = 0; i < m_vertices.size(); i++) {
-        verts[i] += m_vertices[i] + m_object->translation;
+        verts[i] = m_object->modelMatrix()*glm::vec4(m_vertices[i], 1.0f);
     }
+
     auto min = [](float x, float y, float z) { return std::min(std::min(x, y), z); };
     auto max = [](float x, float y, float z) { return std::max(std::max(x, y), z); };
     auto distancePointTriangle = [](const glm::vec3& p, const glm::vec3& a, const glm::vec3& b, const glm::vec3& c) {

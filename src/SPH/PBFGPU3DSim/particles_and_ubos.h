@@ -45,7 +45,7 @@ struct UniformBufferObject {
 };
 
 struct ComputeUniformBufferObject {
-    alignas(16) glm::vec3 BOUNDARY_SIZE = glm::vec3(16.0f, 8.0f, 9.0f);
+    alignas(16) glm::vec3 BOUNDARY_SIZE = glm::vec3(16.0f, 8.0f, 10.0f);
     alignas(16) glm::vec3 G = glm::vec3(0.0f, -9.8f, 0.0f);
 
     float wallX = 0.0f;

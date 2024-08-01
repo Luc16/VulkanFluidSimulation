@@ -10,13 +10,13 @@ void FlipSolver::updateSimulation(float deltaTime) {
     m_cUbo.numParticles = std::min(m_maxParticles, m_cUbo.numParticles + m_particlesToAdd/10);
     m_computeUniformBuffer->write(&m_cUbo, sizeof(ComputeUniformBufferObject));
 
-//    if (frame++ >= 2) {
-//        accTime += deltaTime;
-//    }
-//    if (frame == 800) {
-//        std::cout << std::fixed << std::setprecision(6) << 1000*accTime/float(frame - 2) << "ms\n";
-//        std::cout << std::setprecision(2) << 1000*accTime/float(frame - 2) << "\n";
-//    }
+    if (frame++ >= 2) {
+        accTime += deltaTime;
+    }
+    if (frame == 800) {
+        std::cout << std::fixed << std::setprecision(6) << 1000*accTime/float(frame - 2) << "ms\n";
+        std::cout << std::setprecision(2) << 1000*accTime/float(frame - 2) << "\n";
+    }
 
     uint32_t nGrid = m_cUbo.size/m_workGroupSize + 1;
     uint32_t nParticles = m_cUbo.numParticles/m_workGroupSize + 1;
@@ -140,9 +140,9 @@ void FlipSolver::initialize(const std::unique_ptr<vkb::DescriptorPool> &globalPo
     if (m_scene != scene) {
         m_cUbo.numParticles = m_maxParticles;
         m_particleData.resize(m_maxParticles);
-//        m_initializer.waterfallInitializer(m_cUbo, m_particlesToAdd, dislocatePos, m_particleData.positions, m_particleData.velocities);
+        m_initializer.cityInitializer(m_cUbo, m_particlesToAdd, dislocatePos, m_particleData.positions, m_particleData.velocities);
 //        FlipSceneManager::saveScene(*this, sceneObjectBuffers, "", scene);
-        FlipSceneManager::loadScene(*this, sceneObjectBuffers, scene);
+//        FlipSceneManager::loadScene(*this, sceneObjectBuffers, scene);
         m_initialParticles = m_cUbo.numParticles;
         m_scene = scene;
     }

@@ -16,6 +16,7 @@ public:
     void doubleDamBreakInitializer(ComputeUniformBufferObject& cUbo, uint32_t& particlesToAdd, bool dislocatePos, std::vector<glm::vec4>& pPos, std::vector<glm::vec4>& pVel) const;
     void splashInitializer(ComputeUniformBufferObject& cUbo, uint32_t& particlesToAdd, bool dislocatePos, std::vector<glm::vec4>& pPos, std::vector<glm::vec4>& pVel) const;
     void waterfallInitializer(ComputeUniformBufferObject& cUbo, uint32_t& particlesToAdd, bool dislocatePos, std::vector<glm::vec4>& pPos, std::vector<glm::vec4>& pVel) const;
+    void cityInitializer(ComputeUniformBufferObject& cUbo, uint32_t& particlesToAdd, bool dislocatePos, std::vector<glm::vec4>& pPos, std::vector<glm::vec4>& pVel) const;
 
 
 

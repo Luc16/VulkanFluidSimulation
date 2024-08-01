@@ -16,8 +16,12 @@ void FLIPGPU3DSim::onCreate() {
     camera.m_rotation = {0.17f, 2.22789f, 3.14159f};
     camera.updateView();
 
-    rigidObjects.emplace_back(device, "../Models/bunny.obj", rockTex, 20.0f);
-    rigidObjects[0].translate(glm::vec3(6.785f, -0.5f, 3.2f));
+//    rigidObjects.emplace_back(device, "../Models/bunny.obj", rockTex, 20.0f);
+//    rigidObjects[0].translate(glm::vec3(6.785f, -0.5f, 3.2f));
+    rigidObjects.clear();
+    rigidObjects.emplace_back(device, "../Models/city.obj", rockTex, 0.0005f);
+    rigidObjects[0].translate({6.0f,0.0f, 4.0f});
+    rigidObjects[0].rotate({0.0f,glm::pi<float>(), 0.0f});
     createBuffers();
     initializeObjects();
 

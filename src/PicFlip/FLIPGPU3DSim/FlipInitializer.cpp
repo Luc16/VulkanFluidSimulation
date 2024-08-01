@@ -174,3 +174,20 @@ void FlipInitializer::placeParticlesInCell(std::vector<glm::vec4> &particles, ui
         }
     }
 }
+
+
+void FlipInitializer::cityInitializer(ComputeUniformBufferObject &cUbo, uint32_t& particlesToAdd, bool dislocatePos, std::vector<glm::vec4>& pPos, std::vector<glm::vec4>& pVel) const {
+
+    glm::ivec3 particleStart{cUbo.dim.x-3, 2, 2};
+    glm::ivec3 particleSpan{cUbo.dim.x/5, cUbo.dim.y - 4, cUbo.dim.z};
+
+    uint32_t p = 0;
+    for (uint32_t j = particleStart.y; j < particleStart.y + particleSpan.y; j++) {
+        for (uint32_t k = particleStart.z; k < particleStart.z + particleSpan.z; k++) {
+            for (int i = particleStart.x; i > particleStart.x - particleSpan.x; i--) {
+//                if (k < 23 || k > 27)
+                    placeParticlesInCell(pPos, p, i, j, k, cUbo.cellSize, dislocatePos);
+            }
+        }
+    }
+}

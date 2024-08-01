@@ -52,7 +52,7 @@ private:
     const std::string PRESET_DIR = SIM_DIR + "presets/";
 
 
-    uint32_t NUM_PARTICLES = 200'000;
+    uint32_t NUM_PARTICLES = 800'000;
     uint32_t NUM_RIGID_PARTICLES = 0;
     uint32_t NUM_FLUID_PARTICLES = NUM_PARTICLES - NUM_RIGID_PARTICLES;
     static constexpr uint32_t MAX_PARTICLES = 1'000'000;

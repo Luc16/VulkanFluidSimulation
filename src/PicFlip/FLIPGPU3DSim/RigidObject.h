@@ -43,6 +43,7 @@ public:
     [[nodiscard]] std::string getModelPath() const { return m_name; }
 
     void translate(const glm::vec3& move);
+    void rotate(const glm::vec3& rotation);
 
 private:
     std::unique_ptr<vkb::DrawableObject> m_object;
