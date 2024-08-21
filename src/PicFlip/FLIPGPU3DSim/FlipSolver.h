@@ -92,7 +92,7 @@ private:
     const vkb::Device& m_deviceRef;
     const std::vector<std::string>& m_shaderPaths;
     const std::vector<std::string>& m_pressureSolverShaderPaths;
-    const FlipInitializer m_initializer{glm::vec3(3)};
+    const FlipInitializer m_initializer{glm::vec3(2)};
 
     struct ExtensionUBO {
         uint32_t size;

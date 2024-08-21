@@ -185,7 +185,7 @@ void FlipInitializer::cityInitializer(ComputeUniformBufferObject &cUbo, uint32_t
     for (uint32_t j = particleStart.y; j < particleStart.y + particleSpan.y; j++) {
         for (uint32_t k = particleStart.z; k < particleStart.z + particleSpan.z; k++) {
             for (int i = particleStart.x; i > particleStart.x - particleSpan.x; i--) {
-//                if (k < 23 || k > 27)
+                if (k < 23 || k > 27)
                     placeParticlesInCell(pPos, p, i, j, k, cUbo.cellSize, dislocatePos);
             }
         }

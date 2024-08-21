@@ -11,9 +11,9 @@ void PBFGPU3DSim::onCreate() {
         presets.emplace_back(entry.path());
     }
 
-//    rigidObjects.clear();
-//    addRigidObject(0);
-//    rigidObjects[0].translate({10.0f,0.0f, 6.0f});
+    rigidObjects.clear();
+    addRigidObject(0);
+    rigidObjects[0].translate({10.0f,0.0f, 6.0f});
 
     compileShaders();
 //    camera.m_translation = {-9.31845f, 14.2878f, 15.5649f};
@@ -302,7 +302,7 @@ void PBFGPU3DSim::initializeObjects(bool activateRandomOffsets) {
     activateWaves = false;
 
     // initialize particles
-    static bool testing = true;
+    static bool testing = false;
     if (!testing) {
         if (!objectsInitialized) PBFSceneManager::loadScene(*this, PRESET_DIR + curFile.data());
         particles.resize(NUM_PARTICLES);
@@ -677,11 +677,11 @@ void PBFGPU3DSim::updateSimulation(float deltaTime) {
             totalTime += deltaTime;
         }
 
-        if (frame >= 800) {
-            std::cout << std::fixed << std::setprecision(6) << 1000*totalTime/float(frame - 2) << "ms\n";
-            std::cout << std::setprecision(2) << 1000*totalTime/float(frame - 2) << "\n";
-            endProgram();
-        }
+//        if (frame >= 800) {
+//            std::cout << std::fixed << std::setprecision(6) << 1000*totalTime/float(frame - 2) << "ms\n";
+//            std::cout << std::setprecision(2) << 1000*totalTime/float(frame - 2) << "\n";
+//            endProgram();
+//        }
 
     } else {
         computeHandler.runComputeIsolated(renderer.currentFrame(), simulationStep);
