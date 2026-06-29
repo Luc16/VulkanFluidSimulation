@@ -1,28 +1,31 @@
 # Fluid simulations in Vulkan
 [![pt-br](https://img.shields.io/badge/LEIAME-PT--BR-A3BE8C.svg?style=for-the-badge)](README-ptbr.md)
 
-
-This repository has many different fluid simulations algorithms implemented using the vulkan API. 
-The most relevant simulations have separate READMEs explaining its particularities. The core of the
-vulkan code can be found in the [lib](src/lib) folder.
+This repository has many different fluid simulations algorithms implemented using the Vulkan API. 
+The most relevant simulations have separate READMEs explaining their particularities. The core of the
+Vulkan code can be found in the [lib](src/lib) folder.
 
 ## Relevant Simulations
 
-### [Grid Simulations](src/m_gridBuffer)
+### [Grid Simulations](src/grid)
 
-These are fluid simulations where a m_gridBuffer is used to store fluid attributes, such as density and velocity.
+These are fluid simulations where a grid buffer is used to store fluid attributes, such as density and velocity.
 
 <p align="center">
-  <img width="50%" height="50%" src="https://github.com/Luc16/VulkanFluidSimulation/assets/33912482/d2a46d67-23d1-4e15-a922-cae68596c805">
+  <img width="50%" height="50%" src="https://github.com/Luc16/VulkanFluidSimulation/assets/33912482/d2a46d67-23d1-4e15-a922-cae68596c805" alt="Grid Simulation Example">
 </p>
 
-### [SPH Simulations](src/SPH)
+### Particle Fluid Simulations
 
-These are simulations based on the Smoothed Particle Hydrodynamics technique, which uses
-particles to approximate the behavior of fluids.
+These are Lagrangian simulations that use discrete particles to approximate the behavior of fluids. This repository implements three different particle-based solvers:
+* [**SPH**](/src/SPH/) (Smoothed Particle Hydrodynamics)
+* [**PBF**](src/SPH) (Position Based Fluids)
+* [**PIC/FLIP**](/src/PicFlip/) (Particle-In-Cell / Fluid-Implicit-Particle)
+
+For more details, visual examples, and reference papers on these algorithms, check the [Particle Simulations README](src/SPH/README.md).
 
 ## Dependencies
-[//]: # (TODO: Explain how to setup each of the dependencies or link where they can be aquired  )
+
 To build the project and all the executables, these dependencies are required:
 
 - Vulkan
@@ -31,7 +34,7 @@ To build the project and all the executables, these dependencies are required:
 
 ## Building
 
-The project can be built using CMake. On linux, these commands can be run from the
+The project can be built using CMake. On Linux, these commands can be run from the
 project folder to create the build files:
 
 ```

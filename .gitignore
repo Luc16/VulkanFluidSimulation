@@ -2,3 +2,11 @@
 /cmake-build-debug/
 # Project exclude paths
 /cmake-build-release/
+/cmake-build-relwithdebinfo/
+.idea
+
+src/PicFlip/FLIPGPU2DSim/Shaders/bin
+src/PicFlip/FLIPGPU3DSim/Shaders/bin
+src/PicFlip/FLIPCPU2DSim/Shaders/bin
+src/SPH/PBFGPU3DSim/Shaders/bin
+
