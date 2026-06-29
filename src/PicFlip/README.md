@@ -14,7 +14,7 @@ During the simulation step, velocities are gathered from the particles to the gr
 
 ### Double Dam Break Simulation
 <p align="center">
-  <img width="70%" src="path/to/picflip_double_dam_break.gif" alt="PIC/FLIP Double Dam Break Simulation">
+  <img width="70%" src="https://github.com/user-attachments/assets/79a250dc-56d1-42f8-9404-9d9bff97e543" alt="PIC/FLIP Double Dam Break Simulation">
 </p>
 
 **Reference Literature:**
