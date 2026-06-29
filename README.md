@@ -25,7 +25,7 @@ These are Lagrangian simulations that use discrete particles to approximate the 
 For more details, visual examples, and reference papers on these algorithms, check the [Particle Simulations README](src/SPH/README.md). Here is an example of a PBF simulation:
 
 <p align="center">
-  <img width="70%" src="https://github.com/user-attachments/assets/f68ae8e7-7c6d-42d9-81a0-8e6dc26a9112" alt="PBF Bunny Bath Simulation">
+  <img width="70%" src="https://github.com/user-attachments/assets/8ad970f5-c2d7-4ae2-a714-9865ea74d85c" alt="PBF Splash">
 </p>
 
 ## Dependencies
